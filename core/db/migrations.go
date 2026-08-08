@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 17
+const currentSchemaVersion = 18
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -127,6 +127,11 @@ var migrations = []migrationStep{
 		version: 17,
 		name:    "017_recaps_table",
 		apply:   stepRecapsTable,
+	},
+	{
+		version: 18,
+		name:    "018_git_commits_composite_key",
+		apply:   stepGitCommitsCompositeKey,
 	},
 }
 
@@ -689,6 +694,85 @@ func stepBackfillTotalEvents(db *sql.DB) error {
 		)`)
 	if err != nil {
 		return fmt.Errorf("backfill total_events: %w", err)
+	}
+	return nil
+}
+
+// stepGitCommitsCompositeKey widens git_commits' primary key from
+// (commit_hash, session_id) to (commit_hash, session_id, feature_id).
+//
+// Why: a single commit can legitimately name multiple work items (e.g. a
+// trailer block "Refs: feat-a, feat-b", or two IDs in one subject line).
+// Every ingestion path (trailer scan, hook capture, bulk backfill) uses
+// INSERT OR IGNORE keyed on the primary key. Under the old two-column key,
+// the trailer-ingest path writes every row under a single constant
+// session_id ("trailer-ingest"), so the second and later feature_id for the
+// same commit collided with the first insert and was silently dropped
+// (bug-3bf05d49).
+//
+// feature_id is normalized to '' (never NULL) so it can safely sit in a
+// composite key: SQLite's PRIMARY KEY does not imply NOT NULL, and two NULLs
+// are never equal under a UNIQUE index — a nullable PK column would silently
+// defeat INSERT OR IGNORE's de-duplication for unattributed commits.
+func stepGitCommitsCompositeKey(db *sql.DB) error {
+	var currentSQL string
+	err := db.QueryRow(
+		`SELECT sql FROM sqlite_master WHERE type='table' AND name='git_commits'`,
+	).Scan(&currentSQL)
+	if err != nil {
+		// Table doesn't exist yet -- CreateAllTables will create it correctly.
+		return nil
+	}
+	if strings.Contains(currentSQL, "PRIMARY KEY (commit_hash, session_id, feature_id)") {
+		return nil // already migrated
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	if _, err := tx.Exec(`
+		CREATE TABLE git_commits_new (
+			commit_hash TEXT NOT NULL,
+			session_id TEXT NOT NULL,
+			feature_id TEXT NOT NULL DEFAULT '',
+			tool_event_id TEXT,
+			message TEXT,
+			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (commit_hash, session_id, feature_id)
+		)`); err != nil {
+		return fmt.Errorf("create git_commits_new: %w", err)
+	}
+
+	// The old PK (commit_hash, session_id) guarantees at most one row per pair
+	// in the source table, so this copy cannot collide against the new,
+	// wider PK -- it only unlocks capacity for future inserts. It does NOT
+	// recover feature_ids already dropped by the old collision; re-run
+	// `wipnote reindex --full` afterwards to re-derive those from source.
+	if _, err := tx.Exec(`
+		INSERT INTO git_commits_new
+			(commit_hash, session_id, feature_id, tool_event_id, message, timestamp)
+		SELECT commit_hash, session_id, COALESCE(feature_id, ''), tool_event_id, message, timestamp
+		FROM git_commits`); err != nil {
+		return fmt.Errorf("copy git_commits data: %w", err)
+	}
+
+	if _, err := tx.Exec(`DROP TABLE git_commits`); err != nil {
+		return fmt.Errorf("drop old git_commits: %w", err)
+	}
+	if _, err := tx.Exec(`ALTER TABLE git_commits_new RENAME TO git_commits`); err != nil {
+		return fmt.Errorf("rename git_commits_new: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit git_commits migration: %w", err)
+	}
+
+	// Reinstall idx_git_commits_feature, dropped by DROP TABLE above.
+	if err := CreateAllIndexes(db); err != nil {
+		return fmt.Errorf("reinstall indexes after git_commits migration: %w", err)
 	}
 	return nil
 }

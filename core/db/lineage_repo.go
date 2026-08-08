@@ -222,13 +222,19 @@ func InsertGitCommitResult(database *sql.DB, commit *models.GitCommit) (int64, e
 }
 
 func insertGitCommit(database *sql.DB, commit *models.GitCommit) (int64, error) {
+	// feature_id is bound as a plain string (never nullStr) because it is
+	// part of git_commits' primary key (bug-3bf05d49): two NULLs are never
+	// equal under a UNIQUE index, so an unattributed commit inserted twice
+	// with a NULL feature_id would bypass INSERT OR IGNORE and duplicate.
+	// The column is NOT NULL DEFAULT '', so an empty commit.FeatureID binds
+	// as '' and still de-dupes correctly against itself.
 	res, err := database.Exec(`
 		INSERT OR IGNORE INTO git_commits (
 			commit_hash, session_id, feature_id, tool_event_id, message, timestamp
 		) VALUES (?, ?, ?, ?, ?, ?)`,
 		commit.CommitHash,
 		commit.SessionID,
-		nullStr(commit.FeatureID),
+		commit.FeatureID,
 		nullStr(commit.ToolEventID),
 		nullStr(commit.Message),
 		commit.Timestamp.UTC().Format(time.RFC3339),

@@ -188,6 +188,69 @@ func TestReindexCommitTrailers_ParenthesizedCommit(t *testing.T) {
 	}
 }
 
+// TestReindexCommitTrailers_MultiItemCommitLinksBothIDs is the end-to-end
+// regression test for bug-3bf05d49: every trailer-ingest row is written
+// under the same constant session_id (trailerSessionID), so a commit naming
+// two work items used to collide on the old (commit_hash, session_id)
+// primary key and silently keep only the first. With feature_id widened
+// into the key (see core/db/migrations.go: stepGitCommitsCompositeKey),
+// both IDs must survive.
+func TestReindexCommitTrailers_MultiItemCommitLinksBothIDs(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmpDir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	run("init", "-b", "main")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(tmpDir, "file.go"), []byte("package x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "file.go")
+	run("commit", "-m", "fix: shared cleanup\n\nRefs: feat-aaaa1111, bug-bbbb2222")
+
+	database, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	count, err := reindexCommitTrailers(database, tmpDir)
+	if err != nil {
+		t.Fatalf("reindexCommitTrailers: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 links (one per work item), got %d — the PK collision regressed", count)
+	}
+
+	rows, err := database.Query(
+		`SELECT feature_id FROM git_commits WHERE session_id = ? ORDER BY feature_id`, trailerSessionID)
+	if err != nil {
+		t.Fatalf("query linked feature_ids: %v", err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var fid string
+		if err := rows.Scan(&fid); err != nil {
+			t.Fatalf("scan feature_id: %v", err)
+		}
+		got = append(got, fid)
+	}
+	want := []string{"bug-bbbb2222", "feat-aaaa1111"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("linked feature_ids = %v, want %v", got, want)
+	}
+}
+
 func TestReindexCommitTrailers_IngestsFromGit(t *testing.T) {
 	tmpDir := t.TempDir()
 

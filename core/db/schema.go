@@ -240,14 +240,21 @@ func CreateAllTables(db *sql.DB) error {
 		)`,
 
 		// 7. git_commits
+		// feature_id is NOT NULL DEFAULT '' (never NULL) because it is part of
+		// the primary key: two NULLs are never equal under a UNIQUE index, so a
+		// nullable PK column would silently defeat INSERT OR IGNORE
+		// de-duplication for unattributed commits. See migration 018 (bug-3bf05d49)
+		// for why feature_id had to join the key: a single commit can
+		// legitimately name multiple work items (e.g. "Refs: feat-a, feat-b"),
+		// and the old two-column key silently dropped every ID after the first.
 		`CREATE TABLE IF NOT EXISTS git_commits (
 			commit_hash TEXT NOT NULL,
 			session_id TEXT NOT NULL,
-			feature_id TEXT,
+			feature_id TEXT NOT NULL DEFAULT '',
 			tool_event_id TEXT,
 			message TEXT,
 			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (commit_hash, session_id)
+			PRIMARY KEY (commit_hash, session_id, feature_id)
 		)`,
 
 		// 8. live_events

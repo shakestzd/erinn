@@ -115,14 +115,31 @@ const (
 )
 
 // writeSite describes one approved writable SQLite open in first-party
-// Go source. The triple (file, line, openExpr) is the de-duplication key.
+// Go source. The tuple (File, Function, OpenExpr, Ordinal) is the
+// de-duplication key.
+//
+// bug-920ba8a5: this used to key on (File, Line, OpenExpr). A hardcoded
+// source line is not a stable identity for a call site — any edit above it
+// in the same file shifts it, with no relationship to whether the call
+// site itself changed. That made this test fail on unrelated edits
+// elsewhere in the file, reported identically to a real new/stale site, so
+// nobody could tell the difference without re-deriving it by hand — it hit
+// four separate agents in one night, none of whom had touched the file the
+// failure pointed at. Ordinal (the 1-based occurrence index of OpenExpr
+// within Function, in source order — see scanFile) distinguishes multiple
+// opens of the same kind within one function (e.g. runFullSyncReindex has
+// two dbpkg.Open calls) without needing an absolute position. It only
+// changes if that function's own opens are added, removed, or reordered —
+// a deliberate edit to the call site itself, not collateral damage from
+// something else moving in the file.
+//
 // note SHOULD explain why this site exists and what (if anything) will
 // migrate it onto the slice-6 writer service.
 type writeSite struct {
 	File           string                  // path relative to module root, forward slashes
-	Line           int                     // 1-indexed source line of the open call
 	Function       string                  // enclosing function name
 	OpenExpr       string                  // "db.Open" | "dbpkg.Open" | "sql.Open" | "db.OpenWritable" | "dbpkg.OpenWritable"
+	Ordinal        int                     // 1-based occurrence of OpenExpr within Function, in source order
 	Classification writeSiteClassification // see constants above
 	Note           string                  // human-readable rationale
 }
@@ -153,25 +170,25 @@ var approvedWriteSites = []writeSite{
 	// rarely on healthy systems.
 	{
 		File:           "core/hooks/dbgate.go",
-		Line:           149,
 		Function:       "OpenHookDB",
 		OpenExpr:       "db.Open",
+		Ordinal:        1,
 		Classification: canonicalFirstHookFallback,
 		Note:           "DAEMON-MISS FALLBACK ONLY (plan-2390966a slices 3-7). Hot hooks (SessionStart, pretooluse, user-prompt, subagent-start, Stop) route derived-index writes through RouteHookWrite / RouteInsertEvent (enqueue-only daemon seam, apply.RouteSQLAsync); this direct db.Open is reached ONLY when the daemon is unavailable/spawn-forbidden/queue-full. On a reachable-daemon system the open is rarely or never called. Logs a structured `writer_unavailable` fallback and returns nil-DB on open failure; callers MUST treat nil as canonical-success. The canonical NDJSON write upstream guarantees reindex recovers any rows neither path could write.",
 	},
 	{
 		File:           "observe/otel/receiver/writer.go",
-		Line:           96,
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
+		Ordinal:        1,
 		Classification: daemonRoutedWriterService,
 		Note:           "Slice 6 writer service (feat-f3bcbcef): the single writable SQLite handle owned by the writequeue worker inside `wipnote serve`. Indexer + OTLP receiver no longer open writable handles directly — they submit batches through internal/db/writequeue to this writer.",
 	},
 	{
 		File:           "observe/otel/sink/sqlite/writer.go",
-		Line:           66,
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
+		Ordinal:        1,
 		Classification: daemonRoutedWriterService,
 		Note:           "OTel sink SQLite writer (companion to feat-f3bcbcef slice 6): structured sink for the OTel signal write path, owns the single writable handle for the otel_signals table family.",
 	},
@@ -181,65 +198,65 @@ var approvedWriteSites = []writeSite{
 	// ----------------------------------------------------------------------
 	{
 		File:           "cmd/wipnote/ingest_gemini.go",
-		Line:           57,
 		Function:       "runIngestGemini",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote ingest gemini`; short-lived foreground process.",
 	},
 	{
 		File:           "cmd/wipnote/plan_feedback_cmd.go",
-		Line:           76,
 		Function:       "planFeedback",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote plan feedback`; short-lived foreground process.",
 	},
 	{
 		File:           "cmd/wipnote/plan_finalize_yaml.go",
-		Line:           69,
 		Function:       "finalizeYAML",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote plan finalize-yaml`; short-lived foreground process.",
 	},
 	{
 		File:           "cmd/wipnote/plan_typed_sections.go",
-		Line:           52,
 		Function:       "buildTypedPlanSections",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Plan rendering helper used by CLI plan commands; best-effort optional open.",
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_cmds.go",
-		Line:           560,
 		Function:       "openPlanDB",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Plan CLI helper for plan create/edit/finalize commands.",
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           530,
 		Function:       "applyAcceptedAmendments",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven plan amendment apply; short-lived foreground process.",
 	},
 	{
 		File:           "internal/gate/check.go",
-		Line:           510,
 		Function:       "PersistRecord",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "`wipnote check --gate` persists the session-local gate record after foreground build/vet/test execution completes.",
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           670,
 		Function:       "runReadFeedbackYAML",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote plan read-feedback-yaml`; short-lived.",
 	},
@@ -265,73 +282,73 @@ var approvedWriteSites = []writeSite{
 	// writequeue worker (receiver.NewWriter). No HTTP mux.
 	{
 		File:           "cmd/wipnote/link_commit.go",
-		Line:           62,
 		Function:       "runLinkCommit",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote link commit`; short-lived foreground process that links a commit to a work item.",
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           163,
 		Function:       "runWriterOnly",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Headless writer-only daemon (feat-075c110d increment 2): the SOLE writable handle per project while serve runs. Backs schema/migrations, the background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge, retention — MOVED here from runServeChild), and the daemon socket listener's writequeue worker (receiver.NewWriter). The HTTP serve_child (runServeChild) is now strictly read-only and ensures+reaps this daemon.",
 	},
 	{
 		File:           "cmd/wipnote/plan_interview.go",
-		Line:           316,
 		Function:       "serveInterviewForm",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "feat-2852d0c8 cross-harness plan interview web form: short-lived foreground server that mounts the same plan API as the dashboard (planRouter) so the embedded plan-review chat works. Needs a writable handle because the chat persists feedback/amendments. Process exits on submit; one open for the form's lifetime.",
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           411,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.OpenWritable",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "bug-528478ad: dashboard mutation endpoints (plan feedback POST, finalize, delete, chat, manual session ingest) require a writable handle. Read routes use the read-only `database` handle. MaxOpenConns=1 serialises with the writer daemon. These are low-frequency user-triggered writes that cannot yet be expressed as daemon op_types (no wire-protocol expansion in scope).",
 	},
 	{
 		File:           "cmd/wipnote/session.go",
-		Line:           229,
 		Function:       "openDB",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Package-level writable-open helper used by many mutating CLI paths (session start/end, claim, ingest, backfill, blame, cleanup, compliance, report, who, …). Read-only commands must NOT use openDB — they open read-only, either via the cmd-level openReadOnlyDB helper or a direct dbpkg.OpenReadOnlyMigrated call. This inventory entry exists to catch any future read-only command that wrongly calls the writable openDB instead. feat-075c110d MVP-4: the two highest-contention session writes (start→InsertSession, end→UpdateSessionStatus) are now routed through the per-project writer daemon FIRST (apply.RouteSessionInsert / RouteSessionStatus, bounded ~2s, auto-spawn) and only use this direct handle as the fallback on daemon miss; the open itself stays direct because it still backs the read paths and other session mutations.",
 	},
 	{
 		File:           "cmd/wipnote/status.go",
-		Line:           90,
 		Function:       "runStatus",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "`wipnote status` opens writable to run pending migrations (best-effort) before read.",
 	},
 	{
 		File:           "cmd/wipnote/sweep.go",
-		Line:           44,
 		Function:       "sweepOrphanedEventsCmd",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "User-driven `wipnote sweep` orphan cleanup CLI command.",
 	},
 	{
 		File:           "cmd/wipnote/track.go",
-		Line:           187,
 		Function:       "openTrackDB",
 		OpenExpr:       "db.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Helper for `wipnote track show` CLI command.",
 	},
 	{
 		File:           "core/workitem/project.go",
-		Line:           80,
 		Function:       "Open",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Canonical entry point for every CLI work-item operation (feature/bug/spike/track start/complete). feat-075c110d MVP-4: the highest-contention work-item write — the start/complete status transition (UpdateFeatureStatus, bug-74a7bda7) — is now routed through the per-project writer daemon FIRST (apply.RouteFeatureStatus, bounded ~2s, auto-spawn) and only falls back to this direct handle on daemon miss; the open itself stays direct because it still backs reads, claim/release, and step-counter writes.",
 	},
@@ -341,65 +358,65 @@ var approvedWriteSites = []writeSite{
 	// ----------------------------------------------------------------------
 	{
 		File:           "cmd/wipnote/lazy_reindex.go",
-		Line:           42,
 		Function:       "ensureIndexPopulated",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "bug-4b07fd94: brief writable open for cold-clone staleness check (COUNT on features/graph_edges). Closed immediately before any reindex write path runs.",
 	},
 	{
 		File:           "cmd/wipnote/lazy_reindex.go",
-		Line:           93,
 		Function:       "runFullSyncReindex",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "bug-4b07fd94: lazy full-reindex on cold clone — reuses the same reindex primitives as `wipnote reindex --full`.",
 	},
 	{
 		File:           "cmd/wipnote/lazy_reindex.go",
-		Line:           126,
 		Function:       "runFullSyncReindex",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        2,
 		Classification: reindexOnly,
 		Note:           "bug-4b07fd94: second open in runFullSyncReindex for plan-edge rebuild pass after main handle is closed.",
 	},
 	{
 		File:           "cmd/wipnote/purge_spikes.go",
-		Line:           126,
 		Function:       "runFullReindex",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "Full-reindex helper invoked after spike purge.",
 	},
 	{
 		File:           "cmd/wipnote/reindex.go",
-		Line:           54,
 		Function:       "runReindex",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "`wipnote reindex` top-level command.",
 	},
 	{
 		File:           "cmd/wipnote/reindex_orphans.go",
-		Line:           82,
 		Function:       "runReindexBackfillOrphans",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "`wipnote reindex backfill-orphans` reindex variant.",
 	},
 	{
 		File:           "cmd/wipnote/reindex_otel_events.go",
-		Line:           76,
 		Function:       "reindexOtelEvents",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "Slice 9 (feat-229f3333): bridge handle for the prompt_id correlation pass inside the OTel NDJSON replay. Reads orphans + writes UPDATE on agent_events.prompt_id only; the receiver.Writer owns the otel_signals write path. Disjoint tables, single-process reindex — no contention with the main writer.",
 	},
 	{
 		File:           "cmd/wipnote/recap_list.go",
-		Line:           105,
 		Function:       "openRecapsIndex",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: reindexOnly,
 		Note:           "feat-7bc6410b (slice-10): writable open for `wipnote recap list|show|delete` to refresh the recaps read-index (reindexRecaps) from the canonical .wipnote/recaps/*.html before querying. Same reindex family as the other reindex-only sites; single-process CLI invocation.",
 	},
@@ -409,33 +426,33 @@ var approvedWriteSites = []writeSite{
 	// ----------------------------------------------------------------------
 	{
 		File:           "cmd/wipnote/init.go",
-		Line:           79,
 		Function:       "initDatabase",
 		OpenExpr:       "db.Open",
+		Ordinal:        1,
 		Classification: migrationOnly,
 		Note:           "`wipnote init` runs the first-time schema migrations.",
 	},
 	{
 		File:           "cmd/wipnote/migrate.go",
-		Line:           62,
 		Function:       "runMigrateSessions",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: migrationOnly,
 		Note:           "`wipnote migrate sessions` schema upgrade command.",
 	},
 	{
 		File:           "cmd/wipnote/migrate_attribution.go",
-		Line:           80,
 		Function:       "runMigrateAttributionFix",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: migrationOnly,
 		Note:           "`wipnote migrate attribution-fix` schema upgrade command.",
 	},
 	{
 		File:           "cmd/wipnote/migrate_normalize.go",
-		Line:           88,
 		Function:       "runMigrateNormalize",
 		OpenExpr:       "dbpkg.Open",
+		Ordinal:        1,
 		Classification: migrationOnly,
 		Note:           "`wipnote migrate normalize-paths` (feat-39b81fa6): one-shot data migration that rewrites absolute host paths in .wipnote/ artefacts to repo-relative form. Run-once foreground CLI command; same shape as the other migration entries.",
 	},
@@ -472,9 +489,10 @@ var excludedDirs = []string{
 // foundSite captures one writable-open occurrence discovered by the AST scan.
 type foundSite struct {
 	File     string
-	Line     int
+	Line     int // current source line — informational only, not part of the matching key (bug-920ba8a5)
 	Function string
 	OpenExpr string
+	Ordinal  int // 1-based occurrence of OpenExpr within Function, in source order
 }
 
 // TestWritableDBOpenBoundary is the enforcement gate. It walks the
@@ -495,22 +513,27 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 		t.Fatalf("scan writable opens: %v", err)
 	}
 
-	// Build lookup keyed by file:line:openExpr — unique per call site.
+	// Build lookup keyed by file:function:openExpr:ordinal — unique per call
+	// site, and stable across unrelated line movement elsewhere in the file
+	// (bug-920ba8a5; see the Ordinal field comment on writeSite for why).
 	type key struct {
 		File     string
-		Line     int
+		Function string
 		OpenExpr string
+		Ordinal  int
 	}
-	mkKey := func(f, expr string, line int) key { return key{File: f, Line: line, OpenExpr: expr} }
+	mkKey := func(f, fn, expr string, ordinal int) key {
+		return key{File: f, Function: fn, OpenExpr: expr, Ordinal: ordinal}
+	}
 
 	foundByKey := make(map[key]foundSite, len(found))
 	for _, fs := range found {
-		foundByKey[mkKey(fs.File, fs.OpenExpr, fs.Line)] = fs
+		foundByKey[mkKey(fs.File, fs.Function, fs.OpenExpr, fs.Ordinal)] = fs
 	}
 
 	approvedByKey := make(map[key]writeSite, len(approvedWriteSites))
 	for _, ws := range approvedWriteSites {
-		approvedByKey[mkKey(ws.File, ws.OpenExpr, ws.Line)] = ws
+		approvedByKey[mkKey(ws.File, ws.Function, ws.OpenExpr, ws.Ordinal)] = ws
 	}
 
 	// 1. New direct opens not in the inventory.
@@ -557,7 +580,7 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 		if !isForbiddenPath(fs.File) {
 			continue
 		}
-		ws, ok := approvedByKey[mkKey(fs.File, fs.OpenExpr, fs.Line)]
+		ws, ok := approvedByKey[mkKey(fs.File, fs.Function, fs.OpenExpr, fs.Ordinal)]
 		if !ok {
 			// Will already be reported under newSites.
 			continue
@@ -591,12 +614,17 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 				if staleEntries[i].File != staleEntries[j].File {
 					return staleEntries[i].File < staleEntries[j].File
 				}
-				return staleEntries[i].Line < staleEntries[j].Line
+				if staleEntries[i].Function != staleEntries[j].Function {
+					return staleEntries[i].Function < staleEntries[j].Function
+				}
+				return staleEntries[i].Ordinal < staleEntries[j].Ordinal
 			})
 			fmt.Fprintf(&b, "STALE inventory entries (no matching call site found, %d):\n", len(staleEntries))
-			fmt.Fprintf(&b, "  Either the line moved (update Line field) or the call was removed (delete entry).\n")
+			fmt.Fprintf(&b, "  Either the function/call was renamed or removed (delete or update the entry), or its\n")
+			fmt.Fprintf(&b, "  Ordinal no longer matches — e.g. a sibling open of the same kind in this function\n")
+			fmt.Fprintf(&b, "  was added/removed/reordered ahead of it (update Ordinal to match).\n")
 			for _, ws := range staleEntries {
-				fmt.Fprintf(&b, "  - %s:%d  func=%s  open=%s  class=%s\n", ws.File, ws.Line, ws.Function, ws.OpenExpr, ws.Classification)
+				fmt.Fprintf(&b, "  - %s  func=%s  open=%s#%d  class=%s\n", ws.File, ws.Function, ws.OpenExpr, ws.Ordinal, ws.Classification)
 			}
 			b.WriteString("\n")
 		}
@@ -607,8 +635,8 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 			fmt.Fprintf(&b, "  Route new hook writes through RouteHookWrite / RouteInsertEvent instead of adding a direct open.\n")
 			fmt.Fprintf(&b, "  The retired %q classification is no longer accepted.\n", daemonRoutedPendingSlice6)
 			for _, ws := range misclassified {
-				fmt.Fprintf(&b, "  ! %s:%d  func=%s  class=%s\n",
-					ws.File, ws.Line, ws.Function, ws.Classification)
+				fmt.Fprintf(&b, "  ! %s  func=%s#%d  class=%s\n",
+					ws.File, ws.Function, ws.Ordinal, ws.Classification)
 			}
 			b.WriteString("\n")
 		}
@@ -651,7 +679,7 @@ func TestWriteSiteInventoryComplete(t *testing.T) {
 	}
 	for _, ws := range approvedWriteSites {
 		if !known[ws.Classification] {
-			t.Errorf("inventory %s:%d uses unknown classification %q", ws.File, ws.Line, ws.Classification)
+			t.Errorf("inventory %s func=%s#%d uses unknown classification %q", ws.File, ws.Function, ws.Ordinal, ws.Classification)
 		}
 	}
 
@@ -813,8 +841,17 @@ func scanFile(root, path string) ([]foundSite, error) {
 			// the open as read-only?  If yes, sql.Open calls in this
 			// function body are treated as RO and skipped.
 			funcIsReadOnly := funcBodyDeclaresReadOnlyDSN(node.Body)
+			// ordinalCounts is scoped to this one function: it counts, per
+			// OpenExpr, how many matching calls ast.Inspect has visited so
+			// far within this function body. ast.Inspect walks in source
+			// order, so the Nth time a given OpenExpr is seen here is
+			// exactly its Nth occurrence in the function's source text —
+			// the Ordinal that (together with File, Function, OpenExpr)
+			// identifies a call site without reference to its line number
+			// (bug-920ba8a5).
+			ordinalCounts := make(map[string]int)
 			ast.Inspect(node.Body, func(inner ast.Node) bool {
-				return inspectCall(inner, currentFunc(), funcIsReadOnly, fset, relPath, dbAliases, hasSQLImport, &sites)
+				return inspectCall(inner, currentFunc(), funcIsReadOnly, fset, relPath, dbAliases, hasSQLImport, ordinalCounts, &sites)
 			})
 			funcStack = funcStack[:len(funcStack)-1]
 			return false
@@ -855,7 +892,9 @@ func funcBodyDeclaresReadOnlyDSN(body *ast.BlockStmt) bool {
 // it appends a foundSite to sites. funcIsReadOnly is the result of a
 // per-function pre-scan: if true, sql.Open calls in this function are
 // suppressed because the function's DSN literals indicate read-only.
-func inspectCall(n ast.Node, fnName string, funcIsReadOnly bool, fset *token.FileSet, relPath string, dbAliases map[string]bool, hasSQLImport bool, sites *[]foundSite) bool {
+// ordinalCounts is the per-function, per-OpenExpr occurrence counter
+// described where it is constructed in scanFile.
+func inspectCall(n ast.Node, fnName string, funcIsReadOnly bool, fset *token.FileSet, relPath string, dbAliases map[string]bool, hasSQLImport bool, ordinalCounts map[string]int, sites *[]foundSite) bool {
 	call, ok := n.(*ast.CallExpr)
 	if !ok {
 		return true
@@ -873,12 +912,15 @@ func inspectCall(n ast.Node, fnName string, funcIsReadOnly bool, fset *token.Fil
 
 	// internal/db writable opens.
 	if dbAliases[pkgName] && (method == "Open" || method == "OpenWritable") {
+		openExpr := pkgName + "." + method
+		ordinalCounts[openExpr]++
 		pos := fset.Position(call.Pos())
 		*sites = append(*sites, foundSite{
 			File:     relPath,
 			Line:     pos.Line,
 			Function: fnName,
-			OpenExpr: pkgName + "." + method,
+			OpenExpr: openExpr,
+			Ordinal:  ordinalCounts[openExpr],
 		})
 		return true
 	}
@@ -889,12 +931,14 @@ func inspectCall(n ast.Node, fnName string, funcIsReadOnly bool, fset *token.Fil
 		if funcIsReadOnly || isReadOnlySQLOpenArg(call) {
 			return true
 		}
+		ordinalCounts["sql.Open"]++
 		pos := fset.Position(call.Pos())
 		*sites = append(*sites, foundSite{
 			File:     relPath,
 			Line:     pos.Line,
 			Function: fnName,
 			OpenExpr: "sql.Open",
+			Ordinal:  ordinalCounts["sql.Open"],
 		})
 	}
 	return true
@@ -971,4 +1015,115 @@ func isExcludedPath(root, path string) bool {
 		}
 	}
 	return false
+}
+
+// --- bug-920ba8a5 regression tests for scanFile's Ordinal computation -----
+//
+// These exercise scanFile directly against synthetic source rather than the
+// real tree, so they stay fast and don't depend on the current shape of
+// approvedWriteSites. They codify the two properties the fix promises:
+// stable identity under line drift, and distinct identity for multiple
+// opens of the same kind within one function. (Manually proven the same way
+// against the real inventory during review: shifted cmd/wipnote/status.go's
+// runStatus open by 12 lines and confirmed TestWritableDBOpenBoundary stayed
+// green; added a genuinely new unapproved dbpkg.Open in a throwaway file and
+// confirmed it failed with a precise, actionable message; both temporary
+// changes were reverted before commit.)
+
+// writeTempGoFile writes src to a new file named name inside a fresh
+// module-shaped temp directory (a go.mod so findModuleRoot-style helpers
+// aren't needed — scanFile only needs root+path) and returns (root, path).
+func writeTempGoFile(t *testing.T, name, src string) (root, path string) {
+	t.Helper()
+	root = t.TempDir()
+	path = filepath.Join(root, name)
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write temp file %s: %v", name, err)
+	}
+	return root, path
+}
+
+// TestScanFile_OrdinalStableUnderLineDrift asserts that padding a function
+// with extra blank lines above its writable open — simulating an unrelated
+// edit elsewhere in the file, exactly the bug-920ba8a5 scenario — changes
+// the discovered Line but leaves (File, Function, OpenExpr, Ordinal)
+// identical. That tuple, not Line, is what TestWritableDBOpenBoundary keys
+// on, so this is the property the whole fix depends on.
+func TestScanFile_OrdinalStableUnderLineDrift(t *testing.T) {
+	const tmpl = `package main
+
+import dbpkg "github.com/shakestzd/wipnote/core/db"
+%s
+func runSomething(path string) error {
+	db, err := dbpkg.Open(path)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return nil
+}
+`
+	root1, path1 := writeTempGoFile(t, "a.go", fmt.Sprintf(tmpl, ""))
+	padding := strings.Repeat("\n", 12)
+	root2, path2 := writeTempGoFile(t, "a.go", fmt.Sprintf(tmpl, padding))
+
+	sites1, err := scanFile(root1, path1)
+	if err != nil {
+		t.Fatalf("scanFile (unpadded): %v", err)
+	}
+	sites2, err := scanFile(root2, path2)
+	if err != nil {
+		t.Fatalf("scanFile (padded): %v", err)
+	}
+	if len(sites1) != 1 || len(sites2) != 1 {
+		t.Fatalf("expected exactly one site each, got %d and %d", len(sites1), len(sites2))
+	}
+	if sites1[0].Line == sites2[0].Line {
+		t.Fatalf("test setup broken: padding did not shift the line (%d == %d)", sites1[0].Line, sites2[0].Line)
+	}
+	if sites1[0].Function != sites2[0].Function || sites1[0].OpenExpr != sites2[0].OpenExpr || sites1[0].Ordinal != sites2[0].Ordinal {
+		t.Fatalf("identity changed under line drift: %+v vs %+v", sites1[0], sites2[0])
+	}
+}
+
+// TestScanFile_MultipleOpensInOneFunctionGetDistinctOrdinals asserts that
+// two writable opens of the same kind within one function (the real shape
+// of runFullSyncReindex in lazy_reindex.go) are assigned Ordinal 1 and 2 in
+// source order, so they remain distinguishable once Line is no longer part
+// of the matching key.
+func TestScanFile_MultipleOpensInOneFunctionGetDistinctOrdinals(t *testing.T) {
+	const src = `package main
+
+import dbpkg "github.com/shakestzd/wipnote/core/db"
+
+func runTwoPhase(path string) error {
+	db1, err := dbpkg.Open(path)
+	if err != nil {
+		return err
+	}
+	db1.Close()
+
+	db2, err := dbpkg.Open(path)
+	if err != nil {
+		return err
+	}
+	db2.Close()
+	return nil
+}
+`
+	root, path := writeTempGoFile(t, "a.go", src)
+	sites, err := scanFile(root, path)
+	if err != nil {
+		t.Fatalf("scanFile: %v", err)
+	}
+	if len(sites) != 2 {
+		t.Fatalf("expected 2 sites, got %d: %+v", len(sites), sites)
+	}
+	// scanFile appends in AST-traversal (source) order.
+	if sites[0].Ordinal != 1 || sites[1].Ordinal != 2 {
+		t.Fatalf("expected ordinals 1 and 2 in source order, got %d and %d", sites[0].Ordinal, sites[1].Ordinal)
+	}
+	if sites[0].Function != "runTwoPhase" || sites[1].Function != "runTwoPhase" {
+		t.Fatalf("expected both sites attributed to runTwoPhase, got %q and %q", sites[0].Function, sites[1].Function)
+	}
 }

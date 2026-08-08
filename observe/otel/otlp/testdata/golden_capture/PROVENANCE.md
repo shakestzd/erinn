@@ -27,6 +27,45 @@ depends on, the assertion names the missing field directly.
 | Capture method | See "How to re-capture" below |
 | Content | One `Read` tool call (Read → tool_decision → tool_result → llm_request → api_request → assistant_response), covering `claude_code.tool`, `claude_code.tool.execution`, `claude_code.tool.blocked_on_user`, `claude_code.llm_request` (traces), `tool_decision`, `tool_result`, `api_request`, `assistant_response` (logs), and `cost.usage`/`token.usage` (metrics) |
 
+## The contract this fixture pins
+
+`service.name` (`claude-code`), the `gen_ai.*` attribute family
+(`gen_ai.system`, `gen_ai.request.model`, `gen_ai.tool.call.id`,
+`gen_ai.response.id`, `gen_ai.response.finish_reasons`), `tool_use_id`,
+`success`, `attempt`, and the token-count keys (`input_tokens`,
+`output_tokens`, `cache_read_tokens`, `cache_creation_tokens`) are the actual
+values this fixture exists to protect — do not "clean up" or rename them
+during a refresh, even if a future capture's real values differ, without
+first checking whether `observe/otel/adapter/claude.go` and
+`golden_capture_test.go` still agree on what they mean.
+
+This cuts both ways deliberately: an earlier audit found the `gen_ai.*`
+names are deprecated upstream (OpenTelemetry's GenAI semantic conventions
+have been mid-churn) and may be renamed in a future Claude Code release. If
+a re-capture shows a `gen_ai.*` key renamed or gone, that is not a redaction
+mistake to "fix" back to the old name — it is this fixture doing its job as
+the migration tripwire, and the adapter needs a real code change to follow.
+
+## Size
+
+This capture is ~75 KB across the three files (75,108 bytes), larger than a
+single tool call might suggest. That size is coverage, not padding: the
+9 signal records here are 9 genuinely distinct shapes with zero repetition —
+4 trace span kinds (`claude_code.tool`, `.tool.execution`,
+`.tool.blocked_on_user`, `.llm_request`), 4 log kinds (`tool_decision`,
+`tool_result`, `api_request`, `assistant_response`), and 2 metrics (one
+`cost.usage` point, one `token.usage` Sum fanned out into 4 dimension data
+points — input/output/cacheRead/cacheCreation — each asserted on
+individually in `golden_capture_test.go`, so none of the 4 is redundant with
+another). The bulk of the bytes is the 7 standard identity attributes
+(`user.id`, `session.id`, `organization.id`, `user.email`,
+`user.account_uuid`, `user.account_id`, `terminal.type`) Claude Code repeats
+on every single record — real OTLP shape, not something this fixture chose
+to add or could trim without deviating from what an actual capture looks
+like. If a future refresh finds real duplication (the same span/log kind
+appearing twice with no new information), trim it then; there is none to
+trim today.
+
 ## Redaction
 
 Every identifying value has been replaced with an obviously-synthetic
@@ -82,6 +121,21 @@ claude -p "<a small, real task>" --permission-mode bypassPermissions --output-fo
 #    a real value through silently). Keep the same real value mapped to the
 #    same fake value across all three files so cross-file correlation still
 #    works.
+#
+#    trace_id / span_id / parent_span_id GOTCHA: do not replace these with
+#    hex-look-alike strings (e.g. "aaaa...a"). go.opentelemetry.io/proto/otlp
+#    has no custom JSON codec for these bytes fields, so Go's protojson
+#    decodes them as standard protobuf-JSON base64, not the hex the OTLP/
+#    HTTP JSON spec documents — a hex placeholder decodes to the wrong byte
+#    count and otlp.ValidTraceID/ValidSpanID silently drops the whole span,
+#    which looks like "the test found zero signals" with no error. Redact
+#    these with base64 strings that decode to 16 bytes (trace) / 8 bytes
+#    (span), e.g. in Python: base64.b64encode(bytes([0xaa]*16)).decode().
+#    Real Claude Code production traffic never hits this ambiguity —
+#    core/harness/registry_claude.go hardcodes OTEL_EXPORTER_OTLP_PROTOCOL=
+#    http/protobuf, where these fields are raw bytes with no encoding
+#    question — so this only bites because this fixture deliberately
+#    captures over http/json for diff-readability.
 
 # 5. Grep the redacted output for every original real value, the real email,
 #    and "/Users/" / "/home/" / "/private/" before going any further.

@@ -195,6 +195,17 @@ func ConvertAll(a adapter.Adapter, d otlp.Decoded) []otel.UnifiedSignal {
 			out = append(out, sig)
 		}
 	}
+	// bug-a0143c2c: adapters that need to reconcile two signals from the same
+	// batch (e.g. Claude's beta tool.execution span vs. its stable
+	// tool_result log — see ClaudeAdapter.CrossValidateToolOutcomes) get one
+	// pass over the full converted batch here, harness-agnostically via a
+	// type assertion so the shared Adapter interface stays untouched for
+	// adapters that don't need it.
+	if cv, ok := a.(interface {
+		CrossValidateToolOutcomes([]otel.UnifiedSignal) []otel.UnifiedSignal
+	}); ok {
+		out = cv.CrossValidateToolOutcomes(out)
+	}
 	return out
 }
 

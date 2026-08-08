@@ -154,6 +154,7 @@ func (c *ClaudeAdapter) ConvertLog(res OTLPResource, scope OTLPScope, l OTLPLog)
 		// success by construction, mirroring the hardcoded false on api_error.
 		succ := true
 		base.Success = &succ
+		tagSuccessSource(&base, SuccessSourceStructural)
 	case "api_error", "claude_code.api_error":
 		base.CanonicalName = otel.CanonicalAPIError
 		base.Model = AttrString(l.Attrs, "model")
@@ -165,15 +166,29 @@ func (c *ClaudeAdapter) ConvertLog(res OTLPResource, scope OTLPScope, l OTLPLog)
 		}
 		fval := false
 		base.Success = &fval
+		tagSuccessSource(&base, SuccessSourceStructural)
 	case "tool_result", "claude_code.tool_result":
 		base.CanonicalName = otel.CanonicalToolResult
 		base.ToolName = AttrString(l.Attrs, "tool_name")
+		base.ToolUseID = AttrString(l.Attrs, "tool_use_id")
 		base.DurationMs = AttrInt64(l.Attrs, "duration_ms")
 		base.Decision = AttrString(l.Attrs, "decision_type")
 		base.DecisionSource = normalizeDecisionSource(AttrString(l.Attrs, "decision_source"))
 		base.ErrorMsg = AttrString(l.Attrs, "error")
+		// bug-a0143c2c: claude_code.tool_result is the STABLE, non-beta source
+		// for tool outcomes — part of the standard log signal (gated only by
+		// OTEL_LOGS_EXPORTER), unlike claude_code.tool.execution's "success"
+		// span attribute below, which lives under the harness's beta Traces
+		// feature and carries a published warning that span attributes may
+		// change between releases. The harness emits this attribute as the
+		// string "true"/"false" (never a native bool) — normalize
+		// deliberately rather than incidentally: any other value (missing,
+		// malformed, differently cased) is treated as false rather than left
+		// ambiguous, since a log record without a parseable outcome is not
+		// evidence of success.
 		succ := AttrString(l.Attrs, "success") == "true"
 		base.Success = &succ
+		tagSuccessSource(&base, SuccessSourceLogStable)
 	case "tool_decision", "claude_code.tool_decision":
 		base.CanonicalName = otel.CanonicalToolDecision
 		base.ToolName = AttrString(l.Attrs, "tool_name")
@@ -209,6 +224,14 @@ func (c *ClaudeAdapter) ConvertSpan(res OTLPResource, scope OTLPScope, s OTLPSpa
 	if base.DurationMs == 0 && !s.EndTime.IsZero() && !s.StartTime.IsZero() {
 		base.DurationMs = s.EndTime.Sub(s.StartTime).Milliseconds()
 	}
+	// tool_use_id (aliased gen_ai.tool.call.id on some spans) is the join key
+	// CrossValidateToolOutcomes uses to reconcile this span's outcome against
+	// the stable claude_code.tool_result log event for the same tool call
+	// (bug-a0143c2c). Harmless when absent — only tool-family spans carry it.
+	base.ToolUseID = AttrString(s.Attrs, "tool_use_id")
+	if base.ToolUseID == "" {
+		base.ToolUseID = AttrString(s.Attrs, "gen_ai.tool.call.id")
+	}
 	// bug-79606e3d: Claude Code virtually never sets the OTLP span status
 	// (StatusCode stays 0/UNSET on ~99.95% of claude_code.llm_request and
 	// claude_code.tool.execution spans in live capture) but DOES emit an
@@ -216,19 +239,39 @@ func (c *ClaudeAdapter) ConvertSpan(res OTLPResource, scope OTLPScope, s OTLPSpa
 	// attribute — it's the harness's actual outcome signal — and fall back
 	// to StatusCode for spans that don't carry it (e.g. claude_code.tool,
 	// which reports neither and is correctly left NULL).
+	//
+	// bug-a0143c2c: this attribute lives under the harness's Traces feature,
+	// which is explicitly beta and carries a published warning that span
+	// names and attributes may change between releases — a stated
+	// instability, not a hypothetical. claude_code.llm_request has NO
+	// non-beta alternative for success, so it stays the highest-risk input
+	// in any derivation that uses it. claude_code.tool.execution DOES have
+	// one: claude_code.tool_result (the log event, see ConvertLog) reports
+	// the same outcome without the beta gate. tagSuccessSource records which
+	// risk category applies so a downstream consumer can tell without
+	// re-deriving the harness's own instability boundaries, and
+	// CrossValidateToolOutcomes reconciles the two sources for tool calls
+	// whose span and log land in the same OTLP batch.
 	if v, ok := AttrBool(s.Attrs, "success"); ok {
 		vv := v
 		base.Success = &vv
 		if !vv && base.ErrorMsg == "" {
 			base.ErrorMsg = AttrString(s.Attrs, "error")
 		}
+		if s.Name == "claude_code.llm_request" {
+			tagSuccessSource(&base, SuccessSourceSpanBetaNoAlternative)
+		} else {
+			tagSuccessSource(&base, SuccessSourceSpanBetaHasAlternative)
+		}
 	} else if s.StatusCode == 1 {
 		v := true
 		base.Success = &v
+		tagSuccessSource(&base, SuccessSourceStatusCode)
 	} else if s.StatusCode == 2 {
 		v := false
 		base.Success = &v
 		base.ErrorMsg = s.StatusMsg
+		tagSuccessSource(&base, SuccessSourceStatusCode)
 	}
 
 	switch s.Name {
@@ -322,4 +365,138 @@ func normalizeDecisionSource(src string) string {
 	default:
 		return src
 	}
+}
+
+// successSource marks the provenance of a UnifiedSignal's Success value
+// (bug-a0143c2c) so a downstream consumer can prefer stable inputs over beta
+// ones — or notice a beta value has no stable counterpart at all — without
+// re-deriving the harness's own instability boundaries from scratch.
+const (
+	// SuccessSourceStructural: api_request/api_error logs carry no explicit
+	// outcome attribute; the outcome is inferred from which event name was
+	// emitted at all (see the api_request/api_error cases in ConvertLog).
+	SuccessSourceStructural = "structural"
+	// SuccessSourceLogStable: claude_code.tool_result's "success" string
+	// attribute — part of the standard log signal, not behind the beta gate.
+	SuccessSourceLogStable = "log_stable"
+	// SuccessSourceSpanBetaHasAlternative: claude_code.tool.execution's
+	// "success" boolean attribute — beta (Traces feature), but
+	// claude_code.tool_result reports the same outcome without the gate.
+	SuccessSourceSpanBetaHasAlternative = "span_beta_has_alternative"
+	// SuccessSourceSpanBetaNoAlternative: claude_code.llm_request's "success"
+	// boolean attribute — beta, and no non-beta signal reports API-call
+	// outcome at all. Highest-risk input in any derivation that uses it.
+	SuccessSourceSpanBetaNoAlternative = "span_beta_no_alternative"
+	// SuccessSourceStatusCode: the OTLP span status fallback. Native Claude
+	// Code spans essentially never set this (see bug-79606e3d) — this path
+	// exists for forward compatibility, not because it fires in practice.
+	SuccessSourceStatusCode = "status_code"
+)
+
+// RawAttrs keys written by tagSuccessSource and CrossValidateToolOutcomes.
+// Exported (leading underscore, matching the "_pending" placeholder
+// convention used elsewhere in the OTel pipeline) so a consumer reading
+// attrs_json — a dashboard, a rollup, a query — has a named constant instead
+// of a magic string, and so it flows through with zero schema or writer
+// change: queryable via json_extract like every other internal marker in
+// this codebase.
+const (
+	SuccessSourceAttrKey              = "_success_source"
+	SuccessCrossCheckAttrKey          = "_success_cross_check"
+	SuccessCrossCheckSpanBetaAttrKey  = "_success_cross_check_span_beta"
+	SuccessCrossCheckLogStableAttrKey = "_success_cross_check_log_stable"
+)
+
+// tagSuccessSource records source in sig.RawAttrs under SuccessSourceAttrKey.
+func tagSuccessSource(sig *otel.UnifiedSignal, source string) {
+	if sig.RawAttrs == nil {
+		sig.RawAttrs = map[string]any{}
+	}
+	sig.RawAttrs[SuccessSourceAttrKey] = source
+}
+
+// CrossValidateToolOutcomes reconciles claude_code.tool.execution (span,
+// beta-gated) and claude_code.tool_result (log, stable) success values for
+// tool calls whose signals arrived in the SAME OTLP batch, joined on
+// ToolUseID (bug-a0143c2c).
+//
+// Coverage is deliberately partial, and that limit is load-bearing rather
+// than an oversight: the beta span and the stable log come from two
+// independent exporters (traces vs. logs) that flush on independent 5s
+// intervals by default, so a given tool call's pair frequently lands in
+// different OTLP batches. This pass only catches the fraction that arrives
+// together — it does not attempt to backfill outcomes across batches, which
+// would require state persisted beyond one batch. The ClaudeAdapter this
+// method hangs off is a long-lived singleton shared across every session the
+// receiver ever sees (constructed once in receiver.New, never per-request),
+// so adapter-side correlation state that outlives a single batch would grow
+// unboundedly for exactly the common case where only one exporter is
+// enabled and a tool_use_id's other half never arrives. ToolUseID is
+// promoted to a typed field specifically so the pairs this pass misses
+// remain reconcilable later — a query joining otel_signals on it runs
+// against the durable table instead of in-memory state, so it has no such
+// growth or timing problem.
+//
+// On a match, both signals are tagged "_success_cross_check":"match". On a
+// mismatch, both are tagged "_success_cross_check":"mismatch" plus each
+// other's raw value, so the divergence is visible on the signal itself
+// (dashboard attrs drill-through, or a json_extract query) rather than one
+// value silently winning. A ToolUseID with more than one candidate on either
+// side within the batch is ambiguous and is skipped rather than guessed.
+func (c *ClaudeAdapter) CrossValidateToolOutcomes(signals []otel.UnifiedSignal) []otel.UnifiedSignal {
+	type candidate struct {
+		execIdx, resultIdx     int
+		execCount, resultCount int
+	}
+	byToolUseID := make(map[string]*candidate)
+	for i := range signals {
+		sig := &signals[i]
+		if sig.ToolUseID == "" {
+			continue
+		}
+		var c *candidate
+		switch {
+		case sig.Kind == otel.KindSpan && sig.CanonicalName == otel.CanonicalToolExecution:
+			c = byToolUseID[sig.ToolUseID]
+			if c == nil {
+				c = &candidate{}
+				byToolUseID[sig.ToolUseID] = c
+			}
+			c.execIdx = i
+			c.execCount++
+		case sig.Kind == otel.KindLog && sig.CanonicalName == otel.CanonicalToolResult:
+			c = byToolUseID[sig.ToolUseID]
+			if c == nil {
+				c = &candidate{}
+				byToolUseID[sig.ToolUseID] = c
+			}
+			c.resultIdx = i
+			c.resultCount++
+		}
+	}
+	for _, c := range byToolUseID {
+		if c.execCount != 1 || c.resultCount != 1 {
+			continue // ambiguous or incomplete pair this batch — skip, don't guess
+		}
+		execSig := &signals[c.execIdx]
+		resultSig := &signals[c.resultIdx]
+		if execSig.Success == nil || resultSig.Success == nil {
+			continue
+		}
+		outcome := "match"
+		if *execSig.Success != *resultSig.Success {
+			outcome = "mismatch"
+		}
+		for _, sig := range [2]*otel.UnifiedSignal{execSig, resultSig} {
+			if sig.RawAttrs == nil {
+				sig.RawAttrs = map[string]any{}
+			}
+			sig.RawAttrs[SuccessCrossCheckAttrKey] = outcome
+			if outcome == "mismatch" {
+				sig.RawAttrs[SuccessCrossCheckSpanBetaAttrKey] = *execSig.Success
+				sig.RawAttrs[SuccessCrossCheckLogStableAttrKey] = *resultSig.Success
+			}
+		}
+	}
+	return signals
 }

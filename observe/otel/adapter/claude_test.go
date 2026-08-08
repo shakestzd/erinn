@@ -465,3 +465,212 @@ func TestClaudeAdapter_SessionIDResourceFallback(t *testing.T) {
 		t.Errorf("SessionID = %q, want from-resource", sigs[0].SessionID)
 	}
 }
+
+// TestClaudeAdapter_ToolUseIDPromoted verifies bug-a0143c2c's prerequisite:
+// both claude_code.tool_result (log) and claude_code.tool.execution (span)
+// promote their tool_use_id attribute to the typed ToolUseID field, since
+// CrossValidateToolOutcomes joins on it. The span also accepts the
+// gen_ai.tool.call.id alias when tool_use_id itself is absent.
+func TestClaudeAdapter_ToolUseIDPromoted(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+
+	log := adapter.OTLPLog{
+		Name:      "tool_result",
+		Timestamp: time.Now(),
+		Attrs: map[string]any{
+			"session.id":  "s1",
+			"success":     "true",
+			"tool_use_id": "toolu_log1",
+		},
+	}
+	logSigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+	if logSigs[0].ToolUseID != "toolu_log1" {
+		t.Errorf("log ToolUseID = %q, want toolu_log1", logSigs[0].ToolUseID)
+	}
+
+	span := adapter.OTLPSpan{
+		Name:      "claude_code.tool.execution",
+		SpanID:    "span1",
+		StartTime: time.Now(),
+		EndTime:   time.Now().Add(time.Millisecond),
+		Attrs: map[string]any{
+			"session.id":  "s1",
+			"success":     true,
+			"tool_use_id": "toolu_span1",
+		},
+	}
+	spanSigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+	if spanSigs[0].ToolUseID != "toolu_span1" {
+		t.Errorf("span ToolUseID = %q, want toolu_span1", spanSigs[0].ToolUseID)
+	}
+
+	aliasSpan := span
+	aliasSpan.SpanID = "span2"
+	aliasSpan.Attrs = map[string]any{
+		"session.id":          "s1",
+		"success":             true,
+		"gen_ai.tool.call.id": "toolu_alias1",
+	}
+	aliasSigs := a.ConvertSpan(res, adapter.OTLPScope{}, aliasSpan)
+	if aliasSigs[0].ToolUseID != "toolu_alias1" {
+		t.Errorf("span ToolUseID (alias) = %q, want toolu_alias1", aliasSigs[0].ToolUseID)
+	}
+}
+
+// TestClaudeAdapter_SuccessSourceTags is the load-bearing test for
+// bug-a0143c2c's decision: every Success derivation site must be tagged with
+// its provenance, distinguishing the two categories of beta risk
+// (llm_request has no non-beta alternative; tool.execution does) from the
+// two non-beta sources (structural inference, and the stable tool_result
+// log). This is what "reduces exposure" without touching any existing
+// Success value — a consumer can filter on the tag without knowing the
+// harness's own beta boundaries.
+func TestClaudeAdapter_SuccessSourceTags(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+
+	t.Run("api_request log is structural", func(t *testing.T) {
+		log := adapter.OTLPLog{Name: "api_request", Timestamp: time.Now(),
+			Attrs: map[string]any{"session.id": "s1", "model": "claude-sonnet-5"}}
+		sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceStructural)
+	})
+
+	t.Run("api_error log is structural", func(t *testing.T) {
+		log := adapter.OTLPLog{Name: "api_error", Timestamp: time.Now(),
+			Attrs: map[string]any{"session.id": "s1"}}
+		sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceStructural)
+	})
+
+	t.Run("tool_result log is stable, not beta", func(t *testing.T) {
+		log := adapter.OTLPLog{Name: "tool_result", Timestamp: time.Now(),
+			Attrs: map[string]any{"session.id": "s1", "success": "true"}}
+		sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceLogStable)
+	})
+
+	t.Run("llm_request span is beta with NO alternative", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.llm_request", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Second),
+			Attrs: map[string]any{"session.id": "s1", "success": true}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceSpanBetaNoAlternative)
+	})
+
+	t.Run("tool.execution span is beta WITH an alternative", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.tool.execution", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Millisecond),
+			Attrs: map[string]any{"session.id": "s1", "success": true}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceSpanBetaHasAlternative)
+	})
+
+	t.Run("status code fallback is tagged separately from the beta attribute", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.llm_request", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Second),
+			StatusCode: 1, // OK — no "success" attribute present
+			Attrs:      map[string]any{"session.id": "s1"}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		assertSuccessSource(t, sigs[0], adapter.SuccessSourceStatusCode)
+	})
+}
+
+func assertSuccessSource(t *testing.T, sig otel.UnifiedSignal, want string) {
+	t.Helper()
+	got, _ := sig.RawAttrs[adapter.SuccessSourceAttrKey].(string)
+	if got != want {
+		t.Errorf("%s = %q, want %q", adapter.SuccessSourceAttrKey, got, want)
+	}
+}
+
+// TestClaudeAdapter_CrossValidateToolOutcomes is the load-bearing test for
+// the "cross-validate" half of bug-a0143c2c's decision: a matching pair, a
+// diverging pair, and the two cases where the pass must decline to guess
+// (only one side present; more than one candidate for the same ToolUseID).
+func TestClaudeAdapter_CrossValidateToolOutcomes(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+
+	toolExecSig := func(toolUseID string, success bool) otel.UnifiedSignal {
+		s := success
+		return otel.UnifiedSignal{
+			Kind: otel.KindSpan, CanonicalName: otel.CanonicalToolExecution,
+			ToolUseID: toolUseID, Success: &s, RawAttrs: map[string]any{},
+		}
+	}
+	toolResultSig := func(toolUseID string, success bool) otel.UnifiedSignal {
+		s := success
+		return otel.UnifiedSignal{
+			Kind: otel.KindLog, CanonicalName: otel.CanonicalToolResult,
+			ToolUseID: toolUseID, Success: &s, RawAttrs: map[string]any{},
+		}
+	}
+
+	t.Run("matching pair is tagged match", func(t *testing.T) {
+		signals := []otel.UnifiedSignal{
+			toolExecSig("toolu_1", true),
+			toolResultSig("toolu_1", true),
+		}
+		out := a.CrossValidateToolOutcomes(signals)
+		for i, sig := range out {
+			if got := sig.RawAttrs[adapter.SuccessCrossCheckAttrKey]; got != "match" {
+				t.Errorf("signal[%d] %s = %v, want match", i, adapter.SuccessCrossCheckAttrKey, got)
+			}
+		}
+	})
+
+	t.Run("diverging pair is tagged mismatch with both raw values", func(t *testing.T) {
+		signals := []otel.UnifiedSignal{
+			toolExecSig("toolu_2", true),    // beta span says success
+			toolResultSig("toolu_2", false), // stable log says failure
+		}
+		out := a.CrossValidateToolOutcomes(signals)
+		for i, sig := range out {
+			if got := sig.RawAttrs[adapter.SuccessCrossCheckAttrKey]; got != "mismatch" {
+				t.Fatalf("signal[%d] %s = %v, want mismatch", i, adapter.SuccessCrossCheckAttrKey, got)
+			}
+		}
+		if v, _ := out[0].RawAttrs[adapter.SuccessCrossCheckSpanBetaAttrKey].(bool); !v {
+			t.Errorf("%s = %v, want true (the span's own value)", adapter.SuccessCrossCheckSpanBetaAttrKey, v)
+		}
+		if v, _ := out[0].RawAttrs[adapter.SuccessCrossCheckLogStableAttrKey].(bool); v {
+			t.Errorf("%s = %v, want false (the log's own value)", adapter.SuccessCrossCheckLogStableAttrKey, v)
+		}
+	})
+
+	t.Run("only the span present this batch: no tag, not a false match", func(t *testing.T) {
+		signals := []otel.UnifiedSignal{toolExecSig("toolu_3", true)}
+		out := a.CrossValidateToolOutcomes(signals)
+		if _, ok := out[0].RawAttrs[adapter.SuccessCrossCheckAttrKey]; ok {
+			t.Errorf("unpaired span was tagged %v, want no tag", out[0].RawAttrs[adapter.SuccessCrossCheckAttrKey])
+		}
+	})
+
+	t.Run("ambiguous: two spans for the same ToolUseID are skipped, not guessed", func(t *testing.T) {
+		signals := []otel.UnifiedSignal{
+			toolExecSig("toolu_4", true),
+			toolExecSig("toolu_4", false), // duplicate — should never happen, but must not crash or guess
+			toolResultSig("toolu_4", true),
+		}
+		out := a.CrossValidateToolOutcomes(signals)
+		for i, sig := range out {
+			if _, ok := sig.RawAttrs[adapter.SuccessCrossCheckAttrKey]; ok {
+				t.Errorf("signal[%d] tagged %v under ambiguous input, want no tag", i, sig.RawAttrs[adapter.SuccessCrossCheckAttrKey])
+			}
+		}
+	})
+
+	t.Run("unrelated ToolUseIDs are not cross-matched", func(t *testing.T) {
+		signals := []otel.UnifiedSignal{
+			toolExecSig("toolu_a", true),
+			toolResultSig("toolu_b", false),
+		}
+		out := a.CrossValidateToolOutcomes(signals)
+		for i, sig := range out {
+			if _, ok := sig.RawAttrs[adapter.SuccessCrossCheckAttrKey]; ok {
+				t.Errorf("signal[%d] tagged under unrelated ToolUseIDs, want no tag", i)
+			}
+		}
+	})
+}

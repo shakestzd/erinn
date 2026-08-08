@@ -44,6 +44,22 @@ func ConvertAll(a adapter.Adapter, d otlp.Decoded) []otel.UnifiedSignal {
 			out = append(out, sig)
 		}
 	}
+	// bug-a0143c2c: adapters that need to reconcile two signals from the same
+	// batch (e.g. Claude's beta tool.execution span vs. its stable
+	// tool_result log — see ClaudeAdapter.CrossValidateToolOutcomes) get one
+	// pass over the full converted batch here, harness-agnostically via a
+	// type assertion so the shared Adapter interface stays untouched for
+	// adapters that don't need it. Kept identical to the same hook in
+	// observe/otel/receiver/http.go's ConvertAll — this package and that one
+	// are two independent, both-live collection topologies (the embedded
+	// daemon receiver vs. the per-session otel-collect subprocess) with their
+	// own copy of this function; see that file's comment if this one ever
+	// needs to change.
+	if cv, ok := a.(interface {
+		CrossValidateToolOutcomes([]otel.UnifiedSignal) []otel.UnifiedSignal
+	}); ok {
+		out = cv.CrossValidateToolOutcomes(out)
+	}
 	return out
 }
 

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Scope stopping the graph index: what reads it, what breaks, what it costs</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-e6e82b5a"
+             data-type="spike"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-08T19:18:58.111289"
+             data-updated="2026-08-08T19:38:48.559544" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Scope stopping the graph index: what reads it, what breaks, what it costs</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T19:19:31.463453">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T19:18:58.126637">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>PHASED PROPOSAL, built on the in-file evidence correction. Verified independently this pass: live DB (Library/Caches/wipnote/&lt;hash&gt;/wipnote.db, 114,483,200 bytes = 27,950 pages x 4096) breaks down as features 967 + tracks 47 + graph_edges 3233 + arch_cards 202 = 4449 of 105,314 total rows (4.2%, matches the ~4,400/~100,000 claim) — but by BYTES the graph is only 2.09MB of 113MB including its indexes (features 0.664MB, arch_cards 0.535MB, graph_edges 0.441MB+edges indexes 0.234MB, tracks 0.012MB). otel_signals alone is 58.2MB table + 13.7MB indexes = 73.6MB (65% of the file). So &#34;shrink a 113MB index&#34; is not a real payoff of this change — telemetry dominates size and is untouched. The 70-minute-reindex figure from the prior spike is also retired: bug-1f338b5b (this session) found and fixed the actual dominant reindex cost as reindexFeatureFiles spawning one git diff-tree subprocess per commit per feature (cmd/wipnote/reindex_files.go) — a feature_files/git_commits (telemetry-attribution) cost, unrelated to graph-table writes, now a single git-log pass. Graph-table writes were never the slow part of reindex.
+
+Corrected sync-bug tally (extends the in-file correction): the ONE confirmed HTML&lt;-&gt;SQL divergence bug is plan edges never scanned during reindex (now fixed via cmd/wipnote/reindex_plan_edges.go). But there is a second, currently-LIVE admission of staleness in shipped code: cmd/wipnote/statusline.go resolveTrackContext (~line 149) reads features.track_id then falls back to graph_edges&#39; part_of relationship, then tracks.title from SQL, but reads step counts from HTML directly because, per its own comment, &#34;SQLite features rows are often incomplete (features indexed in graph_edges but absent from the features table)&#34;. This is real, present-tense divergence risk, not historical.
+
+HOT-PATH READERS — verified, and this is the one place I materially extend the in-file note (&#34;hot paths need a claim/session, not the graph&#34;). That holds for most hot reads (existence checks, claim resolution) but NOT all:
+- core/db/session_repo.go GetToolUseContext (~line 350), used by core/hooks/tooluse_shared.go on the PreToolUse path (every tool call, every session) — its own doc comment says it replaces three separate PreToolUse reads. It LEFT JOINs features and requires f.status = &#39;in-progress&#39; to keep active_feature_id from pointing at a stale/completed feature. This is the single hottest verified dependency on live graph data in the whole codebase.
+- core/hooks/user_prompt.go buildActiveItemOneLiner (~line 159, needs features.title), listOpenWorkItems (~line 182, a genuine WHERE status IN (...) ORDER BY ... LIMIT query over the whole features table — the CIGS open-items roster), getActiveWorkItemType (~line 211, features.type) — all run every UserPromptSubmit, i.e. every human/agent turn.
+- core/hooks/yolo_guard.go ancestorHasActiveWorkItem (~line 282) JOINs sessions to features WHERE f.status=&#39;in-progress&#39;, on the yolo-mode PreToolUse guard.
+- core/hooks/posttooluse.go completeIfInProgressImpl (~line 298, features.status) and completeInProgressByTrack (~line 389, features WHERE track_id AND status) fire conditionally on every tool call when a commit/merge/start pattern matches.
+Across every one of these, and across ~9 distinct LEFT JOIN features/tracks sites I found in telemetry and session code (core/db/session_repo.go x6, current_session_resumable.go x2, feature_files_repo.go, lineage_repo.go, api_otel.go x2, cmd/wipnote/api.go featuresHandler), the ONLY columns ever consulted are id/title/status/type/track_id. Nobody on a hot or telemetry-join path reads description, tags, metadata, or edge topology. This corroborates and generalizes the in-file &#34;minimal projection of id and track id&#34; finding: it is not one join, it is many, but they all want the same five columns.
+
+graph_edges and arch_cards, by contrast, have ZERO verified hot-path readers. Their only consumers are occasional CLI (wipnote graph cycles/path/reach/orphans/hubs/bottlenecks and wipnote query, entirely built in core/graph/{dsl,querybuilder,algorithms,pattern}.go; wipnote lineage/trace/history via internal/lineage/walk.go — the headline capability, confirmed built on `SELECT ... FROM graph_edges` recursive walks) and dashboard (cmd/wipnote/api_graph.go, api_provenance.go). arch_cards&#39; PRIMARY reader already bypasses SQL: core/arch/store.go List()/Get() read core/arch/ledger.go ReadLedger() (goquery over architecture.html) plus loose files — this is the live path `wipnote arch *` already uses. The earlier spike&#39;s claim that &#34;an in-memory rebuild needs a second parser for architecture.html&#34; is WRONG and stale; that parser already exists and is already primary. Only ~5 SQL call sites (dsl.go x2, querybuilder.go, api_graph.go, reindex_arch.go) would need rerouting to core/arch.Store.
+
+Dashboard already has a working HTML-native path for the single busiest endpoint: cmd/wipnote/api.go featuresHandler/featuresFromHTML (~line 413) is full parity with featuresFromDB (~line 265) — arguably more correct, since featuresFromDB&#39;s track-title lookup is `LEFT JOIN features t ON t.id = f.track_id` (joining features to itself; real track ids live in the separate tracks table and would never match), while featuresFromHTML correctly builds track titles from tracks/*.html. Today HTML is only used when the DB table is empty; flipping the priority is close to a one-line change with an existing test surface.
+
+MEASURED LOAD COST (own benchmark this pass, corpus discovered live: 1073 HTML files under .wipnote, 1057 nodes / 3355 edges via the actual graph.LoadAll — core/graph/loader.go:57 — not a raw walk): first call in a fresh process 249ms; five repeated in-process calls settle at 98-103ms. A parallel raw-file-parse harness (pre-existing, not part of this pass) gave 175-189ms serial / 77-107ms parallel with only ~2x speedup on 8 cores (I/O or GC bound, not CPU bound) — measurably slower than the earlier spike&#39;s own 121ms/48ms figures at a nearly identical file count (1028 vs 1073, +4.4%), a gap load/variance explains better than corpus growth; nobody should treat either single figure as a tight bound. Extrapolating linearly (each htmlparse.ParseFile call is independent, so no reason to expect worse-than-linear scaling, but this is inference, not measurement): ~500ms at 5x corpus, ~1s at 10x, single-threaded, per process, with no warm cache. Every hook invocation today is a fresh OS process (hooks.OpenHookDB per call, core/hooks/user_prompt.go) with no persistent in-memory graph across invocations — so this ~100-250ms would be paid on EVERY PreToolUse/UserPromptSubmit firing if features/tracks moved to pure in-memory HTML parsing, a 100-1000x regression versus today&#39;s indexed point query, and a real, user-visible per-turn latency addition that gets worse as the corpus grows. Building a warm read cache (extending the existing per-project write daemon at core/daemon/apply, or equivalent) to avoid this is new infrastructure — which cuts against treating this purely as deleting a synchronization problem.
+
+PHASED RECOMMENDATION, ascending blast radius:
+Phase 0 (do first, near-zero risk): drop arch_cards from SQLite. Reroute the ~5 call sites to core/arch.Store; delete UpsertArchCard/DeleteArchCard and reindex_arch.go&#39;s SQL writes. No hot path affected. Fully reversible (re-add the CREATE TABLE + writer calls).
+Phase 1 (low risk): drop graph_edges. No verified hot-path reader (statusline&#39;s part_of fallback only fires when track_id is already empty — reroute it first). Real work is core/graph/{dsl,querybuilder,algorithms,pattern}.go and internal/lineage/walk.go, all occasional/dashboard. Cheapest mechanism: keep the exact same SQL query strings but point them at an ephemeral `:memory:` SQLite table rebuilt from graph.LoadAll() per invocation (~100ms tax on already-occasional commands) rather than rewriting the DSL to native Go adjacency; core/workitem/analytics.go&#39;s own HTML-native FindBottlenecks proves a Go-native port is tractable as a later, non-blocking follow-up.
+Phase 2 (moderate): drop tracks (47 rows) into the same ephemeral-table or a tiny in-Go cache; it&#39;s a JOIN target in session-resumability code (session_repo.go, current_session_resumable.go) and statusline, all occasional except statusline.
+Phase 3 (do NOT do outright): do not drop features. Verified, high-frequency hot-path readers (PreToolUse&#39;s GetToolUseContext, every UserPromptSubmit, yolo_guard) need live status/title/type/track_id and there is no warm cache today to absorb a 100-250ms HTML reparse at that frequency. Instead, narrow the table to the ~6 columns every real consumer touches (id, type, title, status, track_id, updated_at), fed by the exact write call sites already in use (UpsertFeature/UpdateFeatureStatus/routeFeatureStatus in core/workitem/collection.go) — same sync obligations as today, smaller and easier to keep correct, and it already fixes the one thing worth fixing (a slimmer mirror is less likely to drift than a 16-column one).
+
+NET: partial &#34;yes.&#34; graph_edges + arch_cards (0.98MB, zero hot-path readers, one already has a working non-SQL primary path) should come out. features + tracks should stay but shrink to a join-key projection. The size argument for the whole proposal is weak regardless (2.09MB of 113MB); the real payoff is deleting real writer/maintenance code (reindex.go&#39;s edge/track/feature sections, reindex_arch.go, reindex_plan_edges.go, edge_repo.go, arch_repo.go, most of feature_repo.go/track_repo.go) and closing the plan-edges class of bug for good on the tables where it&#39;s safe to do so, not a disk-size or reindex-time win.</p>
+        </section>
+    </article>
+</body>
+</html>

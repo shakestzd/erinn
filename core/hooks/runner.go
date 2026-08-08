@@ -155,6 +155,14 @@ type CloudEvent struct {
 	LoadReason string   `json:"load_reason"`
 	MemoryType string   `json:"memory_type"`
 	Globs      []string `json:"globs"`
+
+	// Harness identifies which AI coding harness produced this event.
+	// Not part of any harness's wire payload (json:"-") — it is stamped by
+	// ParseEventForHarness from the value runHookNamed already resolved via
+	// DetectHarness, so every handler downstream of parsing can consult it
+	// without redetecting or being told which harness called it. Zero value
+	// is HarnessClaude, matching ParseEventForHarness's own default branch.
+	Harness Harness `json:"-"`
 }
 
 // HookResult is the JSON written to stdout to control Claude Code behaviour.
@@ -202,6 +210,16 @@ type HookSpecificOutput struct {
 	PermissionDecision string `json:"permissionDecision,omitempty"`
 	// PermissionDecisionReason is Codex's PreToolUse denial reason.
 	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+	// UpdatedInput is Claude Code's PreToolUse mechanism for rewriting a
+	// tool's arguments before it runs (verified against
+	// https://code.claude.com/docs/en/hooks, 2026-08-08). It REPLACES the
+	// tool's entire input rather than merging with it, so callers must copy
+	// every existing field forward and only change the ones they intend to.
+	// Only wipnote's Claude-Code PreToolUse path populates this today
+	// (bug-190950e0); the Codex/Gemini/Antigravity translators in harness.go
+	// build their own wire-format structs field-by-field and do not read it,
+	// so it is inert (and safely ignored) for every other harness.
+	UpdatedInput map[string]any `json:"updatedInput,omitempty"`
 }
 
 // PermissionDecision is the decision body inside HookSpecificOutput for the

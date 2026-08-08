@@ -627,6 +627,18 @@ func emitAntigravityResponseForEvent(w io.Writer, hookEventName string, result *
 // directly). For Codex and Gemini, dialect-specific parsers normalise the
 // flat/nested payloads into CloudEvent.
 func ParseEventForHarness(harness Harness, raw []byte) (*CloudEvent, error) {
+	ev, err := parseEventForHarness(harness, raw)
+	if err != nil || ev == nil {
+		return ev, err
+	}
+	// Stamp the resolved harness onto the event so every handler downstream
+	// of parsing can consult event.Harness directly instead of redetecting
+	// it or requiring a Harness parameter on every hook function signature.
+	ev.Harness = harness
+	return ev, nil
+}
+
+func parseEventForHarness(harness Harness, raw []byte) (*CloudEvent, error) {
 	switch harness {
 	case HarnessCodex:
 		return parseCodexEvent(raw)

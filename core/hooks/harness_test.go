@@ -865,6 +865,12 @@ func TestParseEventForHarnessClaude(t *testing.T) {
 	if ev.SessionID != "sess-abc123" {
 		t.Errorf("SessionID = %q, want sess-abc123", ev.SessionID)
 	}
+	// bug-190950e0: every hook handler downstream of parsing (notably the
+	// AgentIdentityAdapter seam) trusts event.Harness rather than
+	// redetecting or re-inferring it — this must actually be stamped.
+	if ev.Harness != HarnessClaude {
+		t.Errorf("Harness = %v, want HarnessClaude", ev.Harness)
+	}
 }
 
 func TestParseClaudeWorktreeCreateEvent_DataEnvelopeAndPathFallback(t *testing.T) {
@@ -895,6 +901,9 @@ func TestParseEventForHarnessCodex(t *testing.T) {
 	if ev.SessionID != "019da445-8036-73c2-a8fc-dacdb57417a8" {
 		t.Errorf("SessionID = %q", ev.SessionID)
 	}
+	if ev.Harness != HarnessCodex {
+		t.Errorf("Harness = %v, want HarnessCodex", ev.Harness)
+	}
 }
 
 func TestParseEventForHarnessGemini(t *testing.T) {
@@ -904,6 +913,9 @@ func TestParseEventForHarnessGemini(t *testing.T) {
 	}
 	if ev.SessionID != "gemini-sess-xyz789" {
 		t.Errorf("SessionID = %q", ev.SessionID)
+	}
+	if ev.Harness != HarnessGemini {
+		t.Errorf("Harness = %v, want HarnessGemini", ev.Harness)
 	}
 }
 

@@ -527,7 +527,14 @@ func recordEventAndAllow(event *CloudEvent, ctx *toolUseContext, database *sql.D
 		writeParentPromptEvent(ctx.ParentEventID)
 	}
 
-	return &HookResult{}, nil
+	result := &HookResult{}
+	// bug-190950e0: this is the single choke point every "allow" exit of
+	// PreToolUse passes through, so patching it here (rather than each call
+	// site) covers plan-mode bypass, the file-overlap-advisory path, and the
+	// plain allow path uniformly, without touching any block/gate decision
+	// above — this only ever runs once a tool call has already been allowed.
+	applyClaimAgentPropagation(event, result)
+	return result, nil
 }
 
 // writeParentPromptEvent persists parentEventID as WIPNOTE_PARENT_PROMPT_EVENT

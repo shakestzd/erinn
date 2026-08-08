@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Inherit tool_execution child success onto its tool_result parent span</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-bdf86d69"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T12:02:59.982749"
+             data-updated="2026-08-08T12:03:05.097829" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Inherit tool_execution child success onto its tool_result parent span</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:03:05.097697">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Span rows of canonical tool_result can never carry their own outcome — confirmed 0 of 7084 across the whole population, by harness design rather than by mapping defect. But 93.4 percent of them have a nested tool_execution child span that now correctly carries success. Inheriting the child&#39;s outcome onto the parent at write time would raise tool_result span density from roughly 5 percent to 93 percent or better, following the shape of the existing parent re-attribution pattern in the receiver writer. This is a genuine design decision rather than a bug fix, which is why it was deliberately left out of the success derivation work: it means a signal reports an outcome it did not itself produce, and it adds ordering and lookup complexity because the child may arrive before or after the parent. Decide explicitly whether inherited outcome should be marked as such — a distinct column or attribute — so downstream consumers can tell a signal&#39;s own result from a borrowed one, rather than silently blurring the two.</p>
+        </section>
+    </article>
+</body>
+</html>

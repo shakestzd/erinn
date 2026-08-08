@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex PromptID: stale conformance claim and zero test coverage</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c9850377"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T12:39:44.297888"
+             data-updated="2026-08-08T12:39:49.408934" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Codex PromptID: stale conformance claim and zero test coverage</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:39:49.408811">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The adapter conformance table states that the Codex prompt id is synthesized from a conversation id plus a sequence number. The code does no such thing — it reads a single attribute verbatim and otherwise leaves the value empty. The comment is stale. Worse, no test anywhere in the package asserts the prompt id for Codex at all, despite the table implying coverage, and unlike neighbouring tests that carry an explicit empirical or captured provenance note, there is no evidence the attribute has ever been observed in real Codex traffic. If it does not appear, the prompt id is silently empty for every Codex signal and nothing would reveal it. Fix the comment, add coverage, and — since a separate audit found the vendor publishes no attribute-level schema for its telemetry at all — verify against real captured output rather than documentation, because in this case documentation does not exist.</p>
+        </section>
+    </article>
+</body>
+</html>

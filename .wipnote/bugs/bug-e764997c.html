@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-08-08T18:39:10.426873"
-             data-updated="2026-08-08T19:00:51.983787" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+             data-updated="2026-08-08T19:04:37.396335" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
 
         <header>
             <h1>Otel write path runs one transaction per signal, costing 48 minutes on the real corpus</h1>
@@ -43,7 +43,8 @@
             <p>MEASURED ROOT CAUSE, which is neither of the two originally suspected. A bare immediate transaction with a single insert and commit costs 14.8 microseconds per signal. The full write path including agent and feature resolution costs 865 microseconds — real overhead at 58 times the floor, but nowhere near the 63 milliseconds observed. The gap is a metric retention prune that runs unconditionally once per session on every write call, regardless of whether the signal just written is even a metric. Its cost scales with the session&#39;s metric row count and does not fall away once pruned: 82 microseconds at zero rows, 4.3 milliseconds at two thousand, 52.6 at ten thousand, 149 at twenty-five thousand, and 12.9 milliseconds per call in steady state at the five thousand keep limit — because the delete carries an ordered subquery that re-sorts the session&#39;s entire metric set on every call whether or not anything changed. One session in the real corpus holds 86761 signal lines of which 7715 are metrics, and since the writer is called once per signal that session alone issues roughly 86000 unconditional prunes at 13 milliseconds each — 18 to 19 minutes from one session&#39;s prunes before counting six others. FIX: guard the prune so it runs only when a metric-kind signal was actually written in that batch. Provably equivalent, since skipping a prune when nothing metric-shaped changed cannot alter which rows survive. This supersedes the earlier plan of partitioning by harness and resource attributes and hoisting resolution out of the loop — both remain true observations about the write path but neither is the dominant cost.
 Acceptance Criteria
 Full real-corpus reindex time re-measured after the guard. Batch containing no metric signal skips the prune; batch containing one still prunes correctly. Surviving rows identical before and after on the real corpus.
-[2026-08-08 19:00 claude-code] accepted-advisory (provenance override): Shared concurrent-agent session; touched-file attribution reflects other agents&#39; concurrent unrelated work. The actual fix commit (c6291a4ec) is scoped to exactly 2 files: observe/otel/receiver/writer.go and writer_test.go.</p>
+[2026-08-08 19:00 claude-code] accepted-advisory (provenance override): Shared concurrent-agent session; touched-file attribution reflects other agents&#39; concurrent unrelated work. The actual fix commit (c6291a4ec) is scoped to exactly 2 files: observe/otel/receiver/writer.go and writer_test.go.
+[2026-08-08 19:04 claude-code] accepted-advisory (provenance override): Shared concurrent-agent session; touched-file attribution reflects other agents&#39; concurrent unrelated work. Doc-only follow-up commit ac6ade8e5, scoped to observe/otel/receiver/writer.go, adding the concurrent-metric-writer caveat requested by the team lead.</p>
         </section>
     </article>
 </body>

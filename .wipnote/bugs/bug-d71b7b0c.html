@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>ingest-commits linking regex is stricter than the commit convention agents actually produce</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d71b7b0c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T03:28:12.202022"
+             data-updated="2026-08-08T03:28:12.21414" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>ingest-commits linking regex is stricter than the commit convention agents actually produce</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-08T03:28:12.214057">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote&#39;s commit-to-work-item linking requires a parenthesized ID like (bug-xxxxxxxx) or a closing keyword such as fixes/closes/resolves. Agents and tooling in this session routinely produce commit messages carrying the bare ID on its own line, which the regex does not match — so git_commits gets zero rows for that commit and the completion provenance gate refuses, forcing --accepted-advisory or a manual link-commit. This happened repeatedly across many agents tonight and is the practical cause of most manual link-commit calls. Either loosen the regex to accept a bare work-item ID token, or emit the parenthesized form by default in whatever generates commit messages. Related to but distinct from bug-6bfec440, which is about subagent commits not being ingested in real time; this one is about the message format itself failing to match.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Reindex otel stage does not terminate deterministically under concurrent load</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b2471635"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T13:51:50.572799"
+             data-updated="2026-08-08T13:54:21.578419" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Reindex otel stage does not terminate deterministically under concurrent load</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T13:53:21.942719">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T13:51:50.586967">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-82923b6d.html" data-relationship="relates_to" data-since="2026-08-08T13:52:02.185488">Concurrent agents on one working tree make the completion gate unreliable</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-23" data-agent="claude-code" data-created-by-agent="claude-code">✅ [reindex-perf] Fix reindexOtelEvents unbounded drain loop (bug-b2471635)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A full reindex on identical data was measured at roughly 15 minutes and 47.5 minutes on two clean runs. The variance is structural, not noise. The otel stage accounts for 66 percent of the fast run and the entire difference between the two: 9 minutes 53 seconds versus 42 minutes 37 seconds on the same corpus. Root cause is the indexer&#39;s drain-until-two-consecutive-stable-ticks convergence loop racing live traffic. Other agents&#39; sessions append to their own event logs continuously while the loop runs, so it keeps finding new bytes in files it does not own the writer for, and it terminates only when the machine happens to go quiet. Reindex duration is therefore a function of how busy the system is, with no bound. Recommended direction: snapshot each session&#39;s byte offset when the loop starts and drain only up to that mark, so a reindex covers a defined point in time rather than chasing a moving tail. A second, independent cost sits in the same stage: the batch write path loops over signals writing one at a time despite its name, which is a real cost on a corpus of roughly 89 thousand lines and is separate from the termination problem.</p>
+        </section>
+    </article>
+</body>
+</html>

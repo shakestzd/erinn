@@ -9,6 +9,7 @@ package lineage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -39,6 +40,15 @@ type Node struct {
 	// it empty; callers that combine both directions (e.g. internal/recap) tag it
 	// so consumers can render ancestry and consequences separately.
 	Direction string `json:"direction,omitempty"`
+	// Metadata carries the graph_edges.metadata JSON for the edge that reached
+	// this node, e.g. {"tag":"needs-triage-dup","similarity_score":"0.82"} for
+	// an auto-attached dedup guess, or {"origin":"plan_slice_deps"} for an edge
+	// mechanically derived from a plan's slice.deps ordering (see
+	// core/graph/pattern.go's EdgeOrigin* constants). Nil when the edge carries
+	// no metadata at all — which is the normal case for a hand-asserted
+	// `link add` edge, so callers must treat absence as the default, not an
+	// error.
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // AllRels lists all 10 relationship types we traverse. We do NOT subset: any of
@@ -109,6 +119,7 @@ func BFSWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool)
 				EdgeType: n.rel,
 				Depth:    cur.depth + 1,
 				Parent:   cur.id,
+				Metadata: n.meta,
 			})
 			queue = append(queue, queueEntry{id: n.id, depth: cur.depth + 1})
 		}
@@ -123,6 +134,7 @@ type neighborRow struct {
 	id    string
 	ntype string
 	rel   string
+	meta  map[string]string
 }
 
 // queryNeighbors runs the directional neighbour query for one node, with a
@@ -161,9 +173,11 @@ func queryNeighbors(db *sql.DB, query, id string, rels []string) ([]neighborRow,
 	var out []neighborRow
 	for rows.Next() {
 		var nr neighborRow
-		if err := rows.Scan(&nr.id, &nr.ntype, &nr.rel); err != nil {
+		var metaRaw sql.NullString
+		if err := rows.Scan(&nr.id, &nr.ntype, &nr.rel, &metaRaw); err != nil {
 			return nil, fmt.Errorf("scan neighbor: %w", err)
 		}
+		nr.meta = parseEdgeMetadata(metaRaw)
 		out = append(out, nr)
 	}
 	if err := rows.Err(); err != nil {
@@ -179,18 +193,34 @@ func neighborQuery(rels []string, forward bool) string {
 	placeholders = placeholders[:len(placeholders)-1]
 	if forward {
 		return fmt.Sprintf(
-			`SELECT to_node_id, to_node_type, relationship_type
+			`SELECT to_node_id, to_node_type, relationship_type, metadata
 			 FROM graph_edges
 			 WHERE from_node_id = ? AND relationship_type IN (%s)`,
 			placeholders,
 		)
 	}
 	return fmt.Sprintf(
-		`SELECT from_node_id, from_node_type, relationship_type
+		`SELECT from_node_id, from_node_type, relationship_type, metadata
 		 FROM graph_edges
 		 WHERE to_node_id = ? AND relationship_type IN (%s)`,
 		placeholders,
 	)
+}
+
+// parseEdgeMetadata decodes the graph_edges.metadata JSON column into the
+// same map[string]string shape InsertEdge accepts. Best-effort: a NULL column
+// (the common case — asserted edges from `link add` carry no metadata) or a
+// malformed value both yield nil rather than an error, since a missing
+// confidence signal must never abort the walk.
+func parseEdgeMetadata(raw sql.NullString) map[string]string {
+	if !raw.Valid || raw.String == "" {
+		return nil
+	}
+	var meta map[string]string
+	if err := json.Unmarshal([]byte(raw.String), &meta); err != nil {
+		return nil
+	}
+	return meta
 }
 
 // resolveTitles fills Node.Title in one shot for display.

@@ -33,6 +33,15 @@ func seedEdge(t *testing.T, db *sql.DB, edgeID, from, fromType, to, toType, rel 
 	}
 }
 
+// seedEdgeMeta is seedEdge plus a metadata map, for tests that need an edge
+// carrying a dedup guess or mechanical-origin tag.
+func seedEdgeMeta(t *testing.T, db *sql.DB, edgeID, from, fromType, to, toType, rel string, meta map[string]string) {
+	t.Helper()
+	if err := dbpkg.InsertEdge(db, edgeID, from, fromType, to, toType, rel, meta); err != nil {
+		t.Fatalf("InsertEdge %s: %v", edgeID, err)
+	}
+}
+
 // TestLineageRouting verifies detectLineageKind dispatches each ID prefix
 // to the correct walker kind. This is a pure routing test — no DB walk.
 func TestLineageRouting(t *testing.T) {
@@ -422,6 +431,122 @@ func TestLineageTreeRendersRealParentage(t *testing.T) {
 		t.Errorf("descendants out of DFS order (A<B<C<D). A=%d B=%d C=%d D=%d\n%s",
 			idxA, idxB, idxC, idxD, out)
 	}
+}
+
+// TestEdgeCaveat covers the presentation rules directly: nil/empty metadata
+// renders nothing (asserted, the common case), a similarity_score marks a
+// dedup heuristic guess with the "⚠" marker `wipnote who` already uses for
+// "needs a human look", a bare origin renders as a plain "(derived: ...)"
+// caveat (not a warning — these are legitimate structural edges), and any
+// other non-empty metadata falls back to a generic marker instead of
+// silently rendering as asserted.
+func TestEdgeCaveat(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]string
+		want string
+	}{
+		{"nil", nil, ""},
+		{"empty", map[string]string{}, ""},
+		{
+			"dedup guess",
+			map[string]string{"tag": "needs-triage-dup", "similarity_score": "0.820"},
+			"  ⚠ needs-triage-dup (score 0.820)",
+		},
+		{
+			"dedup guess without tag",
+			map[string]string{"similarity_score": "0.5"},
+			"  ⚠ guess (score 0.5)",
+		},
+		{
+			"plan slice origin",
+			map[string]string{"origin": "plan_slice_deps"},
+			"  (derived: plan_slice_deps)",
+		},
+		{
+			"batch apply origin",
+			map[string]string{"origin": "batch_apply"},
+			"  (derived: batch_apply)",
+		},
+		{"unknown metadata", map[string]string{"note": "something else"}, "  (meta)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := edgeCaveat(tc.meta)
+			if got != tc.want {
+				t.Errorf("edgeCaveat(%+v) = %q, want %q", tc.meta, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLineageTreeSurfacesDedupGuess is the end-to-end regression for
+// bug-b4458e51: a relates_to edge auto-attached by maybeAttachDedupRelation
+// (tag=needs-triage-dup, similarity_score) must render visibly differently
+// from a hand-asserted edge in the same tree, and --json must carry the same
+// metadata for machine consumers.
+func TestLineageTreeSurfacesDedupGuess(t *testing.T) {
+	db := setupLineageDB(t)
+
+	seedEdgeMeta(t, db, "e-dup", "feat-src0001", "feature", "feat-dst0001", "feature", "relates_to",
+		map[string]string{"tag": "needs-triage-dup", "similarity_score": "0.820"})
+	seedEdge(t, db, "e-plain", "feat-src0001", "feature", "feat-dst0002", "feature", "implements")
+
+	var buf bytes.Buffer
+	if err := runLineage(&buf, db, "feat-src0001", lineageOpts{depth: 5}); err != nil {
+		t.Fatalf("runLineage: %v", err)
+	}
+	out := buf.String()
+
+	dupLine := lineForID(out, "feat-dst0001")
+	plainLine := lineForID(out, "feat-dst0002")
+	if dupLine == "" || plainLine == "" {
+		t.Fatalf("expected both hops in output, got:\n%s", out)
+	}
+	if !strings.Contains(dupLine, "⚠") || !strings.Contains(dupLine, "needs-triage-dup") {
+		t.Errorf("dedup-guess hop must carry the ⚠ caveat, got: %q", dupLine)
+	}
+	if strings.Contains(plainLine, "⚠") {
+		t.Errorf("hand-asserted hop must NOT carry a caveat, got: %q", plainLine)
+	}
+
+	// --json must expose the same signal to machine consumers.
+	buf.Reset()
+	if err := runLineage(&buf, db, "feat-src0001", lineageOpts{depth: 5, jsonOut: true}); err != nil {
+		t.Fatalf("runLineage json: %v", err)
+	}
+	var got lineageJSON
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, buf.String())
+	}
+	var dupNode, plainNode *lineageNode
+	for i := range got.Forward {
+		switch got.Forward[i].ID {
+		case "feat-dst0001":
+			dupNode = &got.Forward[i]
+		case "feat-dst0002":
+			plainNode = &got.Forward[i]
+		}
+	}
+	if dupNode == nil || plainNode == nil {
+		t.Fatalf("expected both nodes in --json forward chain: %+v", got.Forward)
+	}
+	if dupNode.Metadata["similarity_score"] != "0.820" {
+		t.Errorf("--json dup node metadata = %+v, want similarity_score=0.820", dupNode.Metadata)
+	}
+	if plainNode.Metadata != nil {
+		t.Errorf("--json plain node metadata = %+v, want nil", plainNode.Metadata)
+	}
+}
+
+// lineForID returns the first line of out containing needle, or "" if none.
+func lineForID(out, needle string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, needle) {
+			return line
+		}
+	}
+	return ""
 }
 
 // TestLineageRegressionTraceUnchanged is a compile-time guarantee that the

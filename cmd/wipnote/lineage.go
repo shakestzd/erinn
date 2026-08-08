@@ -117,15 +117,19 @@ type lineageNode = lineage.Node
 //	{
 //	  "root":     "<id>",
 //	  "kind":     "feature|bug|...",
-//	  "forward":  [{id,type,title,edge_type,depth,timestamp?}, ...],
-//	  "backward": [{id,type,title,edge_type,depth,timestamp?}, ...],
+//	  "forward":  [{id,type,title,edge_type,depth,timestamp?,metadata?}, ...],
+//	  "backward": [{id,type,title,edge_type,depth,timestamp?,metadata?}, ...],
 //	  "agent_tree": "<indented text>"   // only for session roots
 //	}
 //
 // Forward edges follow `from_node_id = root` outward; backward edges follow
 // `to_node_id = root` inward. Each list is depth-ordered (BFS). For session
 // roots the agent spawn tree is included as preformatted text so the --json
-// output carries the same information as the human-readable view.
+// output carries the same information as the human-readable view. metadata
+// is the raw graph_edges.metadata JSON (e.g. similarity_score/tag for a dedup
+// guess, origin for a mechanically derived edge) and is omitted entirely when
+// the edge carries none — machine consumers get the same asserted-vs-derived
+// signal the tree renderer's edgeCaveat surfaces for humans.
 type lineageJSON struct {
 	Root      string        `json:"root"`
 	Kind      string        `json:"kind"`
@@ -319,7 +323,7 @@ func renderLineageTree(
 			if ts == "" {
 				ts = "—"
 			}
-			fmt.Fprintf(w, "    %s  %s  (%s, d%d)\n", ts, n.ID, n.EdgeType, n.Depth)
+			fmt.Fprintf(w, "    %s  %s  (%s, d%d)%s\n", ts, n.ID, n.EdgeType, n.Depth, edgeCaveat(n.Metadata))
 		}
 		return nil
 	}
@@ -429,6 +433,42 @@ func runLineageFile(w io.Writer, db *sql.DB, filePath string, opts lineageOpts) 
 	return nil
 }
 
+// edgeCaveat renders a terse suffix that stops a text-similarity guess from
+// printing identically to a hand-asserted causal claim (bug-b4458e51). The
+// graph_edges.metadata JSON is the only place this confidence signal lives —
+// an edge from `link add` carries no metadata at all, which is why nil/empty
+// is the common case and renders as "" (asserted, no marker).
+//
+// Two known shapes exist today (see core/graph/pattern.go and
+// maybeAttachDedupRelation in workitem_create.go):
+//   - similarity_score  → a dedup heuristic guess auto-attached by `create`
+//     and tagged for human triage. Rendered with a "⚠" marker — the same
+//     glyph `wipnote who` already uses for "needs a human look".
+//   - origin            → a mechanically synthesized edge (plan-slice
+//     ordering, batch-apply spec). Rendered as "(derived: <origin>)" — a
+//     plain caveat, not a warning, since these are legitimate structural
+//     edges rather than unverified guesses.
+//
+// Any other non-empty metadata falls back to a generic "(meta)" marker so a
+// future signal we don't yet know about still doesn't silently render as
+// asserted.
+func edgeCaveat(meta map[string]string) string {
+	if len(meta) == 0 {
+		return ""
+	}
+	if score, ok := meta["similarity_score"]; ok {
+		tag := meta["tag"]
+		if tag == "" {
+			tag = "guess"
+		}
+		return fmt.Sprintf("  ⚠ %s (score %s)", tag, score)
+	}
+	if origin, ok := meta["origin"]; ok {
+		return fmt.Sprintf("  (derived: %s)", origin)
+	}
+	return "  (meta)"
+}
+
 // printLineageBranches renders nodes as a real tree by walking the parent
 // adjacency built from each node's Parent field. Prior versions indented by
 // `Depth` alone, which was wrong for branched walks: BFS order like
@@ -450,7 +490,7 @@ func printLineageBranches(w io.Writer, pivot string, nodes []lineageNode) {
 			if n.Title != "" {
 				label = fmt.Sprintf("%s (%s)", n.ID, truncate(n.Title, 40))
 			}
-			fmt.Fprintf(w, "  %s[%s] %s\n", indent, n.EdgeType, label)
+			fmt.Fprintf(w, "  %s[%s] %s%s\n", indent, n.EdgeType, label, edgeCaveat(n.Metadata))
 			dfs(n.ID, indentLevel+1)
 		}
 	}
@@ -477,7 +517,7 @@ func printLineageBranches(w io.Writer, pivot string, nodes []lineageNode) {
 		if n.Title != "" {
 			label = fmt.Sprintf("%s (%s)", n.ID, truncate(n.Title, 40))
 		}
-		fmt.Fprintf(w, "  [%s] %s  (orphan)\n", n.EdgeType, label)
+		fmt.Fprintf(w, "  [%s] %s%s  (orphan)\n", n.EdgeType, label, edgeCaveat(n.Metadata))
 		seen[n.ID] = true
 		collectSeen(n.ID)
 	}

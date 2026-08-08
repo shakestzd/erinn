@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Per-work-item telemetry rollups: failure rate, cost, thrash</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-7ee73444"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T10:50:15.073505"
+             data-updated="2026-08-08T11:28:26.472256" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Per-work-item telemetry rollups: failure rate, cost, thrash</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-f9118b9c.html" data-relationship="blocks" data-since="2026-08-08T10:50:22.052852">Feed real outcome data into compliance auto and recommend</a></li>
+                    <li><a href="../bugs/bug-6d88be21.html" data-relationship="blocks" data-since="2026-08-08T11:02:10.06338">Telemetry tables grow unbounded — no retention reaches SQLite rows, about 66MB per month</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T10:50:22.228675">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:15:25.299297">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T10:50:15.085885">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-80dd5c4f.html" data-relationship="relates_to" data-since="2026-08-08T10:50:22.14255">Dead index idx_otel_feature_ts serves a per-feature query nothing performs</a></li>
+                    <li><a href="../bugs/bug-1f338b5b.html" data-relationship="relates_to" data-since="2026-08-08T11:02:10.14549">reindexFeatureFiles spawns one git diff-tree per commit per feature, making first-run reindex take 10&#43; minutes</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="task-10" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Fix reindex per-commit subprocess storm (bug-1f338b5b)</li>
+                <li data-completed="true" data-step-id="task-11" data-agent="claude-code" data-created-by-agent="claude-code">✅ Map the rollup design surface and verify feature_id coverage (feat-7ee73444)</li>
+                <li data-completed="false" data-step-id="task-12" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Fix otel success column not being persisted (bug-79606e3d)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Compute per-work-item outcome facts from otel_signals (attempts, gate failures, error rate, wall-clock, cost_usd, tool failure breakdown) AND PERSIST THEM INTO THE WORK ITEM HTML as data attributes, not only as a live query. Persisting to the canonical store is the point: it makes the aggregate durable past any raw-row retention window, git-diffable, and visible to every CLI path agents already read. computeOtelStats in api_tree.go proves the query shape (SUM over success=0 grouped by trace_id) — it is just scoped to one dashboard render and never rolled up per work item. The dead index idx_otel_feature_ts was evidently added for exactly this aggregation and no query ever used it, so this feature either justifies the index or retires it.
+Acceptance Criteria
+Rollup facts appear in the work item HTML and survive a full cache wipe plus rebuild. Backfill covers the existing corpus. Must land and backfill BEFORE any retention policy prunes raw rows, or the history it would distil from is gone.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote trace --tests: show test files touched by a work item</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-f01b523e"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-08-08T08:47:41.246768"
+             data-updated="2026-08-08T08:47:41.299119" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>wipnote trace --tests: show test files touched by a work item</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-08T08:47:41.259869">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a --tests flag to &#39;wipnote trace &lt;feat-id&gt;&#39; that filters the existing feature_files association down to _test.go files touched by the work item, reusing the existing feature-trace data path (dbpkg.ListFilesByFeature) rather than new ingestion. Output must state the touched-by-not-owned-by semantics explicitly (feature_files is UNIQUE(feature_id, file_path), many-to-many) — this answers &#39;which test files did this item touch&#39;, not &#39;which tests verify this item&#39;. Supports --json. Also add the cheap inverse (given a test file, which work items touched it) if it is a few lines; otherwise report feasibility only.</p>
+        </section>
+    </article>
+</body>
+</html>

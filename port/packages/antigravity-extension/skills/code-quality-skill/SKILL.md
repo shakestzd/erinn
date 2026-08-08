@@ -46,7 +46,17 @@ go vet ./...             # LINT  — static analysis
 go test ./...            # TEST  — run test suite
 ```
 
-**⚠️ Go suite timing:** From cold, `go test ./...` is SILENT for ~5–6 minutes — output is buffered per package and `cmd/wipnote` (the slowest, ~320s) prints first, so nothing appears until it finishes. Silence is NOT a stall. Budget ≥10 minutes before suspecting a hang. For streaming progress use `go test -json ./...` or split: `go test ./internal/... && go test ./cmd/...`. (Cached runs finish in seconds.)
+**⚠️ Go suite timing:** From cold, `go test ./...` is SILENT for ~5–6 minutes — output is buffered per package and `cmd/wipnote` (the slowest, ~320s) prints first, so nothing appears until it finishes. Silence is NOT a stall. Budget ≥10 minutes before suspecting a hang. (Cached runs finish in seconds.)
+
+**⚠️ Prefer streaming, not just for speed — for attributability (bug-61973a05):** per-package buffering has a second failure mode worse than silence: if the test binary dies mid-package (a hard `os.Exit`, an unrecovered panic, an OOM kill), NOTHING for that package was ever flushed, and the run just stops with no test name attached — a truncated suite and a complete suite that found nothing wrong look identical from outside, so lost coverage is invisible. `go test -json` does not have this problem — it emits one event per test as it happens rather than batching per package (verified: an induced `os.Exit()` mid-test still left its `{"Action":"run",...}` record on disk with nothing after it). Use `scripts/go-test-streaming.sh` for this by default:
+
+```bash
+scripts/go-test-streaming.sh ./...                    # same as go test -json ./..., human-readable, streamed live
+scripts/go-test-streaming.sh ./cmd/wipnote/...         # scope to one package
+scripts/go-test-streaming.sh ./cmd/wipnote/... -run X  # any go test flags pass through
+```
+
+It reconstructs the same text `go test -v` would print (so nothing is lost versus the plain command) while preserving the raw JSONL event log. If the run dies without a normal pass/fail, it names the last test that started so a future anonymous death is a one-line lookup rather than a fresh investigation. Prefer this over bare `go test ./...` any time you might not be staring at the terminal for the whole run — background/CI invocations most of all.
 
 #### JavaScript / TypeScript (`package.json`)
 

@@ -25,6 +25,8 @@ go build ./... && go vet ./... && go test ./...
 # Commit only when ALL pass
 ```
 
+**For anything but a quick cached rerun, use `scripts/go-test-streaming.sh` instead of bare `go test`** (e.g. `scripts/go-test-streaming.sh ./...`). Plain `go test` buffers output per package — a from-cold run is silent for minutes, and if the test binary dies mid-package (hard `os.Exit`, unrecovered panic, OOM kill) nothing for that package was ever flushed, so the run just stops with no test name attached (bug-61973a05). The script streams the same output live and preserves an event log that names the last test to start even when the process never got the chance to report a result.
+
 Use `/wipnote:code-quality-skill` for the complete pre-commit workflow.
 
 ---

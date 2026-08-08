@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Antigravity docs now exist upstream; AGENTS.md and the port translator are stale</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e8c481cb"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T12:34:02.006114"
+             data-updated="2026-08-08T12:34:02.081727" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Antigravity docs now exist upstream; AGENTS.md and the port translator are stale</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:34:02.08159">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The repository states there is no verified canonical upstream documentation set for Antigravity and that the port translator should be treated as the executable spec. That is now out of date. A Google documentation portal exists and was verified by direct fetch, covering Antigravity 2.0 and the agy CLI, announced at Google I O in May 2026. The port translator is still annotated as verified against agy v1.0.8 while v1.1.11 is documented. Two consequences. First, the harness monitoring section names Antigravity as having no doc set, which is no longer true and should be re-verified against the real portal. Second, the audit found Antigravity exposes no per-subagent identity in hooks, no input or environment rewrite mechanism, and no telemetry emission at all — the last confirmed by an upstream issue where standard environment variables produced no export. So the agent identity seam is not implementable on Antigravity today on any axis, and the generated hook commands hardcode a single static identity for every subagent, meaning all Antigravity activity attributes to one identity with no differentiation. Record that as blocked upstream rather than shipping a mechanism that would silently do nothing.</p>
+        </section>
+    </article>
+</body>
+</html>

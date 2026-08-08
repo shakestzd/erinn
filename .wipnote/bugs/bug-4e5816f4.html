@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Profile full wipnote reindex — the dominant cost is not reindexFeatureFiles</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-4e5816f4"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-08-08T11:34:53.118962"
+             data-updated="2026-08-08T12:18:56.100242" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Profile full wipnote reindex — the dominant cost is not reindexFeatureFiles</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-1f338b5b.html" data-relationship="caused_by" data-since="2026-08-08T11:35:09.287243">reindexFeatureFiles spawns one git diff-tree per commit per feature, making first-run reindex take 10&#43; minutes</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:36:23.24001">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T11:34:53.135174">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-16" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement WIPNOTE_AGENT_ID propagation via PreToolUse updatedInput (bug-190950e0)</li>
+                <li data-completed="true" data-step-id="task-17" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire the unwired Node field cluster and shrink the exclusion list (bug-e5c04997)</li>
+                <li data-completed="false" data-step-id="task-18" data-agent="claude-code" data-created-by-agent="claude-code">⏳ [span-attribution] Implement per-signal agent_id read path (feat-be696acc)</li>
+                <li data-completed="false" data-step-id="task-19" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Audit Codex and Antigravity agent-identity contracts</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A full reindex on this corpus was observed taking roughly 70 minutes, and that was attributed to the per-commit git diff-tree subprocess storm in reindexFeatureFiles. That diagnosis is now measured and wrong about magnitude: benchmarked in isolation against the real corpus of 3549 feature-commit pairs and 3486 distinct commits, the pre-fix function took 45.8 seconds, not tens of minutes. The batching fix cut it to 0.81 seconds, a genuine 56x win on a real hot path, but it cannot account for the reported wall-clock. Something else dominates the pipeline. Profile the full reindex end to end and identify where the time actually goes before anyone attributes slowness to a specific stage again. Candidates worth timing first: the trailer scan, edge reindexing across all collections, HTML parsing of the full store, and per-item SQLite upsert patterns. Re-measure the end-to-end figure after the batching fix landed, since the baseline may also have shifted.</p>
+        </section>
+    </article>
+</body>
+</html>

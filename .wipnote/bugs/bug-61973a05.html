@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Test binary exits without naming a failing test, silently truncating the run</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-61973a05"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T13:54:30.343293"
+             data-updated="2026-08-08T13:56:06.267207" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Test binary exits without naming a failing test, silently truncating the run</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T13:55:30.395791">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T13:54:30.357607">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-24" data-agent="claude-code" data-created-by-agent="claude-code">✅ [span-attribution] Verify Weaver live-check fits wipnote&#39;s drift-detection need (bug-735806ff)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The command package test run has twice produced a bare package-level FAIL after roughly 160 to 180 seconds with no named failing test anywhere in the output — no line identifying which test failed, just a stream of subprocess CLI output ending abruptly. That shape indicates a hard crash or a direct process exit rather than an assertion failure. The consequence is worse than one broken test: when the test binary dies partway through, every test scheduled after it never runs, and the output gives no indication of how much was skipped. A suite that aborts silently is indistinguishable from a suite that ran fully and found one problem, which means coverage loss is invisible and any real failure sitting later in the run is masked. Observed independently by two agents on different trees, so it is reproducible rather than incidental. Identify the crashing test — running with the verbose flag, or bisecting by running subsets, should reveal where output stops. Likely candidates are tests that spawn the CLI as a subprocess or any path that reaches a direct process exit in test context. Once identified, the fix must both repair the crash and ensure a future crash is attributable rather than anonymous.</p>
+        </section>
+    </article>
+</body>
+</html>

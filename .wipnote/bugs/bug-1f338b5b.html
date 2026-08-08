@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>reindexFeatureFiles spawns one git diff-tree per commit per feature, making first-run reindex take 10&#43; minutes</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1f338b5b"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T09:36:47.519282"
+             data-updated="2026-08-08T09:36:52.630385" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>reindexFeatureFiles spawns one git diff-tree per commit per feature, making first-run reindex take 10&#43; minutes</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-08T09:36:52.630277">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>expandCommitFiles in cmd/wipnote/reindex_files.go runs git diff-tree once per commit hash, and is called per FEATURE with that feature&#39;s commit list — so a commit linked to several work items is diff-tree&#39;d once per item. A single diff-tree costs about 15ms, and after uncapping the trailer scan (bug-9577013c) attributed commits went from 1835 to 4181 across roughly 900 work items, producing tens of thousands of subprocess spawns plus 24000-plus individual upserts. Observed: a full reindex exceeding ten minutes where it previously took four. The cost is process creation, not git or SQLite. Fix by replacing the per-commit calls with a single &#39;git log --name-only&#39; pass building a commit-to-files map in memory, then upserting in a batched transaction — the same approach already used to measure the linkage ceiling, which parsed 5179 commits in one pass. Note the high-water mark makes this a one-time cost, but every existing user pays it once on upgrade.</p>
+        </section>
+    </article>
+</body>
+</html>

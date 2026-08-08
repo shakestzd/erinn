@@ -71,6 +71,15 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 	var total, upserted, errCount int
 	validIDs := make(map[string]bool)
 
+	// Rebuild agent_events from session HTML activity logs. projectDir is
+	// passed through so parseSessionHTML can attribute sessions whose HTML
+	// files predate the data-project-dir attribute (bug-a52d5bf9). The full
+	// path runs this mid-pass (see below) because collectSessionIDs reads the
+	// table it fills; sessionsIndexed keeps it from running twice.
+	sessDir := filepath.Join(wipnoteDir, "sessions")
+	var sessTotal, sessUpserted, sessErrs int
+	sessionsIndexed := false
+
 	if useIncremental {
 		if !gitCommitExists(projectDir, lastCommit) {
 			useIncremental = false
@@ -115,6 +124,29 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		upserted += arcUpserted
 		errCount += arcErrs
 
+		// Plans are canonical nodes with their own HTML/YAML, but they are
+		// never indexed into the features or tracks tables, so no other pass
+		// registers their IDs. Without this, indexNodeEdges' target-validity
+		// gate silently drops every edge POINTING AT a plan (feature →
+		// planned_in → plan, track → contains → plan, …) and purgeStaleEntries
+		// deletes any such edge left over from a prior run. Must run BEFORE
+		// purgeStaleEntries, and must land together with the "plans" entry in
+		// reindexEdges — registering only the scan direction re-breaks the
+		// feature-side edges, and registering only the IDs leaves plan-sourced
+		// edges unscanned (bug-d5eaf6a4).
+		collectPlanIDs(wipnoteDir, validIDs)
+
+		// Sessions must be indexed BEFORE collectSessionIDs. On a from-scratch
+		// DB the sessions table is empty until reindexSessions populates it, so
+		// collectSessionIDs would register nothing and every work-item →
+		// implemented_in → session edge would fail the target-validity gate —
+		// a loss that only manifests on a cold rebuild (bug-6ec28063). The node
+		// passes above still have to run first: agent_events.feature_id carries
+		// a foreign key to features(id), so events would be rejected if the
+		// features table were still empty.
+		sessTotal, sessUpserted, sessErrs = reindexSessions(database, sessDir, projectDir)
+		sessionsIndexed = true
+
 		collectSessionIDs(database, validIDs)
 		purged, edgesPurged := purgeStaleEntries(database, validIDs)
 		reindexEdges(database, wipnoteDir, validIDs)
@@ -127,11 +159,9 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Rebuild agent_events from session HTML activity logs. projectDir is
-	// passed through so parseSessionHTML can attribute sessions whose HTML
-	// files predate the data-project-dir attribute (bug-a52d5bf9).
-	sessDir := filepath.Join(wipnoteDir, "sessions")
-	sessTotal, sessUpserted, sessErrs := reindexSessions(database, sessDir, projectDir)
+	if !sessionsIndexed {
+		sessTotal, sessUpserted, sessErrs = reindexSessions(database, sessDir, projectDir)
+	}
 	if sessUpserted > 0 || sessErrs > 0 {
 		fmt.Printf("  sessions: %d events upserted, %d errors (of %d session files)\n",
 			sessUpserted, sessErrs, sessTotal)
@@ -674,6 +704,34 @@ func collectSessionIDs(database *sql.DB, validIDs map[string]bool) {
 	}
 }
 
+// collectPlanIDs registers every plan ID in validIDs. Plans are canonical
+// nodes, but unlike tracks/features/bugs/spikes they have no row in any node
+// table, so no indexing pass ever registers them. validIDs is a target-validity
+// whitelist rather than a node table (session IDs live in it for the same
+// reason), and both indexNodeEdges and purgeStaleEntries consult it — so an
+// unregistered plan ID means every edge touching a plan is dropped on rebuild.
+//
+// HTML is the canonical node file, so its parsed article ID wins; the YAML stem
+// is registered too because reindexPlanEdges emits edges keyed off the YAML and
+// a plan can exist as YAML before its HTML has been rendered.
+func collectPlanIDs(wipnoteDir string, validIDs map[string]bool) {
+	htmlFiles, _ := filepath.Glob(filepath.Join(wipnoteDir, "plans", "*.html"))
+	for _, f := range htmlFiles {
+		node, err := htmlparse.ParseFile(f)
+		if err != nil || node.ID == "" {
+			continue
+		}
+		validIDs[node.ID] = true
+	}
+
+	yamlFiles, _ := filepath.Glob(filepath.Join(wipnoteDir, "plans", "*.yaml"))
+	for _, f := range yamlFiles {
+		if id := strings.TrimSuffix(filepath.Base(f), ".yaml"); id != "" {
+			validIDs[id] = true
+		}
+	}
+}
+
 func reindexEdges(database *sql.DB, wipnoteDir string, validIDs map[string]bool) {
 	dirs := []struct {
 		subdir   string
@@ -683,6 +741,11 @@ func reindexEdges(database *sql.DB, wipnoteDir string, validIDs map[string]bool)
 		{"features", "feature"},
 		{"bugs", "bug"},
 		{"spikes", "spike"},
+		// Plans declare edges in their own <nav data-graph-edges> block
+		// (contains / blocks / blocked_by / relates_to / implemented_in).
+		// They are only scannable because collectPlanIDs registered their IDs
+		// — the loop below gates the SOURCE on validIDs too (bug-d5eaf6a4).
+		{"plans", "plan"},
 	}
 	for _, d := range dirs {
 		pattern := filepath.Join(wipnoteDir, d.subdir, "*.html")

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Node.Properties is set by CLI code but never rendered to HTML or parsed back</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c65a5f4e"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T11:28:19.687362"
+             data-updated="2026-08-08T11:29:15.990717" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Node.Properties is set by CLI code but never rendered to HTML or parsed back</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-7ee73444.html" data-relationship="blocks" data-since="2026-08-08T11:28:26.287633">Per-work-item telemetry rollups: failure rate, cost, thrash</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T11:28:26.385897">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:29:15.99057">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T11:28:19.700449">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>models.Node.Properties is a real map that EditBuilder.SetProperty writes to, and production CLI paths use it — standalone_reason, created_in_session and affected_files are all set during work item creation and plan orphan migration. But nodeTemplateData lists every article attribute by name and never includes Properties, and parseDocument reads a fixed list of data attributes and never repopulates it. Confirmed by grep: zero HTML files under the store contain standalone_reason or created_in_session. The values are written to an in-memory map and discarded at the write boundary. Concrete consequence: isOrphanFeature reads Properties for standalone_reason, so it is dead code after any disk round-trip, and plan migrate-orphans --apply would re-mark the same features on every run because the marker never persists. This is the third instance this session of the same pattern — a field that exists in the model but is never rendered or parsed, after plan edges were never scanned and edge properties were never rendered. Fixing it delivers the generic node-level data attribute mechanism that the telemetry rollup also needs, so the two should share one implementation. Note that a full fix is three edit points, not two: the template for write, the parser for read, and indexWorkitemNode plus the features schema for the SQL surface.</p>
+        </section>
+    </article>
+</body>
+</html>

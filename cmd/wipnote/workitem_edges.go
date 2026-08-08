@@ -25,11 +25,26 @@ func autoCausedByEdge(p *workitem.Project, bugID, featureID string) {
 	_, _ = p.Bugs.AddEdge(bugID, edge)
 }
 
-// autoImplementedInEdge creates bidirectional edges between a work item and
-// a session: implemented_in (item→session in HTML+SQLite) and implements
-// (session→item in SQLite; sessions also have HTML files in .wipnote/sessions/).
+// autoImplementedInEdge creates the canonical implemented_in edge (item→session,
+// written to both HTML and SQLite via the normal Collection.AddEdge dual-write).
+//
+// It deliberately does NOT also write an independent implements (session→item)
+// mirror row. Sessions have no Collection-backed AddEdge path — a session-side
+// write can only ever land in SQLite, never in the session's own HTML — so an
+// edge stored that way has no HTML to reconstruct from and is silently wiped
+// by the next full reindex (bug-216c02c4: exactly this happened to 43 such
+// edges across an otherwise-unchanged HTML tree).
+//
+// implements is the exact structural inverse of implemented_in: "session S
+// implements item I" is the same fact as "item I was implemented_in session
+// S". Storing both as independent rows only creates a second copy that can
+// desync from, or vanish independently of, the first. Callers that need
+// "what did session S implement" should derive it instead — see
+// SessionImplements, which reverses the canonical implemented_in edge rather
+// than reading a stored mirror.
+//
 // Idempotent: skips if the forward edge already exists. Non-fatal on error.
-func autoImplementedInEdge(col *workitem.Collection, itemID, sessionID string, database *sql.DB) {
+func autoImplementedInEdge(col *workitem.Collection, itemID, sessionID string) {
 	node, err := col.Get(itemID)
 	if err != nil {
 		return
@@ -47,13 +62,36 @@ func autoImplementedInEdge(col *workitem.Collection, itemID, sessionID string, d
 		Since:        time.Now().UTC(),
 	}
 	_, _ = col.AddEdge(itemID, edge) // writes HTML + SQLite via dual-write
+}
 
-	// Reverse edge: session→item (SQLite + session HTML files in .wipnote/sessions/).
-	if database != nil {
-		revID := fmt.Sprintf("%s-%s-%s", sessionID, string(models.RelImplements), itemID)
-		_ = dbpkg.InsertEdge(database, revID, sessionID, "session", itemID,
-			inferNodeTypeFromID(itemID), string(models.RelImplements), nil)
+// SessionImplements returns the IDs of work items a session implemented. It is
+// derived by reversing the canonical implemented_in edge (item→session)
+// rather than reading a stored implements (session→item) row — see
+// autoImplementedInEdge for why that mirror is intentionally never written.
+// Because it is computed from the same HTML-backed edge every time, it can
+// never drift out of sync with .wipnote/*.html and survives any reindex.
+// Non-fatal: returns nil when database/sessionID is empty or the query fails.
+func SessionImplements(database *sql.DB, sessionID string) []string {
+	if database == nil || sessionID == "" {
+		return nil
 	}
+	rows, err := database.Query(
+		`SELECT from_node_id FROM graph_edges WHERE to_node_id = ? AND relationship_type = ?`,
+		sessionID, string(models.RelImplementedIn),
+	)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var id string
+		if scanErr := rows.Scan(&id); scanErr == nil {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // autoTrackEdges creates bidirectional part_of/contains edges between a work

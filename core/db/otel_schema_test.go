@@ -33,6 +33,7 @@ func TestOtelSchemaCreated(t *testing.T) {
 		"idx_otel_parent_span",
 		"idx_otel_tool",
 		"idx_otel_harness",
+		"idx_otel_agent_ts",
 	}
 	for _, idx := range wantIndexes {
 		var got string
@@ -41,6 +42,63 @@ func TestOtelSchemaCreated(t *testing.T) {
 		if err != nil {
 			t.Errorf("index %s not created: %v", idx, err)
 		}
+	}
+}
+
+// TestOtelSignalsAgentIDColumn verifies the agent_id column (feat-be696acc)
+// exists on a fresh DB, is nullable, and that re-running the migration
+// against an already-migrated DB is a no-op rather than an error — the same
+// idempotency guarantee the feature_id column migration already relies on.
+func TestOtelSignalsAgentIDColumn(t *testing.T) {
+	dbPath := t.TempDir() + "/otel.db"
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer database.Close()
+
+	if _, err := database.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned) VALUES (?, ?)`,
+		"sess-agent-col", "claude-code"); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+
+	// agent_id must accept NULL (pre-migration rows, and rows the resolver
+	// can't attribute to any agent).
+	if _, err := database.Exec(`
+		INSERT INTO otel_signals (
+			signal_id, harness, session_id, kind, canonical, native, ts_micros, attrs_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"sig-agent-col-null", "claude_code", "sess-agent-col", "span", "tool_result", "claude_code.tool",
+		time.Now().UnixMicro(), "{}",
+	); err != nil {
+		t.Fatalf("insert with NULL agent_id: %v", err)
+	}
+
+	if _, err := database.Exec(`
+		INSERT INTO otel_signals (
+			signal_id, harness, session_id, kind, canonical, native, ts_micros, attrs_json, agent_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"sig-agent-col-set", "claude_code", "sess-agent-col", "span", "tool_result", "claude_code.tool",
+		time.Now().UnixMicro(), "{}", "otel-success@session-abc",
+	); err != nil {
+		t.Fatalf("insert with agent_id set: %v", err)
+	}
+
+	var got string
+	if err := database.QueryRow(
+		`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-agent-col-set",
+	).Scan(&got); err != nil {
+		t.Fatalf("select agent_id: %v", err)
+	}
+	if got != "otel-success@session-abc" {
+		t.Errorf("agent_id = %q, want %q", got, "otel-success@session-abc")
+	}
+
+	// Re-running the migration (as happens on every `wipnote serve` startup
+	// against an existing DB) must not error on the duplicate ALTER TABLE.
+	if err := db.CreateOtelTables(database); err != nil {
+		t.Fatalf("re-run CreateOtelTables: %v", err)
 	}
 }
 

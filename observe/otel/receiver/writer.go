@@ -204,8 +204,8 @@ const (
 			tokens_thought, tokens_tool, tokens_reasoning,
 			cost_usd, cost_source,
 			duration_ms, success, error_msg, attempt, status_code,
-			attrs_json, feature_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			attrs_json, feature_id, agent_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	sqlSessionUpsert = `
 		INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status)
@@ -256,7 +256,8 @@ const (
 			attempt = ?,
 			status_code = ?,
 			attrs_json = ?,
-			feature_id = ?
+			feature_id = ?,
+			agent_id = ?
 		WHERE span_id = ? AND attrs_json LIKE '%"_pending":true%'`
 )
 
@@ -453,16 +454,33 @@ func (w *Writer) writeBatchAttempt(
 	// Track sessions we've already upserted this batch so we don't
 	// fire a redundant INSERT per signal.
 	seen := map[string]bool{}
-	// Per-session cache of active work item (feature/bug/spike claimed
-	// by the session's root agent). Populated lazily on first signal
-	// for each session so we issue at most one SELECT per distinct
-	// session per batch, regardless of signal count.
-	featureByID := map[string]string{}
+	// Cache of active work item per (session_id, agent_id) pair, keyed
+	// internally by resolveFeatureID. Populated lazily so a batch touching
+	// many agents issues at most one SELECT per distinct pair, regardless
+	// of signal count.
+	featureCache := map[string]string{}
 	resObservedAt := time.Now().UnixMicro()
 
 	// spanExists caches span_ids already present in otel_signals (within this
 	// transaction) so we only query the DB once per distinct span_id per batch.
 	spanExists := map[string]bool{}
+
+	// agentIDByOwnSpan maps span_id -> the span's own native "agent_id"
+	// attribute (feat-be696acc), built once up front from every signal in
+	// this batch regardless of array order. A child span's parent is often
+	// in the very same batch — sometimes later in the array than the child,
+	// since OTel spans typically export on completion and children finish
+	// before their parent — so resolveSignalAgentID's one-hop parent lookup
+	// checks this map before falling back to an already-committed DB row.
+	agentIDByOwnSpan := make(map[string]string, len(signals))
+	for i := range signals {
+		if signals[i].SpanID == "" {
+			continue
+		}
+		if aid := rawAgentID(signals[i].RawAttrs); aid != "" {
+			agentIDByOwnSpan[signals[i].SpanID] = aid
+		}
+	}
 
 	for i := range signals {
 		s := &signals[i]
@@ -504,19 +522,20 @@ func (w *Writer) writeBatchAttempt(
 			}
 		}
 
-		// Look up the session's active work item on first encounter,
-		// then reuse the cached value. Uses the __root__ sentinel since
-		// OTel signals don't carry an agent_id — subagent-level
-		// attribution is the planned follow-up (feat-82e11bbb).
-		featureID, cached := featureByID[s.SessionID]
-		if !cached {
-			var fid sql.NullString
-			_ = conn.QueryRowContext(ctx,
-				`SELECT work_item_id FROM active_work_items WHERE session_id = ? AND agent_id = ?`,
-				s.SessionID, "__root__",
-			).Scan(&fid)
-			featureID = fid.String
-			featureByID[s.SessionID] = featureID
+		// Resolve this signal's own agent identity, then the work item that
+		// agent has claimed (feat-be696acc). subagent_invocation spans are
+		// resolved here, ahead of the placeholder-upgrade branch below,
+		// because the re-attribution pass further down never touches their
+		// parent_span (it explicitly skips CanonicalSubagent) — so it's
+		// already final and safe to resolve early. Every other canonical is
+		// re-resolved after re-attribution runs (see below), since
+		// re-attribution can rewrite s.ParentSpan and the one-hop lookup
+		// must see the corrected value, not the pre-correction one.
+		var agentID, featureID string
+		resolvedEarly := s.Kind == otel.KindSpan && s.CanonicalName == otel.CanonicalSubagent
+		if resolvedEarly {
+			agentID = resolveSignalAgentID(ctx, conn, s, agentIDByOwnSpan)
+			featureID = resolveFeatureID(ctx, conn, s.SessionID, agentID, featureCache)
 		}
 
 		// Placeholder upgrade: if this signal is the real Agent/subagent_invocation
@@ -524,7 +543,7 @@ func (w *Writer) writeBatchAttempt(
 		// rather than inserting a duplicate. This transparently promotes the placeholder
 		// written during orphan-span detection to a fully-attributed row.
 		if s.Kind == otel.KindSpan && s.CanonicalName == otel.CanonicalSubagent && s.SpanID != "" {
-			upgraded, upgradeErr := tryUpgradePlaceholder(ctx, stmts.upgrade, s, attrsJSON, successVal, featureID)
+			upgraded, upgradeErr := tryUpgradePlaceholder(ctx, stmts.upgrade, s, attrsJSON, successVal, featureID, agentID)
 			if upgradeErr != nil {
 				return inserted, fmt.Errorf("upgrade placeholder for span %s: %w", s.SpanID, upgradeErr)
 			}
@@ -560,6 +579,14 @@ func (w *Writer) writeBatchAttempt(
 			}
 		}
 
+		// Everything except the early-resolved subagent_invocation branch
+		// above resolves here, now that re-attribution has had its chance to
+		// correct s.ParentSpan — see the comment on resolvedEarly.
+		if !resolvedEarly {
+			agentID = resolveSignalAgentID(ctx, conn, s, agentIDByOwnSpan)
+			featureID = resolveFeatureID(ctx, conn, s.SessionID, agentID, featureCache)
+		}
+
 		res, execErr := stmts.insert.ExecContext(ctx,
 			s.SignalID, string(s.Harness), s.SessionID, nullStr(s.PromptID),
 			nullStr(s.TraceID), nullStr(s.SpanID), nullStr(s.ParentSpan),
@@ -572,7 +599,7 @@ func (w *Writer) writeBatchAttempt(
 			nullFloat(s.CostUSD), nullStr(string(s.CostSource)),
 			nullInt64(s.DurationMs), successVal, nullStr(s.ErrorMsg),
 			nullInt(s.Attempt), nullInt(s.StatusCode),
-			string(attrsJSON), nullStr(featureID),
+			string(attrsJSON), nullStr(featureID), nullStr(agentID),
 		)
 		if execErr != nil {
 			return inserted, fmt.Errorf("insert signal %s: %w", s.SignalID, execErr)
@@ -739,6 +766,7 @@ func tryUpgradePlaceholder(
 	attrsJSON []byte,
 	successVal sql.NullInt64,
 	featureID string,
+	agentID string,
 ) (bool, error) {
 	res, err := upgradeStmt.ExecContext(ctx,
 		s.SignalID, string(s.Harness),
@@ -755,7 +783,7 @@ func tryUpgradePlaceholder(
 		nullFloat(s.CostUSD), nullStr(string(s.CostSource)),
 		nullInt64(s.DurationMs), successVal, nullStr(s.ErrorMsg),
 		nullInt(s.Attempt), nullInt(s.StatusCode),
-		string(attrsJSON), nullStr(featureID),
+		string(attrsJSON), nullStr(featureID), nullStr(agentID),
 		s.SpanID, // WHERE span_id = ?
 	)
 	if err != nil {
@@ -859,6 +887,92 @@ func tryReattributeParent(
 	}
 
 	return "", ""
+}
+
+// rawAgentID reads Claude Code's native "agent_id" span attribute straight
+// off a signal's raw attributes (feat-be696acc). This is emitted directly by
+// the harness's OTel SDK on claude_code.llm_request and claude_code.tool
+// spans whenever the span belongs to a subagent or teammate — see
+// observe/otel/adapter/claude.go, which copies OTLP attributes through
+// unmodified. Distinct from the wipnote.agent_id RESOURCE attribute used
+// elsewhere in this file for placeholder/re-attribution lookups: that one is
+// wipnote's own hex identity propagated via CLAUDE_ENV_FILE (currently
+// broken for Agent-Teams-style sessions — bug-190950e0); this one is
+// harness-native, per-span, and does not depend on that propagation path.
+func rawAgentID(attrs map[string]any) string {
+	if attrs == nil {
+		return ""
+	}
+	v, _ := attrs["agent_id"].(string)
+	return v
+}
+
+// resolveSignalAgentID returns the agent that emitted s: its own native
+// agent_id (rawAgentID) when present, else its immediate parent span's OWN
+// native agent_id, else "" (root — no agent claimed this signal or its
+// parent). Exactly one hop, and strictly one: the parent lookup reads the
+// parent's raw attrs_json (its own native attribute), NEVER the parent's
+// resolved/stored otel_signals.agent_id column — that column can itself hold
+// a value the parent inherited from ITS parent, and reading it here would
+// let inheritance cascade transitively across arbitrarily many generations,
+// which is exactly the deep-tree walk this design deliberately avoids (see
+// the primary-hypothesis research on feat-be696acc: parent chains are not
+// reliably intact across older/other sessions). A child two levels below the
+// nearest agent_id-bearing span is therefore correctly left unattributed
+// (root), not silently inherited.
+//
+// The parent lookup checks agentIDByOwnSpan (this batch) before querying
+// otel_signals, since a child's parent is frequently in the same batch —
+// sometimes later in the array than the child, because spans typically
+// export on completion and children finish before their enclosing parent.
+func resolveSignalAgentID(ctx context.Context, conn dbExecer, s *otel.UnifiedSignal, agentIDByOwnSpan map[string]string) string {
+	if aid := rawAgentID(s.RawAttrs); aid != "" {
+		return aid
+	}
+	if s.ParentSpan == "" {
+		return ""
+	}
+	if aid, ok := agentIDByOwnSpan[s.ParentSpan]; ok {
+		return aid
+	}
+	var v sql.NullString
+	_ = conn.QueryRowContext(ctx,
+		`SELECT json_extract(attrs_json, '$.agent_id') FROM otel_signals WHERE span_id = ?`,
+		s.ParentSpan,
+	).Scan(&v)
+	return v.String
+}
+
+// resolveFeatureID looks up the work item claimed by (sessionID, agentID) in
+// active_work_items, falling back to the session's __root__ claim when the
+// resolved agent has no claim of its own. That fallback is deliberate and
+// currently load-bearing: until bug-190950e0 fixes WIPNOTE_AGENT_ID
+// propagation for Agent-Teams-style sessions, every concurrent agent's own
+// claim collapses to __root__ same as everyone else's, so this fallback
+// reproduces today's (imperfect) behavior unchanged rather than silently
+// dropping feature_id to NULL. Once that propagation gap is fixed and agents
+// hold real per-agent claims, this same fallback still applies correctly for
+// agents that genuinely never claimed a work item of their own.
+//
+// cache is keyed per (sessionID, agentID) so a batch spanning many
+// concurrently active agents issues at most one SELECT per distinct pair.
+func resolveFeatureID(ctx context.Context, conn dbExecer, sessionID, agentID string, cache map[string]string) string {
+	lookupID := db.NormaliseAgentID(agentID)
+	key := sessionID + "\x00" + lookupID
+	if v, ok := cache[key]; ok {
+		return v
+	}
+	var fid sql.NullString
+	_ = conn.QueryRowContext(ctx,
+		`SELECT work_item_id FROM active_work_items WHERE session_id = ? AND agent_id = ?`,
+		sessionID, lookupID,
+	).Scan(&fid)
+	result := fid.String
+	if result == "" && lookupID != db.AgentRootSentinel {
+		result = resolveFeatureID(ctx, conn, sessionID, db.AgentRootSentinel, cache)
+	}
+	cache[key] = result
+	return result
 }
 
 // PurgeStaleSubagentStarts removes pending_subagent_starts rows older than 24 h.

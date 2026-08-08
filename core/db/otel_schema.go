@@ -127,6 +127,22 @@ func CreateOtelTables(db *sql.DB) error {
 		// Index creation is non-critical; continue.
 	}
 
+	// Idempotent migration: agent_id column added after initial schema so
+	// existing DBs pick it up on the next `wipnote serve` (feat-be696acc).
+	// Populated at write time by the OTLP writers (observe/otel/receiver and
+	// observe/otel/sink/sqlite): a signal's own native "agent_id" attribute
+	// (Claude Code's per-span attribution — present on claude_code.llm_request
+	// and claude_code.tool spans) when present, else its immediate parent
+	// span's resolved agent_id (one hop only), else NULL for root. This is a
+	// forward-only migration: existing rows are NOT backfilled, so agent_id
+	// is NULL on every signal written before this column existed.
+	if _, err := db.Exec(`ALTER TABLE otel_signals ADD COLUMN agent_id TEXT`); err != nil {
+		// Ignore "duplicate column" errors — the column is already there.
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_otel_agent_ts ON otel_signals(agent_id, ts_micros) WHERE agent_id IS NOT NULL`); err != nil {
+		// Index creation is non-critical; continue.
+	}
+
 	// pending_subagent_starts: staging table written by the SubagentStart hook.
 	// The OTLP receiver reads this to synthesize a placeholder otel_signals row
 	// as soon as the first subagent span arrives, eliminating the "flash" where

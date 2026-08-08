@@ -796,3 +796,232 @@ func TestWriter_OrphanSpanNoAgentIDGracefulDegrade(t *testing.T) {
 		t.Errorf("placeholder created unexpectedly for no-agent-id orphan: count=%d", count)
 	}
 }
+
+// TestWriter_ResolvesAgentIDFromRawAttrs verifies that a span carrying its
+// own native "agent_id" attribute — Claude Code's per-span attribution on
+// claude_code.llm_request / claude_code.tool spans, passed through unmodified
+// by observe/otel/adapter/claude.go — lands straight in the new
+// otel_signals.agent_id column (feat-be696acc).
+func TestWriter_ResolvesAgentIDFromRawAttrs(t *testing.T) {
+	w, _ := newWriter(t)
+	ctx := context.Background()
+
+	sig := sigFixture("sess-rawattr", "prompt-1", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-rawattr-llm"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalAPIRequest
+		s.NativeName = "claude_code.llm_request"
+		s.SpanID = "span-rawattr-llm-1"
+		s.RawAttrs = map[string]any{"agent_id": "otel-success@session-abc"}
+	})
+
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, map[string]any{"service.name": "claude-code"}, []otel.UnifiedSignal{sig}); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	var agentID sql.NullString
+	if err := w.DB().QueryRow(
+		`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-rawattr-llm",
+	).Scan(&agentID); err != nil {
+		t.Fatalf("lookup agent_id: %v", err)
+	}
+	if !agentID.Valid || agentID.String != "otel-success@session-abc" {
+		t.Errorf("agent_id = %v, want %q", agentID, "otel-success@session-abc")
+	}
+}
+
+// TestWriter_ResolvesAgentIDFromParentSpanOneHop verifies the one-hop parent
+// rescue for children that don't carry agent_id themselves (e.g.
+// claude_code.tool.execution under claude_code.tool), and — just as
+// importantly — that it stops at exactly one hop: a grandchild whose
+// immediate parent ALSO lacks agent_id must NOT reach past it to the
+// grandparent. Parent and child are placed in the same batch with the child
+// FIRST in the array, proving resolution doesn't depend on insertion order
+// (spans typically export child-before-parent, since a span completes before
+// the parent enclosing it does).
+func TestWriter_ResolvesAgentIDFromParentSpanOneHop(t *testing.T) {
+	w, _ := newWriter(t)
+	ctx := context.Background()
+
+	sessionID := "sess-onehop"
+
+	parent := sigFixture(sessionID, "prompt-1", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-onehop-parent"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalToolResult
+		s.NativeName = "claude_code.tool"
+		s.SpanID = "span-onehop-parent"
+		s.RawAttrs = map[string]any{"agent_id": "agent-onehop-parent"}
+	})
+	child := sigFixture(sessionID, "prompt-1", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-onehop-child"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalToolExecution
+		s.NativeName = "claude_code.tool.execution"
+		s.SpanID = "span-onehop-child"
+		s.ParentSpan = "span-onehop-parent"
+		s.RawAttrs = nil // no agent_id of its own — must inherit via one hop
+	})
+	grandchild := sigFixture(sessionID, "prompt-1", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-onehop-grandchild"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalToolExecution
+		s.NativeName = "claude_code.tool.execution"
+		s.SpanID = "span-onehop-grandchild"
+		s.ParentSpan = "span-onehop-child" // child ALSO lacks its own agent_id
+		s.RawAttrs = nil
+	})
+
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, map[string]any{"service.name": "claude-code"},
+		[]otel.UnifiedSignal{child, parent, grandchild}); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	var childAgent sql.NullString
+	if err := w.DB().QueryRow(`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-onehop-child").Scan(&childAgent); err != nil {
+		t.Fatalf("lookup child agent_id: %v", err)
+	}
+	if !childAgent.Valid || childAgent.String != "agent-onehop-parent" {
+		t.Errorf("child agent_id = %v, want one-hop-inherited %q", childAgent, "agent-onehop-parent")
+	}
+
+	var grandchildAgent sql.NullString
+	if err := w.DB().QueryRow(`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-onehop-grandchild").Scan(&grandchildAgent); err != nil {
+		t.Fatalf("lookup grandchild agent_id: %v", err)
+	}
+	if grandchildAgent.Valid && grandchildAgent.String != "" {
+		t.Errorf("grandchild agent_id = %v, want NULL (root) — must not walk past its NULL-agent_id parent to the grandparent", grandchildAgent)
+	}
+}
+
+// TestWriter_FeatureIDJoinsOnResolvedAgentID is the load-bearing test for
+// feat-be696acc: it proves the feature_id lookup actually joins
+// active_work_items on the SIGNAL's resolved agent_id, not that it merely
+// falls back to __root__. Both a non-root agent claim AND a DIFFERENT
+// __root__ claim are seeded in the same session; if the join logic
+// regressed to always reading __root__ (the pre-fix behavior), this test
+// would observe the root feature and fail — a test that only passes because
+// everything collapses to __root__ proves nothing, so this one is built to
+// catch exactly that regression.
+func TestWriter_FeatureIDJoinsOnResolvedAgentID(t *testing.T) {
+	w, dbPath := newWriter(t)
+	ctx := context.Background()
+
+	sessionID := "sess-join-agent"
+	agentID := "otel-success@session-join"
+
+	readDB, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open readDB: %v", err)
+	}
+	defer readDB.Close()
+	if _, err := readDB.Exec(
+		`INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status) VALUES (?, 'claude-code', 'active')`,
+		sessionID,
+	); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// Seed two DIFFERENT claims in the same session: root has one work item,
+	// the named agent has a different one. If the lookup ever falls back to
+	// __root__ instead of joining on the resolved agent, this test observes
+	// the wrong (root) feature and fails.
+	if err := db.SetActiveWorkItem(readDB, sessionID, db.AgentRootSentinel, "feat-root-claim"); err != nil {
+		t.Fatalf("seed root claim: %v", err)
+	}
+	if err := db.SetActiveWorkItem(readDB, sessionID, agentID, "feat-agent-claim"); err != nil {
+		t.Fatalf("seed agent claim: %v", err)
+	}
+
+	sig := sigFixture(sessionID, "prompt-join", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-join-agent"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalAPIRequest
+		s.NativeName = "claude_code.llm_request"
+		s.SpanID = "span-join-agent"
+		s.RawAttrs = map[string]any{"agent_id": agentID}
+	})
+
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, map[string]any{"service.name": "claude-code"}, []otel.UnifiedSignal{sig}); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	var featureID string
+	if err := w.DB().QueryRow(
+		`SELECT COALESCE(feature_id, '') FROM otel_signals WHERE signal_id = ?`, "sig-join-agent",
+	).Scan(&featureID); err != nil {
+		t.Fatalf("lookup feature_id: %v", err)
+	}
+	if featureID != "feat-agent-claim" {
+		t.Errorf("feature_id = %q, want %q (the agent's own claim, not the root's %q)", featureID, "feat-agent-claim", "feat-root-claim")
+	}
+}
+
+// TestWriter_FeatureIDFallsBackToRootWhenAgentHasNoClaim proves the OTHER
+// half of the join: when the resolved agent has no claim of its own,
+// feature_id falls back to the session's __root__ claim rather than going
+// NULL. This is deliberately the SAME observable outcome as today's
+// pre-fix behavior, and that's the point — see bug-190950e0 (WIPNOTE_AGENT_ID
+// propagation for Agent-Teams sessions is separately broken, so until it
+// lands, active_work_items holds essentially only __root__ claims and this
+// fallback is what keeps dashboards showing the same thing they show today,
+// not a regression to no attribution at all).
+func TestWriter_FeatureIDFallsBackToRootWhenAgentHasNoClaim(t *testing.T) {
+	w, dbPath := newWriter(t)
+	ctx := context.Background()
+
+	sessionID := "sess-join-fallback"
+	agentID := "agent-with-no-claim-of-its-own"
+
+	readDB, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open readDB: %v", err)
+	}
+	defer readDB.Close()
+	if _, err := readDB.Exec(
+		`INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status) VALUES (?, 'claude-code', 'active')`,
+		sessionID,
+	); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	// Only the root claims anything in this session — agentID never ran
+	// `wipnote <type> start`.
+	if err := db.SetActiveWorkItem(readDB, sessionID, db.AgentRootSentinel, "feat-root-only"); err != nil {
+		t.Fatalf("seed root claim: %v", err)
+	}
+
+	sig := sigFixture(sessionID, "prompt-fallback", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-join-fallback"
+		s.Kind = otel.KindSpan
+		s.CanonicalName = otel.CanonicalAPIRequest
+		s.NativeName = "claude_code.llm_request"
+		s.SpanID = "span-join-fallback"
+		s.RawAttrs = map[string]any{"agent_id": agentID}
+	})
+
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, map[string]any{"service.name": "claude-code"}, []otel.UnifiedSignal{sig}); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	var featureID string
+	if err := w.DB().QueryRow(
+		`SELECT COALESCE(feature_id, '') FROM otel_signals WHERE signal_id = ?`, "sig-join-fallback",
+	).Scan(&featureID); err != nil {
+		t.Fatalf("lookup feature_id: %v", err)
+	}
+	if featureID != "feat-root-only" {
+		t.Errorf("feature_id = %q, want fallback to root claim %q", featureID, "feat-root-only")
+	}
+
+	// The row's agent_id column should still reflect the SIGNAL's own
+	// resolved identity, not root — the fallback only affects feature_id.
+	var agentCol sql.NullString
+	if err := w.DB().QueryRow(
+		`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-join-fallback",
+	).Scan(&agentCol); err != nil {
+		t.Fatalf("lookup agent_id: %v", err)
+	}
+	if !agentCol.Valid || agentCol.String != agentID {
+		t.Errorf("agent_id = %v, want %q (feature_id fallback must not overwrite the resolved agent identity)", agentCol, agentID)
+	}
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote recommend loads the whole graph four times per invocation</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1a51ab15"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T19:47:12.348573"
+             data-updated="2026-08-08T19:47:12.361951" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>wipnote recommend loads the whole graph four times per invocation</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T19:47:12.361827">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A single recommend invocation calls the graph loader directly and then calls three analytics functions, each of which independently loads every node again. There is no caching anywhere in the graph or work item packages — no sync.Once, no package state — so one command pays roughly four times the full corpus parse, about 430 milliseconds against a measured 108 millisecond single load. This is a present-day cost independent of any architectural change. It also matters as a prerequisite: any proposal that moves more readers onto in-memory loading multiplies this, so a per-invocation cache should land before rather than after. The cheapest fix is threading the already-loaded node set through to the analytics calls rather than having each re-read from disk.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Cluster of Node fields have zero writer and parser wiring</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e5c04997"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-08T11:46:23.480615"
+             data-updated="2026-08-08T12:18:05.795928" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Cluster of Node fields have zero writer and parser wiring</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-c65a5f4e.html" data-relationship="caused_by" data-since="2026-08-08T11:46:57.518934">Node.Properties is set by CLI code but never rendered to HTML or parsed back</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:48:17.32809">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T11:46:28.526704">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="relates_to" data-since="2026-08-08T11:46:57.641346">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Building the generic round-trip test surfaced a whole group of models.Node fields with NO writer and NO parser support at all: PlanTaskID, SpecRequirements, the Handoff fields, RequiredCapabilities, CapabilityTags, and the Context fields. Confirmed by grep, not inferred. They exist on the model, can be set in memory, and are discarded at the write boundary exactly like node Properties were. The round-trip test that was just added deliberately excludes them and documents the exclusion in its doc comment rather than silently working around it, so the gap is visible rather than hidden. Two things need establishing before fixing: which of these fields have real consumers today, and whether any consumer is silently receiving empty values and behaving as though that were meaningful — the pattern that made isOrphanFeature dead code. SpecRequirements and the Handoff fields are the ones most likely to have live readers in spec generation, compliance scoring, or work handoff. Fix by wiring them through the same shared renderPropAttrs core and parser sweep, then extend the round-trip test to cover them so the exclusion list shrinks to empty.</p>
+        </section>
+    </article>
+</body>
+</html>

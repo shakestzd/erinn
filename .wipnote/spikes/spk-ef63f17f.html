@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Adopt-vs-build survey: claim ledger, attribute drift, lineage model</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-ef63f17f"
+             data-type="spike"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-08T12:40:38.741855"
+             data-updated="2026-08-08T12:43:03.05602" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Adopt-vs-build survey: claim ledger, attribute drift, lineage model</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T12:42:47.452958">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>RESEARCH-ONLY. Adopt-vs-build survey for three approved-but-unbuilt designs, requested by team-lead. Searched web, GitHub (gh api star/push signals), and pkg.go.dev — not vendor docs alone.
+
+=== TARGET 1 — Durable append-only claim ledger (feat-21d12cdb) ===
+Design: git-tracked NDJSON log, one record per claim lifecycle event, ingested into derived SQLite by existing reindex path.
+
+Candidates rejected:
+- hallgren/eventsourcing (281 stars, active) — embedded Go event-sourcing lib, but backs onto a pluggable EventStore (bbolt/sql/memory), i.e. a binary or server-backed store. Fails &#34;git-diffable, survives fresh clone&#34; — binary formats produce meaningless git diffs and aggregate/merge semantics don&#39;t match a plain append log.
+- altairsix/eventsource, thefabric-io/eventsourcing — DynamoDB/Postgres-backed. Require a running server; violates &#34;no server&#34; and &#34;survive fresh clone&#34; constraints outright.
+- tidwall/wal, hashicorp raft-wal style segmented WALs — binary, optimized for throughput not diffability. Same rejection as above.
+- immudb (9,015 stars, pushed within days, very active, embeddable-as-library mode exists) — closest in spirit (cryptographically verifiable immutable ledger with time-travel queries) but stores state as its own binary/merkle-tree files, not text. Not git-diffable; a fresh `git clone` gets file bytes but immudb&#39;s format isn&#39;t designed to be inspected or merged as text, and it&#39;s an entire embedded database engine for what is fundamentally a small structured log — disproportionate.
+- NDJSON wrapper packages on pkg.go.dev (evandrolg/ndjson, adotkp/ndjson, prologic/jsonlines, go.mills.io/jsonlines) — checked pkg.go.dev importers: evandrolg/ndjson has ZERO dependents. These are single-author shims around `encoding/json` + `bufio.Scanner`/`bufio.Writer`, each under ~100 lines. Adopting one trades an import + version-pin liability for what stdlib already does directly; not a meaningful reuse win.
+
+Conclusion: BUILD. The hard constraint (git-tracked, human-diffable, survives fresh clone with zero runtime/server) rules out every event-store/event-sourcing library found — they all assume they own a binary or server-backed storage engine, which is the opposite of what&#39;s wanted. This is not &#34;event sourcing&#34; in the library sense; it&#39;s a plain text log format, and Go stdlib (encoding/json line-by-line + bufio.Scanner) is the correct-sized tool. This also matches wipnote&#39;s own established pattern (AGENTS.md: &#34;.wipnote/*.html — canonical store,&#34; git-tracked human-readable artifacts as source of truth) — the claim ledger should follow the same convention already proven in this codebase, not import a new one.
+
+=== TARGET 2 — Upstream attribute drift detection (bug-735806ff) ===
+Problem: adapter tests assert against synthetic spans; real harness output drifted (tool_use_id empty on ~39,700 rows, present in attrs_json on half) undetected by a green suite.
+
+Candidates evaluated:
+- Pact / pact-go (951 stars, pushed yesterday, very actively maintained, real production tool) — REJECTED on fit, not maturity. Consumer-driven contract testing requires a cooperating PROVIDER side that runs verification against the pact broker. wipnote&#39;s &#34;provider&#34; is Anthropic/OpenAI/Google&#39;s CLI harness output format — none of those vendors will run Pact provider verification against wipnote&#39;s contracts. Architecturally this is a one-sided relationship (wipnote only consumes), which is exactly the shape Pact is not built for.
+- Golden/approval testing on real captures — gotest.tools/v3/golden (577★ parent repo, but this subpackage last published Sep 2024 — stable/idle, not abandoned) and bradleyjkemp/cupaloy/v2 (330★, last push May 2023, 17 known importers) — both viable, well-understood Go snapshot-testing libraries. Lightweight: capture real adapter output once, diff future captures against the committed golden file, CI fails loudly on any shape change including silent renames. This directly targets the root cause (tests built on synthetic input) at low adoption cost.
+- JSON Schema validation of captured payloads — no dedicated Go tooling found beyond hand-rolling with a JSON Schema library (e.g. santhosh-tekuri/jsonschema); doable but is really &#34;golden testing with an extra layer,&#34; not a distinct category worth a separate dependency.
+- **OpenTelemetry Weaver** (open-telemetry/weaver, official OTel org project, 461★, pushed 2026-08-07, releases every 1-2 weeks) — ships a **live-check** mode: &#34;Check the conformance level of an OTLP stream against a semantic convention registry,&#34; validated against REAL emitted telemetry, not synthetic fixtures. Registries are user-authorable YAML, not limited to the public OTel semconv set — wipnote can define its own registry of required attributes per harness adapter (tool_use_id etc.) and run live-check against captured/replayed payloads in CI via the existing weaver-live-check-start/stop GitHub Actions. This is the OTel ecosystem&#39;s own answer to &#34;does anything validate emitted attributes against a convention registry against real traffic&#34; — yes. Caveat: pre-1.0, breaking changes between minors (pin version); requires payloads to be OTLP-shaped, so if wipnote&#39;s captured adapter output isn&#39;t already OTLP when it hits this check, a translation step is needed first.
+
+Conclusion: ADOPT, layered. Immediate/cheapest fix: replace synthetic-span fixtures with golden/approval tests captured from real harness sessions (cupaloy or gotest.tools/golden — either is fine, both are thin and stable) — this alone would have caught the tool_use_id bug, since a real capture would show the field populated where the golden file expects it. For the durable, systemic answer (&#34;fails loudly whenever upstream renames a field, not just when someone remembers to refresh a golden file&#34;), adopt OTel Weaver live-check with a wipnote-authored semantic convention registry, run in CI against periodically-refreshed real captures. Do not adopt Pact — wrong shape for a one-sided, uncooperative upstream.
+
+=== TARGET 3 — The lineage model itself ===
+Question: should wipnote&#39;s edge vocabulary (caused_by, implements, part_of, blocks) align with an existing standard rather than diverge from it?
+
+- **OpenLineage** (2,587★, pushed today, very active, Linux Foundation AI/Data project) — Run/Job/Dataset/Facets model. Fetched the object-model spec directly: it assumes directional dataset I/O (&#34;most Jobs have at least one input or output Dataset&#34;), scheduled/repeatable job semantics (cron-style recurrence distinguishing Runs of the same Job), and execution-lifecycle states (START/COMPLETE) rather than development lifecycle states (opened/claimed/reviewed/merged). Forcing work items, commits, or agent spawns into Dataset/Job/Run would require real conceptual stretching — it is genuinely a data-pipeline lineage spec, not a general causal-graph spec. POOR FIT, confirmed from the spec text itself, not just intuition.
+- **W3C PROV** (Entity/Activity/Agent; wasGeneratedBy/wasDerivedFrom/wasAttributedTo/wasInformedBy/actedOnBehalfOf) — conceptually the closest match. Mapping is direct: work item/commit = Entity, coding session = Activity, human/AI agent = Agent, &#34;commit wasGeneratedBy session,&#34; &#34;session wasAssociatedWith agent,&#34; &#34;child-agent-spawn actedOnBehalfOf parent-agent,&#34; &#34;feature wasDerivedFrom spike.&#34; Full PROV-O is RDF/OWL and expects a triple store or SPARQL — that machinery is a bad fit for wipnote&#39;s SQLite+git architecture. Recommendation is vocabulary alignment only: rename/annotate edge types where they overlap with PROV relations (a compatibility note in docs, e.g. &#34;part_of ~ PROV wasInformedBy,&#34; not a schema migration), so wipnote&#39;s model is legible to anyone who knows PROV, without adopting RDF tooling.
+- **SLSA / in-toto** (slsa-github-generator 591★, in-toto/attestation 361★, in-toto-golang 151★, all pushed within days — actively maintained) — model builder/materials/invocation/predicate for supply-chain attestation, cryptographically signed via DSSE envelopes. Different threat model: SLSA/in-toto exist to let a THIRD PARTY verify an artifact they don&#39;t trust; wipnote&#39;s lineage is first-party observability of its own agents. Adopting DSSE signing and attestation verification for internal lineage would be substantial, unjustified overhead. Useful only as a naming analogy (their &#34;builder.id&#34; concept parallels wipnote&#39;s need to attribute a commit to a specific agent/model), not as adoptable tooling.
+- **PROV-AGENT** (arXiv 2508.02866, DOE/UT-Battelle, 2025) — an academic paper extending W3C PROV specifically for LLM-agent workflows (integrates MCP + telemetry into a unified provenance graph). Validates that PROV-alignment is the right instinct for exactly this problem, but it is a research paper, not a mature adoptable library — no widely-used implementation exists yet. Cite as corroborating prior art, not as something to depend on.
+- OpenTelemetry GenAI semantic conventions (draft, active OTel effort) — defines span-level attribute vocabulary for individual agent/tool/LLM invocations (invoke_agent, execute_tool spans). Complements but doesn&#39;t replace a lineage graph model: it standardizes what a single span looks like, not how work items/commits/sessions connect to each other. Relevant to Target 2&#39;s registry-authoring work more than to Target 3&#39;s graph model.
+
+Conclusion: ALIGN, don&#39;t adopt. No drop-in standard models wipnote&#39;s specific graph (dev work items + git commits + coding sessions + agent spawn trees). OpenLineage is a confirmed poor fit. W3C PROV&#39;s vocabulary is the right conceptual alignment target — cheap (a documentation/naming exercise, optionally a `prov_equivalent` annotation on edge-type definitions) and it buys legibility to anyone who knows the standard, without adopting PROV-O&#39;s RDF/triple-store machinery. SLSA/in-toto&#39;s attestation model is a different problem (third-party artifact trust vs. first-party lineage) and not worth adopting. Keep building wipnote&#39;s typed edges as they are; document the PROV correspondence.</p>
+        </section>
+    </article>
+</body>
+</html>

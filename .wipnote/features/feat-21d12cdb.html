@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Durable per-agent claim history to replace single-slot current-state tables</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-21d12cdb"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T11:33:30.855747"
+             data-updated="2026-08-08T11:42:41.277322" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Durable per-agent claim history to replace single-slot current-state tables</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-be696acc.html" data-relationship="blocks" data-since="2026-08-08T11:33:40.240546">Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</a></li>
+                    <li><a href="../features/feat-7ee73444.html" data-relationship="blocks" data-since="2026-08-08T11:33:40.368968">Per-work-item telemetry rollups: failure rate, cost, thrash</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T11:33:40.550615">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:33:30.866666">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Correct per-work-item attribution needs per-signal agent identity AND a durable record of which agent held which item when. Neither exists. Every claim-bearing table is single-mutable-slot current-state: active_work_items is INSERT OR REPLACE and holds 3 rows ever, claims has 58 rows all under __root__, and sessions.active_feature_id is wiped to empty on completion, precisely the event it would be needed for. DESIGN, researched: the ledger does NOT belong in SQLite (derived and deletable) and does NOT belong in the work item HTML — node fields are snapshot-not-log, and ClaimItemOrRenew fires on lease renewal, so per-item history would bloat every work item diff with heartbeat noise. The existing session events NDJSON is not a candidate either: despite hook comments calling it canonical, it is gitignored, so it does not survive a fresh clone. Recommendation is a new git-tracked append-only NDJSON ledger under the store, explicitly carved out of the gitignore rules that currently blanket-exclude session telemetry, one record per claim lifecycle event — claimed, released, completed, abandoned, expired — and NOT per heartbeat renewal. Fields: work_item_id, session_id, agent_id, event, timestamp. This is a new canonical artifact class alongside the HTML nodes, ingested by reindex into a new table the same way HTML is ingested today. On sessions.active_feature_id: leave the wipe alone. The field is correctly scoped as live state and is the wrong home for history regardless, being both derived and a single scalar incapable of holding more than one claim episode.</p>
+<h2>Acceptance Criteria</h2>
+<p>Ledger survives a full cache wipe and a fresh clone. Claim history is queryable by (session, agent, time) so a signal can be attributed to the claim active when it was emitted. Heartbeat renewals do not produce records.</p>
+        </section>
+    </article>
+</body>
+</html>

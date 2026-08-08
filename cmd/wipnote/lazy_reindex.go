@@ -114,6 +114,12 @@ func runFullSyncReindex(wipnoteDir string) error {
 	// container restart in this repo) silently drops every archived item from
 	// the read index. Mirrors the full-reindex ordering in runReindex.
 	reindexWorkitemLedgerNodes(database, wipnoteDir, projectDir, validIDs, false)
+	// The claim ledger is canonical and cheap to ingest (one small file per root
+	// session). It has to land on THIS path, not only in `wipnote reindex`: the
+	// cold rebuild is what runs after a cache wipe or container restart, and
+	// without it every per-agent attribution query would silently return nothing
+	// until someone happened to run a full reindex.
+	reindexClaimEpisodes(database, wipnoteDir, false)
 	collectSessionIDs(database, validIDs)
 	reindexEdges(database, wipnoteDir, validIDs)
 	reindexWorkitemLedgerEdges(database, wipnoteDir, validIDs, false)

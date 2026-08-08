@@ -412,6 +412,31 @@ func CreateAllTables(db *sql.DB) error {
 			indexed_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 
+		// 16b. claim_episodes — read index for the claim ledger
+		// (.wipnote/claims/*.html). Canonical store is the HTML; this table is
+		// derived and never authoritative, and a cache wipe rebuilds it whole.
+		//
+		// Unlike claims/active_work_items — which are single-mutable-slot CURRENT
+		// state — a row here is a closed or open INTERVAL, so a signal emitted at
+		// time T by agent A has something to join against.
+		//
+		// started_at/ended_at are TEXT in claimledger.TimeFormat: RFC3339 UTC with
+		// fixed nine-digit fractions, so TEXT comparison IS chronological ordering.
+		// ended_at is '' (never NULL) while the episode is open, which keeps the
+		// interval predicate a plain string comparison with no COALESCE.
+		`CREATE TABLE IF NOT EXISTS claim_episodes (
+			episode_id      TEXT PRIMARY KEY,
+			work_item_id    TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
+			root_session_id TEXT NOT NULL DEFAULT '',
+			agent_id        TEXT NOT NULL,
+			started_at      TEXT NOT NULL,
+			ended_at        TEXT NOT NULL DEFAULT '',
+			outcome         TEXT NOT NULL DEFAULT '',
+			source_file     TEXT NOT NULL DEFAULT '',
+			indexed_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+
 		// 17. gate_records — session-local derived quality-gate runs
 		`CREATE TABLE IF NOT EXISTS gate_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -526,6 +551,11 @@ func CreateAllIndexes(db *sql.DB) error {
 		// arch_cards
 		"CREATE INDEX IF NOT EXISTS idx_arch_cards_kind ON arch_cards(kind)",
 		"CREATE INDEX IF NOT EXISTS idx_arch_cards_retired ON arch_cards(retired)",
+		// claim_episodes — the point query is (agent, timestamp) → work item, so
+		// the covering index leads with agent_id and orders by started_at.
+		"CREATE INDEX IF NOT EXISTS idx_claim_episodes_agent_start ON claim_episodes(agent_id, started_at)",
+		"CREATE INDEX IF NOT EXISTS idx_claim_episodes_session_agent ON claim_episodes(session_id, agent_id, started_at)",
+		"CREATE INDEX IF NOT EXISTS idx_claim_episodes_work_item ON claim_episodes(work_item_id, started_at)",
 		// plan_feedback
 		"CREATE INDEX IF NOT EXISTS idx_plan_feedback_plan_id ON plan_feedback(plan_id)",
 		"CREATE INDEX IF NOT EXISTS idx_plan_feedback_section ON plan_feedback(plan_id, section)",

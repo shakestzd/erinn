@@ -57,22 +57,31 @@ func persistWorkitemArtifactTransition(wipnoteDir, typeName, id, action string) 
 	}
 }
 
-func enqueueWorkitemArtifactCommitIntent(wipnoteDir, typeName, id, action string) error {
-	repoRoot := filepath.Dir(wipnoteDir)
-
+// skipWipnoteGitMutation reports whether a git mutation rooted at wipnoteDir
+// must be skipped: either the path looks like a Go test scratch directory
+// (defense-in-depth against a mis-configured test committing for real) or the
+// project is not in a git repository. label names the caller in the skip notice.
+func skipWipnoteGitMutation(wipnoteDir, label string) bool {
 	absWipnote, err := filepath.Abs(wipnoteDir)
 	if err != nil {
 		absWipnote = wipnoteDir
 	}
 	if isTestTmpPath(absWipnote) {
 		if os.Getenv("WIPNOTE_DEBUG") == "1" {
-			fmt.Fprintf(stderr, "artifact commit defer skipped: path looks like a test temp dir: %s\n", absWipnote)
+			fmt.Fprintf(stderr, "%s skipped: path looks like a test temp dir: %s\n", label, absWipnote)
 		}
-		return nil
+		return true
 	}
+	if !isGitRepo(filepath.Dir(wipnoteDir)) {
+		fmt.Fprintf(stderr, "%s skipped: %s is not inside a git repository\n", label, filepath.Dir(wipnoteDir))
+		return true
+	}
+	return false
+}
 
-	if !isGitRepo(repoRoot) {
-		fmt.Fprintf(stderr, "artifact commit defer skipped: %s is not inside a git repository\n", repoRoot)
+func enqueueWorkitemArtifactCommitIntent(wipnoteDir, typeName, id, action string) error {
+	repoRoot := filepath.Dir(wipnoteDir)
+	if skipWipnoteGitMutation(wipnoteDir, "artifact commit defer") {
 		return nil
 	}
 
@@ -137,32 +146,30 @@ func isTestTmpPath(absPath string) bool {
 // function logs to stderr and returns nil. The caller must not make completion
 // of the work item depend on the git commit succeeding.
 func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
+	return commitWipnotePath(wipnoteDir, workitemArtifactRelPath(typeName, id),
+		workitemArtifactCommitMessage(id, action))
+}
+
+// commitWipnotePath is the path-generic core of commitWipnoteArtifact: it
+// stages and commits ONE repo-relative path under the repo that contains
+// wipnoteDir, honouring the same non-fatal contract. Every canonical .wipnote
+// artifact that needs an auto-commit goes through here rather than growing its
+// own copy of the lock/stage/diff/commit dance.
+//
+// relPath must be repo-relative — an absolute host path would leak into commit
+// messages and diffs, which the pre-commit gate rejects.
+func commitWipnotePath(wipnoteDir, relPath, msg string) error {
 	// Derive the repo root: wipnoteDir is .wipnote/ inside the project root.
 	repoRoot := filepath.Dir(wipnoteDir)
 
 	// Defense-in-depth: reject paths that look like Go test scratch
 	// directories. These live inside the project tree (see .gitignore comment
 	// "Go test scratch space") but must never trigger real git mutations.
-	// Silent skip — this is never a caller error, just a mis-configured test.
-	absWipnote, err := filepath.Abs(wipnoteDir)
-	if err != nil {
-		absWipnote = wipnoteDir
-	}
-	if isTestTmpPath(absWipnote) {
-		if os.Getenv("WIPNOTE_DEBUG") == "1" {
-			fmt.Fprintf(stderr, "autocommit skipped: path looks like a test temp dir: %s\n", absWipnote)
-		}
+	if skipWipnoteGitMutation(wipnoteDir, "autocommit") {
 		return nil
 	}
 
-	if !isGitRepo(repoRoot) {
-		fmt.Fprintf(stderr, "autocommit skipped: %s is not inside a git repository\n", repoRoot)
-		return nil
-	}
-
-	relPath := workitemArtifactRelPath(typeName, id)
 	absPath := filepath.Join(repoRoot, relPath)
-	msg := workitemArtifactCommitMessage(id, action)
 
 	// Hold ONE advisory lock across the whole add → diff → commit sequence so no
 	// other wipnote git mutation can interleave between staging and committing
@@ -187,7 +194,7 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 				return nil, nil
 			}
 			fmt.Fprintf(stderr, "autocommit warning: git commit failed for %s (artifact persisted to disk — please commit manually): %s\n",
-				id, strings.TrimSpace(outStr))
+				relPath, strings.TrimSpace(outStr))
 		}
 		return nil, nil
 	})

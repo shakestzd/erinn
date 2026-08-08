@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shakestzd/wipnote/core/claimledger"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/hooks"
@@ -435,6 +436,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 				}
 				_ = dbpkg.ClaimItemOrRenew(p.DB, claim, 30*time.Minute)
 			}
+			// Durable claim history (feat-21d12cdb). This sits BESIDE the claim
+			// row, not inside it: claims/active_work_items are single-slot current
+			// state that forget the moment a claim moves, so a signal emitted at
+			// time T has nothing to join against. Open is idempotent — a re-start
+			// or lease renewal writes no row.
+			recordClaimEpisodeOpen(p.DB, dir, sessionID, agentID, id)
 			autoImplementedInEdge(col, id, sessionID)
 			// Non-fatal advisory: warn when this session now owns >= wipPerSessionSoftLimit
 			// in-progress items. Never blocks; yolo/orchestrator may legitimately pre-start.
@@ -454,6 +461,8 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	if status == "done" && p.DB != nil {
 		if sessionID != "" {
 			_ = dbpkg.ClearActiveWorkItem(p.DB, sessionID, agentID)
+			// Close the claim episode in place, giving the interval its end.
+			recordClaimEpisodeClose(p.DB, dir, sessionID, agentID, id, claimledger.OutcomeCompleted)
 		}
 		// Clear legacy column for any session pointing at this item.
 		_, _ = p.DB.Exec(

@@ -191,6 +191,17 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 	}
 	errCount += archErrs
 
+	// Ingest the claim ledger (.wipnote/claims/*.html) into claim_episodes. Runs
+	// on the incremental path too — see reindexClaimEpisodes for why a
+	// git-diff-driven pass would miss episodes that are written but not yet
+	// flushed by the commit queue.
+	claimFiles, claimRows, claimErrs := reindexClaimEpisodes(database, wipnoteDir, verboseFlag)
+	if claimRows > 0 || claimErrs > 0 {
+		fmt.Printf("  claim episodes: %d upserted, %d errors (of %d ledger files)\n",
+			claimRows, claimErrs, claimFiles)
+	}
+	errCount += claimErrs
+
 	// Ingest recap artifacts (.wipnote/recaps/*.html) into the recaps read index.
 	recapTotal, recapUpserted, recapErrs := reindexRecaps(database, wipnoteDir, projectDir, verboseFlag)
 	if recapUpserted > 0 || recapErrs > 0 {

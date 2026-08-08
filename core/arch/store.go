@@ -7,16 +7,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/shakestzd/wipnote/core/filelock"
 )
 
 const (
 	importYAMLCardExt = ".yaml"
 	legacyMDCardExt   = ".md"
 )
-
-var ledgerWriteMu sync.Map
 
 // Store manages import-compatible arch cards on disk under <wipnoteDir>/arch/.
 type Store struct {
@@ -292,11 +291,12 @@ func (s *Store) write(card *Card, previousPath string) error {
 	return nil
 }
 
+// lockLedgerForWrite serialises writers to the canonical architecture ledger
+// both in-process and across processes. The implementation lives in
+// core/filelock — it is the same guard every canonical HTML artifact uses, and
+// keeping one copy means the Windows gap (bug-68f3593b) is fixed in one place.
 func lockLedgerForWrite(ledgerPath string) func() {
-	muVal, _ := ledgerWriteMu.LoadOrStore(ledgerPath, &sync.Mutex{})
-	mu := muVal.(*sync.Mutex)
-	mu.Lock()
-	return lockLedgerFile(ledgerPath, mu.Unlock)
+	return filelock.Guard(ledgerPath)
 }
 
 // ValidateAll parses and validates every card in the store.

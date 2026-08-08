@@ -169,6 +169,15 @@ func TestStartRecapsReindexLoop_PopulatesTableAtStartup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
+	// Pin the pool to ONE permanent connection. Every new connection to
+	// ":memory:" gets its own private, empty database, so without this the drain
+	// goroutine's INSERT and this goroutine's polling SELECT can land on
+	// different databases and the row is never observed — the test then burns
+	// its whole 10s deadline and fails. That made it flaky at roughly 1-in-4
+	// independent of any production change. Same remedy, and same reasoning, as
+	// core/db/dbtest.OpenForTest, which documents this trap in detail.
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxLifetime(0)
 	defer db.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -10,15 +10,15 @@
 <body>
     <article id="feat-21d12cdb"
              data-type="feature"
-             data-status="todo"
+             data-status="in-progress"
              data-priority="high"
              data-created="2026-08-08T11:33:30.855747"
-             data-updated="2026-08-08T11:42:41.277322" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T16:50:59.083509" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>Durable per-agent claim history to replace single-slot current-state tables</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -37,6 +37,12 @@
                     <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T11:33:40.550615">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T16:50:54.491206">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
@@ -45,11 +51,18 @@
             </section>
         </nav>
 
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="task-27" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Build the claim ledger (feat-21d12cdb)</li>
+            </ol>
+        </section>
+
         <section data-content>
             <h3>Description</h3>
-            <p>Correct per-work-item attribution needs per-signal agent identity AND a durable record of which agent held which item when. Neither exists. Every claim-bearing table is single-mutable-slot current-state: active_work_items is INSERT OR REPLACE and holds 3 rows ever, claims has 58 rows all under __root__, and sessions.active_feature_id is wiped to empty on completion, precisely the event it would be needed for. DESIGN, researched: the ledger does NOT belong in SQLite (derived and deletable) and does NOT belong in the work item HTML — node fields are snapshot-not-log, and ClaimItemOrRenew fires on lease renewal, so per-item history would bloat every work item diff with heartbeat noise. The existing session events NDJSON is not a candidate either: despite hook comments calling it canonical, it is gitignored, so it does not survive a fresh clone. Recommendation is a new git-tracked append-only NDJSON ledger under the store, explicitly carved out of the gitignore rules that currently blanket-exclude session telemetry, one record per claim lifecycle event — claimed, released, completed, abandoned, expired — and NOT per heartbeat renewal. Fields: work_item_id, session_id, agent_id, event, timestamp. This is a new canonical artifact class alongside the HTML nodes, ingested by reindex into a new table the same way HTML is ingested today. On sessions.active_feature_id: leave the wipe alone. The field is correctly scoped as live state and is the wrong home for history regardless, being both derived and a single scalar incapable of holding more than one claim episode.</p>
-<h2>Acceptance Criteria</h2>
-<p>Ledger survives a full cache wipe and a fresh clone. Claim history is queryable by (session, agent, time) so a signal can be attributed to the claim active when it was emitted. Heartbeat renewals do not produce records.</p>
+            <p>Durable record of which agent held which work item when — the missing half of correct attribution. Per-signal agent identity now flows; nothing records the intervals to join it against, because every claim-bearing table is single-mutable-slot current state. STORAGE: a table in an HTML file, following the architecture-cards precedent — one table, one row per record, data attributes plus field cells, parsed and ingested by the existing machinery. Sharded one file per ROOT session under a dedicated directory in the store, NOT under the session telemetry directory, which is gitignored and would not survive a fresh clone. Sharding eliminates cross-session and cross-worktree merge conflicts, which a single shared file would generate on every worktree merge. Root-session rather than per-subagent granularity keeps the file count to one per session instead of one per agent, and intra-session contention is handled by the existing lock. ROW SHAPE: one row per claim EPISODE rather than per event, carrying work item, session, agent, start, end and outcome. A time-bounded activity is one row; an event log would need two records and a join. Heartbeat renewals produce no rows. WRITE PATH: reuse the canonical HTML lock verbatim — in-process mutex keyed by path, blocking cross-process file lock on a sidecar, atomic temp-then-rename — but do NOT reuse the arch-card write body, which parses and reserializes every row. Under the same lock, append the row with a trailing-byte check following the existing outbox append guard, so a torn prior write cannot merge into the new row. Constant write cost instead of linear. File-level append-only is not required: git history is the append-only log, as it already is for work items and cards. ARCHIVE: a compaction step rolls closed sessions&#39; files into a single archive file in the same directory, bounding file growth while keeping the working set small. NOT the write daemon: its applier has no file-write op and no writable-file handle, and routing through it would blur the canonical-versus-derived boundary.
+Acceptance Criteria
+Claim history survives a cache wipe and a fresh clone. A signal from a known agent at a known time resolves to the work item that agent actually held. Heartbeat renewals produce no rows. Two concurrent agents in one session both land their rows. Two sessions in separate worktrees merge without conflict. Each episode is addressable by fragment. Archived sessions remain queryable.</p>
         </section>
     </article>
 </body>

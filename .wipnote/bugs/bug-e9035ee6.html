@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Tests opening :memory: without pinning the pool can silently see an empty database</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e9035ee6"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T17:35:40.880515"
+             data-updated="2026-08-08T17:35:40.894796" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Tests opening :memory: without pinning the pool can silently see an empty database</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-08T17:35:40.894715">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>core/db.Open(&#34;:memory:&#34;) returns a handle whose pool may open more than one connection, and SQLite gives every new connection to :memory: its OWN private empty database. A test touching the handle from more than one goroutine can therefore have its write land on one database and its read on another; the read simply sees nothing, with no error. TestStartRecapsReindexLoop_PopulatesTableAtStartup hit this and failed roughly one run in four on unmodified main (measured 8/30, and 15/30 under load) - bimodal, passing in 60ms or burning its full 10s deadline, because startDrainLoop swallows the drain goroutine&#39;s outcome. Fixed there with SetMaxOpenConns(1) plus SetConnMaxLifetime(0), the remedy core/db/dbtest.OpenForTest already documents in detail. About twenty other test files call Open(&#34;:memory:&#34;) without the pin; they do not flake today only because they are strictly single-goroutine, so the hazard is latent rather than absent. Options: have Open apply the pin itself whenever the DSN is in-memory (no production caller uses :memory:), or migrate callers to dbtest.OpenForTest. Note the documented deadlock caveat - a single connection is unsafe for code that queries inside an open rows loop.</p>
+        </section>
+    </article>
+</body>
+</html>

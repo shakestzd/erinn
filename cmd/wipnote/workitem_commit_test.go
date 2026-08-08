@@ -13,6 +13,7 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/internal/commitqueue"
 )
 
 // setupTransactionalCompleteRepo builds a real git repo OUTSIDE the project
@@ -758,11 +759,32 @@ func TestTransactionalComplete_DeferQueuesIntentAndWarns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Pending: %v", err)
 	}
-	if len(pending) != 1 {
-		t.Fatalf("expected 1 pending deferred intent, got %d", len(pending))
+	// TWO intents are expected, for two different canonical files: the work-item
+	// artifact, and the claim-episode ledger shard that the start/complete pair
+	// wrote (feat-21d12cdb). Both of the ledger's own mutations coalesce into one
+	// intent because AppendCoalescingByRelPath keys on the repo-relative path and
+	// a session has exactly one shard — which is precisely the batching that
+	// keeps episode churn from producing a commit per mutation.
+	if len(pending) != 2 {
+		t.Fatalf("expected 2 pending deferred intents (artifact + claim ledger), got %d: %+v", len(pending), pending)
 	}
-	if pending[0].Message != "wipnote: complete "+featID {
-		t.Fatalf("deferred completion intent message = %q", pending[0].Message)
+	var artifactIntent, claimIntent *commitqueue.Intent
+	for i := range pending {
+		switch {
+		case len(pending[i].RelPaths) == 1 && strings.HasPrefix(pending[i].RelPaths[0], ".wipnote/features/"):
+			artifactIntent = &pending[i]
+		case len(pending[i].RelPaths) == 1 && strings.HasPrefix(pending[i].RelPaths[0], ".wipnote/claims/"):
+			claimIntent = &pending[i]
+		}
+	}
+	if artifactIntent == nil {
+		t.Fatalf("no work-item artifact intent among pending: %+v", pending)
+	}
+	if artifactIntent.Message != "wipnote: complete "+featID {
+		t.Fatalf("deferred completion intent message = %q", artifactIntent.Message)
+	}
+	if claimIntent == nil {
+		t.Fatalf("no claim-ledger intent among pending: %+v", pending)
 	}
 
 	logOut, _ := exec.Command("git", "-C", repoRoot, "log", "--format=%s").CombinedOutput()

@@ -94,6 +94,12 @@ func main() {
 // command registration — both main() and tests use this function so the
 // command tree cannot drift.
 func buildRoot() *cobra.Command {
+	// Canonical claim-ledger writes have to reach the commit queue, but
+	// core/claimledger cannot import internal/commitqueue. Install the producer
+	// seam here, where every CLI command and hook handler in this binary picks
+	// it up.
+	initClaimLedgerCommitSeam()
+
 	spike := workitemCmd("spike", "spikes")
 	spike.AddCommand(spikeResetCmd())
 	spike.AddCommand(linkCommitCmd("spike"))
@@ -156,6 +162,7 @@ func buildRoot() *cobra.Command {
 			{GroupID: "data", Command: cleanCmd()},
 			{GroupID: "data", Command: cleanupCmd()},
 			{GroupID: "data", Command: archiveCmd()},
+			{GroupID: "data", Command: claimsCmd()},
 			{GroupID: "data", Command: cacheCmd()},
 			{GroupID: "data", Command: syncCmd()},
 			{GroupID: "data", Command: pruneCmd()},

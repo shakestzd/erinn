@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/claimledger"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/worktree"
@@ -115,6 +116,11 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 	} else if released > 0 {
 		debugLog(projectDir, "[wipnote] session-end: released %d claims for session %s", released, sessionID[:minLen(sessionID, 8)])
 	}
+
+	// Give every episode this session still holds an END. Without it the
+	// interval stays open forever and is not queryable AS an interval — see
+	// closeClaimEpisodesForSession.
+	closeClaimEpisodesForSession(database, projectDir, sessionID, claimledger.OutcomeAbandoned)
 
 	// --- SESSIONEND-UNIQUE STEPS (best-effort after critical writes) ---
 
@@ -1169,6 +1175,10 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 			} else if released > 0 {
 				debugLog(projectDir, "[reaper] released %d claims for reaped session %s", released, sid[:minLen(sid, 8)])
 			}
+			// The reaped session died without reporting anything: its episodes
+			// are "expired", not "abandoned". This is the path that catches a
+			// hard kill, where neither SessionEnd nor the release path ran.
+			closeClaimEpisodesForSession(database, projectDir, sid, claimledger.OutcomeExpired)
 		}
 	}
 

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Gate decisions depend on tables with no canonical source</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-550c1cd8"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T18:32:44.572402"
+             data-updated="2026-08-08T18:32:44.598358" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Gate decisions depend on tables with no canonical source</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T18:32:44.59826">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Classifying every table by what a fresh clone plus reindex could reconstruct leaves two that affect decisions and cannot be rebuilt. Gate records, sixty-nine rows, exist nowhere but the derived index — nothing writes them to the canonical store — yet the completion gate consults them through a fallback window to decide whether a work item may complete. The index lives in the operating system&#39;s cache directory, which the system is entitled to purge, so a purge silently changes whether completions are permitted. Agent events, ten thousand rows, are read by five yolo guards that block tool calls and by the advisory that injects context mid-turn; they are rebuildable on the same machine from a gitignored file but not across a clone. Everything else that cannot be rebuilt is informational — telemetry, transcripts, dashboard history — and should stay that way, because high-volume machine output does not belong in git. The gap therefore does not close by making everything canonical. It closes one of two ways, and the choice should be deliberate: give these two a canonical or at least git-tracked backing, or accept they are ephemeral and make every gate that reads them treat absence as an explicit, stated condition rather than silently behaving differently. Same root as the existing finding that the guards violate the project&#39;s own rule about gates being reproducible across session restarts.</p>
+        </section>
+    </article>
+</body>
+</html>

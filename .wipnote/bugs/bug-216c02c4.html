@@ -10,15 +10,15 @@
 <body>
     <article id="bug-216c02c4"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-08-07T23:39:41.838594"
-             data-updated="2026-08-07T23:39:41.849349" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T03:12:21.488074" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>session implements edge is written only to SQLite with no HTML representation — 43 edges wiped on rebuild</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -30,11 +30,18 @@
                     <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T23:39:41.849261">trk-08dcbb33</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T02:38:56.393362">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>autoImplementedInEdge in cmd/wipnote/workitem_edges.go writes the forward implemented_in edge through the normal Collection path (HTML plus SQLite), but the reverse implements edge is written with a bare dbpkg.InsertEdge call and no session-HTML mutation. Session HTML files carry a nav data-graph-edges block that is a permanently empty template placeholder. This is a genuine born-in-SQLite edge with no canonical representation, directly violating the stated architecture. Empirically confirmed: session implements went 43 to 0 after a full reindex on unchanged HTML — the entire category wiped, unrecoverable. Either write the edge into session HTML, or stop treating the session nav block as a placeholder.</p>
+            <p>autoImplementedInEdge in cmd/wipnote/workitem_edges.go writes the forward implemented_in edge through the normal Collection path (HTML plus SQLite), but the reverse implements edge is written with a bare dbpkg.InsertEdge call and no session-HTML mutation. Session HTML files carry a nav data-graph-edges block that is a permanently empty template placeholder. This is a genuine born-in-SQLite edge with no canonical representation, directly violating the stated architecture. Empirically confirmed: session implements went 43 to 0 after a full reindex on unchanged HTML — the entire category wiped, unrecoverable. Either write the edge into session HTML, or stop treating the session nav block as a placeholder.
+[2026-08-08 03:12 claude-code] accepted-advisory (provenance override): Implementation is commit 3fa2486ee (subject references bug-216c02c4, matching repo convention). The zero-linked-commit and dirty-tree heuristics are tripped by OTHER agents&#39; unrelated, uncommitted/committed work (e.g. batch.go, plan_wire.go, reindex.go, core/db/*, and commit 997424c3a touching link.go) landing on this same shared main branch, since this session runs ~30 concurrent agents directly on main without per-item worktree isolation. None of those files are in this bug&#39;s scope.</p>
         </section>
     </article>
 </body>

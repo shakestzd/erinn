@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-190950e0"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T11:40:48.561565"
+             data-updated="2026-08-08T11:44:33.370368" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-be696acc.html" data-relationship="blocks" data-since="2026-08-08T11:41:02.754072">Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:44:33.370248">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:40:48.578558">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-08T11:41:02.895332">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Every claim written by a dispatched subagent lands under agent_id __root__ because WIPNOTE_AGENT_ID is unset in the subagent environment. Reproduced directly: a named teammate checked its own env, found the variable absent, ran feature start, and the claim landed as __root__. Live state confirms the pattern — active_work_items holds exactly 3 rows spanning 2026-07-08 to today, all __root__, despite dozens of named teammates independently claiming unrelated work items across that period. This is the actual blocker for correct attribution, not the receiver read path. Fixing the receiver to resolve per-signal agent identity is a no-op while there is nothing but __root__ rows to join against. Investigate where the launcher and hook handlers can obtain and propagate a stable per-agent identity. Note that three different identity namespaces already coexist for the same concept, so the fix must normalize rather than string-match.</p>
+        </section>
+    </article>
+</body>
+</html>

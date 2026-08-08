@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex and Antigravity per-subagent identity capability audit</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-78e10a56"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-08-08T12:27:42.849588"
+             data-updated="2026-08-08T12:28:08.243301" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-affected_files="core/hooks/harness.go,core/hooks/pretooluse_agent_propagation.go,observe/otel/adapter/codex.go,observe/otel/adapter/antigravity.go,port/pluginbuild/antigravity.go,packages/plugin-core/manifest.json,AGENTS.md" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Codex and Antigravity per-subagent identity capability audit</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Research-only audit (no code changes) answering: does Codex CLI or Antigravity CLI expose per-subagent identity anywhere wipnote could read it, mirroring Claude Code&#39;s agent_id?
+
+Searched first via `wipnote relevant &#34;cross-harness agent identity attribution&#34;` and `wipnote relevant &#34;codex antigravity agent_id hook payload&#34;` — no existing dedicated work item covered this; only a generic plan recap mentioning cross-harness support in passing. Filed standalone.
+
+CODEX CLI — capability EXISTS, wipnote does not read it yet
+- PreToolUse/PostToolUse/PermissionRequest/SubagentStart/SubagentStop all carry optional `agent_id`/`agent_type` fields, verified against the authoritative generated JSON Schema (github.com/openai/codex/blob/main/codex-rs/hooks/schema/generated/*.command.input.schema.json) — ground truth, not the prose docs page, which inconsistently omits agent_id from PreToolUse/PostToolUse&#39;s field table (learn.chatgpt.com/docs/hooks) even though the real schema includes it. session_id is documented as shared with the parent (&#34;Subagent hooks use the parent session id&#34;), same collision Claude Code has (bug-cb4918d8) — agent_id is the required discriminator, same as Claude.
+- updatedInput mechanism: DOCUMENTED, structurally identical to Claude Code&#39;s — PreToolUse output supports `hookSpecificOutput.permissionDecision:&#34;allow&#34;` + `updatedInput` (confirmed via pre-tool-use.command.output.schema.json, PreToolUseHookSpecificOutputWire.updatedInput).
+- OTel: Codex OTel (opt-in via [otel] in config.toml) does NOT carry subagent identity — event/metric metadata is limited to conversation id (session-level), model, CLI version, env tag (learn.chatgpt.com/docs/config-file/config-advanced). No agent_id-equivalent attribute documented.
+- wipnote gap (observed in code): core/hooks/harness.go&#39;s `codexPayload` struct has no AgentID/AgentType fields; `parseCodexEvent` hardcodes CloudEvent.AgentID to the static per-harness id from `harness.GetByHooksHarness(harness.HooksCodex).AgentID` for every event, discarding any real agent_id Codex actually sends. observe/otel/adapter/codex.go extracts no agent identity from spans/logs/metrics either. packages/plugin-core/manifest.json&#39;s hooks.events array registers SubagentStart/SubagentStop only for targets:[&#34;claude&#34;] — Codex is not wired to receive these events at all today, despite dispatching them (per .claude/rules/plugin-development.md&#39;s verified Codex 0.147.0 vocabulary).
+
+ANTIGRAVITY — capability ABSENT on every axis checked; AGENTS.md&#39;s &#34;no verified upstream docs&#34; claim is now STALE
+- A real official docs portal now exists at antigravity.google/docs (Antigravity 2.0 v2.6.0 / Antigravity CLI &#34;agy&#34; v1.1.11, announced at Google I/O May 19 2026: antigravity.google/blog/google-io-2026-feature-deep-dive) — verified by direct fetch, not AI summary. AGENTS.md should be updated to stop describing Antigravity as doc-less; port/pluginbuild/antigravity.go&#39;s translation logic is still last verified live against agy v1.0.8, one version behind.
+- Hook payload identity: NOT present. Full schema fetched from antigravity.google/docs/hooks — Common Input Fields are only conversationId, workspacePaths, transcriptPath, artifactDirectoryPath, modelName; PreToolUse/PostToolUse add toolCall/stepIdx/error; no agent_id/subagentId/role field exists anywhere in any event payload. There is no SubagentStart/SubagentStop event at all — subagent spawn is only visible as a PreToolUse/PostToolUse firing on tool name `invoke_subagent` at the orchestrator level. Antigravity&#39;s runtime does track a per-subagent id internally (the CLI&#39;s `/agents` panel and `manage_subagents` tool operate on a &#34;unique target subagent ID&#34; — antigravity.google/docs/cli/subagents) but this is not exposed to hooks in the documented schema. UNVERIFIED (not stated in docs): whether a hook firing from inside a spawned subagent&#39;s own execution reports that subagent&#39;s own distinct conversationId rather than the parent&#39;s — would need runtime capture to confirm either way.
+- Input/env rewrite mechanism: NOT present. PreToolUse&#39;s only output fields are `decision` (allow/deny/ask/force_ask/deny_unless_prior_grant), `reason`, `permissionOverrides` — no updatedInput/updatedArgs-equivalent field exists in the schema. Claude/Codex&#39;s rewrite approach has no Antigravity counterpart; a different mechanism entirely would be needed if this is ever unblocked upstream.
+- OTel: Antigravity CLI does not currently emit OTel/OTLP telemetry at all — confirmed via an open first-party-adjacent GitHub issue (google-antigravity/antigravity-cli#366, state: open) where a user tried standard OTEL_* env vars and got nothing, and confirmed no documented telemetry config exists (unlike Gemini CLI&#39;s `telemetry` block). observe/otel/adapter/antigravity.go&#39;s `gemini_cli.*`-named parsing is inherited from Gemini CLI conventions per AGENTS.md&#39;s own compat-helper note, and has no confirmed real emitter behind it today.
+- wipnote code (observed, and currently self-consistent with the real capability gap): port/pluginbuild/antigravity.go:435 hardcodes the literal `WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity` into every generated hook command — there is no per-subagent resolution attempted, which is correct given nothing is available to resolve, but means all Antigravity subagent activity attributes to one static identity with zero differentiation.
+
+RECOMMENDATION (for the follow-on design/implementation work)
+- Claude and Codex share the same shape (agent_id in payload + updatedInput rewrite): extend `codexPayload`/`parseCodexEvent` (core/hooks/harness.go) to read agent_id/agent_type, and generalize pretooluse_agent_propagation.go&#39;s Claude-only gate to also cover Codex (Codex&#39;s Bash-equivalent tool_name is documented as literally &#34;Bash&#34;, so the existing ToolName==&#34;Bash&#34; match likely needs no change once AgentID is populated). Register SubagentStart/SubagentStop for target codex in packages/plugin-core/manifest.json.
+- Model capability per-harness the same way port/pluginbuild/hook_event_names.go already models event-name dispatch: a small provenance-tracked table (or fields on core/harness.HarnessConfig, e.g. SupportsSubagentIdentity, SupportsInputRewrite) rather than inferring it ad hoc per call site — mirrors the existing observe/otel/adapter.Adapter per-harness interface pattern already in the codebase.
+- Antigravity: no seam is implementable today on any of the three axes (identity, rewrite, telemetry). Recommend tracking this explicitly as blocked-upstream rather than attempting a fix that would silently do nothing; do not extend the Claude/Codex mechanism to Antigravity&#39;s target list.</p>
+        </section>
+    </article>
+</body>
+</html>

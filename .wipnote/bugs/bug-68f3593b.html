@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Windows has no cross-process lock on canonical HTML writes</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-68f3593b"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T16:35:01.403749"
+             data-updated="2026-08-08T17:48:15.99954" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Windows has no cross-process lock on canonical HTML writes</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T16:35:01.416682">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-08T16:35:13.705279">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-08T17:48:15.999233">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The canonical HTML write path takes an in-process mutex plus a cross-process file lock on a sidecar lock file, then writes to a temp file and renames. On Windows the lock function returns only the in-process mutex and takes no cross-process lock at all, so two wipnote processes on the same repository can interleave a read-modify-write and silently lose one another&#39;s updates. This is the exact failure class that was found real and fixed on Unix — concurrency tests caught genuine lost updates and the fix added the file lock — so the defect is known to be reachable, not theoretical, and Windows simply never received the fix. Impact is probably low today given the project&#39;s usage, but it is an unguarded gap in the path any new canonical artifact would reuse, and it should not be inherited silently by new work. Implement an equivalent exclusive lock using the platform&#39;s own file locking, and extend the existing concurrency tests to run on that platform rather than assuming the Unix result covers it.</p>
+        </section>
+    </article>
+</body>
+</html>

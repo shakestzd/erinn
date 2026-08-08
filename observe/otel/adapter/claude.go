@@ -145,6 +145,15 @@ func (c *ClaudeAdapter) ConvertLog(res OTLPResource, scope OTLPScope, l OTLPLog)
 		if base.CostUSD > 0 {
 			base.CostSource = otel.CostSourceVendor
 		}
+		// bug-79606e3d: Claude Code carries no explicit success/status
+		// attribute on this log event — it never emits one, in ~700
+		// live-captured api_request logs. But reaching this event AT ALL is
+		// itself the outcome signal: Claude Code logs a failed call as a
+		// separate "api_error" event (CanonicalAPIError, hardcoded false
+		// below), never as "api_request". So an api_request log implies
+		// success by construction, mirroring the hardcoded false on api_error.
+		succ := true
+		base.Success = &succ
 	case "api_error", "claude_code.api_error":
 		base.CanonicalName = otel.CanonicalAPIError
 		base.Model = AttrString(l.Attrs, "model")
@@ -200,7 +209,20 @@ func (c *ClaudeAdapter) ConvertSpan(res OTLPResource, scope OTLPScope, s OTLPSpa
 	if base.DurationMs == 0 && !s.EndTime.IsZero() && !s.StartTime.IsZero() {
 		base.DurationMs = s.EndTime.Sub(s.StartTime).Milliseconds()
 	}
-	if s.StatusCode == 1 {
+	// bug-79606e3d: Claude Code virtually never sets the OTLP span status
+	// (StatusCode stays 0/UNSET on ~99.95% of claude_code.llm_request and
+	// claude_code.tool.execution spans in live capture) but DOES emit an
+	// explicit "success" boolean attribute on those same spans. Prefer the
+	// attribute — it's the harness's actual outcome signal — and fall back
+	// to StatusCode for spans that don't carry it (e.g. claude_code.tool,
+	// which reports neither and is correctly left NULL).
+	if v, ok := AttrBool(s.Attrs, "success"); ok {
+		vv := v
+		base.Success = &vv
+		if !vv && base.ErrorMsg == "" {
+			base.ErrorMsg = AttrString(s.Attrs, "error")
+		}
+	} else if s.StatusCode == 1 {
 		v := true
 		base.Success = &v
 	} else if s.StatusCode == 2 {

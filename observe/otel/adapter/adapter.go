@@ -193,6 +193,21 @@ func AttrString(attrs map[string]any, key string) string {
 	return ""
 }
 
+// AttrBool returns the bool-valued attribute at key and whether it was
+// present as a native bool. Several harness spans (Claude Code's
+// claude_code.llm_request and claude_code.tool.execution, empirically)
+// carry an explicit "success" boolean attribute even though the OTLP
+// span-level status field is left UNSET, so adapters prefer this over
+// StatusCode when it's present.
+func AttrBool(attrs map[string]any, key string) (bool, bool) {
+	v, ok := attrs[key]
+	if !ok {
+		return false, false
+	}
+	b, ok := v.(bool)
+	return b, ok
+}
+
 // AttrInt64 returns the int64-valued attribute at key. Accepts int,
 // int32, int64, float64 (narrowed), and string (parsed). Returns 0 on
 // any failure — adapters treat 0 as "not reported."

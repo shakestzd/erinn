@@ -88,6 +88,28 @@ func TestClaudeAdapter_APIRequestLog(t *testing.T) {
 	}
 }
 
+// TestClaudeAdapter_APIRequestLogImpliesSuccess covers bug-79606e3d: an
+// api_request log event carries no explicit success/status attribute in
+// live capture, but reaching this event (rather than the separate
+// api_error event) is itself the success signal.
+func TestClaudeAdapter_APIRequestLogImpliesSuccess(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+	log := adapter.OTLPLog{
+		Name:      "api_request",
+		Timestamp: time.Now(),
+		Attrs: map[string]any{
+			"event.name": "api_request",
+			"session.id": "s1",
+			"model":      "claude-haiku-4-5-20251001",
+		},
+	}
+	sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+	if sigs[0].Success == nil || !*sigs[0].Success {
+		t.Errorf("Success = %v, want true", sigs[0].Success)
+	}
+}
+
 func TestClaudeAdapter_ToolDecision(t *testing.T) {
 	a := adapter.NewClaudeAdapter()
 	res := claudeRes("2.1.42")
@@ -223,6 +245,31 @@ func TestClaudeAdapter_Span_Interaction(t *testing.T) {
 	}
 }
 
+// TestClaudeAdapter_Span_ToolResultLeavesSuccessNil documents a deliberate
+// bug-79606e3d decision: claude_code.tool spans carry no success/error/
+// status_code attribute of any kind in live capture (the outcome is only
+// reported via the separate tool_result LOG event), so the adapter leaves
+// Success nil here rather than guessing. Forcing true would silently
+// deflate the failure rate this data is meant to expose.
+func TestClaudeAdapter_Span_ToolResultLeavesSuccessNil(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+	span := adapter.OTLPSpan{
+		Name:      "claude_code.tool",
+		SpanID:    "eeee",
+		StartTime: time.Now(),
+		EndTime:   time.Now().Add(time.Second),
+		Attrs: map[string]any{
+			"session.id": "s1",
+			"tool_name":  "Bash",
+		},
+	}
+	sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+	if sigs[0].Success != nil {
+		t.Errorf("Success = %v, want nil (claude_code.tool carries no outcome attr)", *sigs[0].Success)
+	}
+}
+
 func TestClaudeAdapter_Span_SubagentDetectedByToolNameAgent(t *testing.T) {
 	// claude_code.tool with tool_name=Agent is a Task subagent call.
 	// The adapter flips canonical name from tool_result to subagent_invocation
@@ -282,6 +329,90 @@ func TestClaudeAdapter_Span_LLMRequestTokens(t *testing.T) {
 	}
 	if s.Attempt != 1 {
 		t.Errorf("Attempt = %d", s.Attempt)
+	}
+}
+
+// TestClaudeAdapter_Span_LLMRequestSuccessAttr covers bug-79606e3d:
+// claude_code.llm_request spans carry an explicit "success" boolean
+// attribute (empirically ~100% of live-captured spans) even though the
+// OTLP span status field is left UNSET, so the adapter must read the
+// attribute rather than relying on StatusCode alone.
+func TestClaudeAdapter_Span_LLMRequestSuccessAttr(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+
+	okSpan := adapter.OTLPSpan{
+		Name:      "claude_code.llm_request",
+		SpanID:    "aaaa",
+		StartTime: time.Now(),
+		EndTime:   time.Now().Add(time.Second),
+		// StatusCode intentionally left 0 (UNSET) — the harness never sets it.
+		Attrs: map[string]any{
+			"session.id": "s1",
+			"model":      "claude-sonnet-5",
+			"success":    true,
+		},
+	}
+	sigs := a.ConvertSpan(res, adapter.OTLPScope{}, okSpan)
+	if sigs[0].Success == nil || !*sigs[0].Success {
+		t.Errorf("Success = %v, want true", sigs[0].Success)
+	}
+
+	errSpan := okSpan
+	errSpan.SpanID = "bbbb"
+	errSpan.Attrs = map[string]any{
+		"session.id": "s1",
+		"model":      "claude-sonnet-5",
+		"success":    false,
+		"error":      "upstream timeout",
+	}
+	sigs = a.ConvertSpan(res, adapter.OTLPScope{}, errSpan)
+	if sigs[0].Success == nil || *sigs[0].Success {
+		t.Errorf("Success = %v, want false", sigs[0].Success)
+	}
+	if sigs[0].ErrorMsg != "upstream timeout" {
+		t.Errorf("ErrorMsg = %q, want upstream timeout", sigs[0].ErrorMsg)
+	}
+}
+
+// TestClaudeAdapter_Span_ToolExecutionSuccessAttr covers bug-79606e3d for
+// claude_code.tool.execution spans, which carry the same "success" boolean
+// attribute pattern as claude_code.llm_request.
+func TestClaudeAdapter_Span_ToolExecutionSuccessAttr(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+
+	okSpan := adapter.OTLPSpan{
+		Name:      "claude_code.tool.execution",
+		SpanID:    "cccc",
+		StartTime: time.Now(),
+		EndTime:   time.Now().Add(time.Millisecond * 50),
+		Attrs: map[string]any{
+			"session.id": "s1",
+			"success":    true,
+		},
+	}
+	sigs := a.ConvertSpan(res, adapter.OTLPScope{}, okSpan)
+	if sigs[0].CanonicalName != otel.CanonicalToolExecution {
+		t.Fatalf("canonical = %q", sigs[0].CanonicalName)
+	}
+	if sigs[0].Success == nil || !*sigs[0].Success {
+		t.Errorf("Success = %v, want true", sigs[0].Success)
+	}
+
+	errSpan := okSpan
+	errSpan.SpanID = "dddd"
+	errSpan.Attrs = map[string]any{
+		"session.id": "s1",
+		"success":    false,
+		"error":      "Shell command failed",
+	}
+	sigs = a.ConvertSpan(res, adapter.OTLPScope{}, errSpan)
+	if sigs[0].Success == nil || *sigs[0].Success {
+		t.Errorf("Success = %v, want false", sigs[0].Success)
+	}
+	if sigs[0].ErrorMsg != "Shell command failed" {
+		t.Errorf("ErrorMsg = %q, want Shell command failed", sigs[0].ErrorMsg)
 	}
 }
 

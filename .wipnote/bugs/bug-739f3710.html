@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>ReadSubagentHint returns the most recently started subagent, not the caller</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-739f3710"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T11:42:23.076173"
+             data-updated="2026-08-08T11:42:36.080751" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>ReadSubagentHint returns the most recently started subagent, not the caller</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:42:23.439139">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-190950e0.html" data-relationship="relates_to" data-since="2026-08-08T11:42:36.080622">WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The subagent hint fallback globs every hint file under the session hint directory and returns whichever has the latest StartedAt timestamp. That is the most recently started subagent in the session, not the one asking. Under concurrent dispatch, which is this project&#39;s normal mode, it hands the wrong identity to whoever calls it. This is tier 3 of resolveAgentID, so it only fires when the CloudEvent AgentID and the environment variable are both absent — but that is exactly the path a plain CLI invocation takes, and it means adding this same fallback chain to the claim-write path would not fix concurrent claims, it would silently attribute them to the wrong agent. A caller-scoped read is not possible from a plain CLI process with no event to say who it is, so the fix has to come from the environment being seeded correctly rather than from a better guess at read time.</p>
+        </section>
+    </article>
+</body>
+</html>

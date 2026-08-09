@@ -112,6 +112,19 @@ const (
 	// migrations (wipnote init, wipnote migrate). Migrations are run-once
 	// and must keep a direct writable handle to apply DDL.
 	migrationOnly writeSiteClassification = "migration-only"
+
+	// ephemeralInMemory marks an Open that never touches the project
+	// database. The DSN is ":memory:", so the handle is a private,
+	// process-local database that exists to host a query engine — today, the
+	// virtual table over the canonical telemetry NDJSON shards — and is
+	// discarded when closed.
+	//
+	// This is the one classification that carries no contention risk at all:
+	// the boundary this test polices is concurrent writers on the shared
+	// project DB file, and an in-memory database is not that file. Entries
+	// using it MUST have a ":memory:" DSN; anything pointed at a path
+	// belongs in one of the classes above.
+	ephemeralInMemory writeSiteClassification = "ephemeral-in-memory"
 )
 
 // writeSite describes one approved writable SQLite open in first-party
@@ -343,6 +356,18 @@ var approvedWriteSites = []writeSite{
 		Ordinal:        1,
 		Classification: intentionalCLIMutation,
 		Note:           "Canonical entry point for every CLI work-item operation (feature/bug/spike/track start/complete). feat-075c110d MVP-4: the highest-contention work-item write — the start/complete status transition (UpdateFeatureStatus, bug-74a7bda7) — is now routed through the per-project writer daemon FIRST (apply.RouteFeatureStatus, bounded ~2s, auto-spawn) and only falls back to this direct handle on daemon miss; the open itself stays direct because it still backs reads, claim/release, and step-counter writes.",
+	},
+
+	// ----------------------------------------------------------------------
+	// ephemeral-in-memory (private databases, never the project DB file)
+	// ----------------------------------------------------------------------
+	{
+		File:           "observe/otel/signalvtab/open.go",
+		Function:       "openWith",
+		OpenExpr:       "sql.Open",
+		Ordinal:        1,
+		Classification: ephemeralInMemory,
+		Note:           "feat-ba544d57 phase 1: opens a private \":memory:\" database purely to host the read-only virtual table over .wipnote/sessions/*/events.ndjson. It never opens the project DB, writes nothing anywhere, and is discarded on Close, so it cannot contend for the write lock this boundary protects. The pool is capped at one connection because an in-memory SQLite database is per-connection, not for contention reasons.",
 	},
 
 	// ----------------------------------------------------------------------
@@ -668,6 +693,7 @@ func TestWriteSiteInventoryComplete(t *testing.T) {
 		intentionalCLIMutation:     true,
 		reindexOnly:                true,
 		migrationOnly:              true,
+		ephemeralInMemory:          true,
 	}
 	for _, ws := range approvedWriteSites {
 		if !known[ws.Classification] {

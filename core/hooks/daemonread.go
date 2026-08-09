@@ -72,7 +72,42 @@ func (c DaemonContract) String() string {
 }
 
 // DaemonContractForProcess reports the contract this hook runs under and, when
-// guaranteed, the socket path the launcher promised.
+// guaranteed, the socket path the launcher promised. This is THE branch
+// decision — every read below routes on it, and nothing else does.
+//
+// THE RULE, in full: the strict branch is taken if and only if a launcher wrote
+// DaemonSocketEnv into this process's environment. That is one env read and no
+// I/O, so the degrade-quiet branch — the common one, see below — costs
+// essentially nothing to select.
+//
+// WHY NOT A REACHABILITY PROBE. Choosing the branch by whether a daemon answers
+// would make "a daemon happens to be listening" decide the contract. Two hooks
+// in one session could then reach different conclusions, and — worse — a
+// session that was PROMISED a daemon would silently degrade to the index the
+// moment that daemon died, which is precisely the quiet divergence this design
+// exists to prevent. Reachability decides whether the promise is being KEPT
+// (and a broken promise is loud); it must never decide whether a promise was
+// MADE.
+//
+// WHY THE ENV VAR AND NOT THE LAUNCH MARKER. The marker (.wipnote/.launch-mode)
+// is a single file shared by every session in the project, so it cannot by
+// itself say WHICH session it belongs to — which is exactly why
+// session_liveness.go has to gate it behind a freshness window and still
+// accepts that a slow launch degrades to "unknown". The env var has no such
+// ambiguity: it exists only in the process tree the launcher started, so it is
+// session-scoped by construction, needs no window, and cannot go stale. It is
+// also a POSITIVE signal — a value the launcher wrote after it had already
+// started or attached the daemon AND proved it serves reads — rather than the
+// absence of an error.
+//
+// DEGRADE-QUIET IS THE COMMON CASE, NOT AN EDGE CASE. Codex's plugin model is
+// install-based with no per-launch scoping, so once wipnote is installed its
+// hooks fire in bare CLI, IDE and desktop sessions that never touched a
+// launcher. Every one of those takes this branch. It is the unchanged,
+// pre-existing behaviour and it is covered by its own tests
+// (TestUnguaranteedSessionNeverDialsTheDaemon,
+// TestUnguaranteedSessionIgnoresALiveDaemon) — including the case where a live
+// daemon IS reachable for the project and must still be ignored.
 func DaemonContractForProcess() (DaemonContract, string) {
 	sock := os.Getenv(DaemonSocketEnv)
 	if sock == "" {

@@ -3,9 +3,11 @@ package hooks
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -408,6 +410,130 @@ func BenchmarkLookupWorkItemViaDaemon(b *testing.B) {
 	for b.Loop() {
 		if _, found := LookupWorkItem(nil, "feat-babababa"); !found {
 			b.Fatal("not found")
+		}
+	}
+}
+
+// countingSocket binds a listener that counts accepted connections, so a test
+// can prove a code path did NOT dial rather than merely that it returned the
+// right answer.
+func countingSocket(t *testing.T) (string, func() int) {
+	t.Helper()
+	dir, err := os.MkdirTemp(shortTempBase(), "wnc")
+	if err != nil {
+		t.Fatalf("mkdtemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	sock := filepath.Join(dir, "count.sock")
+	l, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+
+	var n atomic.Int64
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			n.Add(1)
+			_ = conn.Close()
+		}
+	}()
+	return sock, func() int { return int(n.Load()) }
+}
+
+// TestUnguaranteedSessionNeverDialsTheDaemon is the degrade-quiet branch proved
+// by absence of I/O, not by its return value.
+//
+// This is the branch an entire harness will live on: Codex's plugin model is
+// install-based with no per-launch scoping, so its hooks fire in bare CLI, IDE
+// and desktop sessions that never touched a launcher. That path must cost
+// nothing and must never reach for a socket.
+//
+// The test sets the marker first and reads (proving the counter observes real
+// dials), then clears it and reads again (proving the count does not move). A
+// test that only cleared the marker would pass even if the dial code were
+// unreachable for some unrelated reason.
+func TestUnguaranteedSessionNeverDialsTheDaemon(t *testing.T) {
+	ResetDaemonGuaranteeBreach()
+	t.Cleanup(ResetDaemonGuaranteeBreach)
+
+	td := setupTestDB(t)
+	td.addFeature("feat-d1a1d1a1", "feature", "Dialled", "in-progress")
+	sock, dials := countingSocket(t)
+
+	// Guaranteed: the read reaches for the socket.
+	t.Setenv(DaemonSocketEnv, sock)
+	_, _ = LookupWorkItem(td.DB, "feat-d1a1d1a1")
+	guaranteedDials := dials()
+	if guaranteedDials == 0 {
+		t.Fatal("precondition: guaranteed read never dialled, so the counter proves nothing")
+	}
+	ResetDaemonGuaranteeBreach()
+
+	// Unguaranteed: no marker, so no dial may occur at all.
+	os.Unsetenv(DaemonSocketEnv)
+	item, found := LookupWorkItem(td.DB, "feat-d1a1d1a1")
+	if !found || item.Title != "Dialled" {
+		t.Fatalf("unguaranteed read did not answer from the index: found=%v item=%+v", found, item)
+	}
+	_ = ListWorkItems(td.DB, daemon.WorkItemListArgs{Statuses: []string{"in-progress"}})
+
+	if got := dials(); got != guaranteedDials {
+		t.Fatalf("unguaranteed path dialled the daemon: %d dials before, %d after", guaranteedDials, got)
+	}
+	if breach := DaemonGuaranteeBreach(); breach != "" {
+		t.Fatalf("unguaranteed path latched a breach: %s", breach)
+	}
+}
+
+// TestUnguaranteedSessionIgnoresALiveDaemon is the case a reachability-probe
+// design would get wrong, and the one that matters most now that degrade-quiet
+// is an entire harness's hot path.
+//
+// A live daemon is running for the project — started by somebody else's
+// launcher-backed session — and canonical state DISAGREES with the derived
+// index. A hook with no launcher marker must read the index anyway. It must not
+// opportunistically use a daemon it can see, because "the daemon answered" is
+// not the same fact as "a launcher promised this session a daemon", and
+// deciding the contract by what happens to be reachable is inference, which is
+// exactly what the policy forbids.
+func TestUnguaranteedSessionIgnoresALiveDaemon(t *testing.T) {
+	ResetDaemonGuaranteeBreach()
+	t.Cleanup(ResetDaemonGuaranteeBreach)
+
+	td := setupTestDB(t)
+	td.addFeature("feat-e1e1e1e1", "feature", "From the index", "todo")
+
+	root := newDaemonProject(t)
+	writeCanonicalItem(t, root, "features", "feat-e1e1e1e1", "feature", "in-progress", "From canonical")
+	_, stop := startReadDaemon(t, root)
+	defer stop()
+
+	// No marker: this session was not started by a launcher.
+	os.Unsetenv(DaemonSocketEnv)
+
+	item, found := LookupWorkItem(td.DB, "feat-e1e1e1e1")
+	if !found {
+		t.Fatal("unguaranteed read found nothing")
+	}
+	if item.Title != "From the index" || item.Status != "todo" {
+		t.Fatalf("unguaranteed session used the live daemon instead of the index: %+v", item)
+	}
+}
+
+// BenchmarkUnguaranteedLookupBranch measures what the degrade-quiet branch
+// costs a hook to SELECT — the env read and nothing else. The index query it
+// then performs is the pre-existing cost this feature does not change, so the
+// benchmark stops at the branch.
+func BenchmarkUnguaranteedLookupBranch(b *testing.B) {
+	b.Setenv(DaemonSocketEnv, "")
+	for b.Loop() {
+		if c, _ := DaemonContractForProcess(); c != DaemonContractNone {
+			b.Fatal("expected the unguaranteed contract")
 		}
 	}
 }

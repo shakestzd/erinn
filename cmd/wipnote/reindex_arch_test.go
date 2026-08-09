@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,14 +40,42 @@ func TestReindexArchCards_HappyPath(t *testing.T) {
 		t.Errorf("errs = %d, want 0", errs)
 	}
 
-	// Verify data landed in SQLite.
-	row := db.QueryRow("SELECT slug, kind FROM arch_cards WHERE slug = 'auth-card'")
-	var slug, kind string
-	if err := row.Scan(&slug, &kind); err != nil {
-		t.Fatalf("query arch_cards: %v", err)
+	// The card is readable from the canonical store, which is where every
+	// reader now looks.
+	card := mustReadArchCard(t, dir, "auth-card")
+	if string(card.Kind) != "invariant" {
+		t.Errorf("card kind = %q, want invariant", card.Kind)
 	}
-	if slug != "auth-card" || kind != "invariant" {
-		t.Errorf("got slug=%q kind=%q", slug, kind)
+
+	// ...and it was NOT mirrored into SQLite. Reindex stopped writing that
+	// table (spk-e6e82b5a); a row here means the mirror came back.
+	assertArchCardsTableEmpty(t, db)
+}
+
+// mustReadArchCard reads a card through the canonical store.
+func mustReadArchCard(t *testing.T, wipnoteDir, slug string) *corearch.Card {
+	t.Helper()
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		t.Fatalf("open arch store: %v", err)
+	}
+	card, err := store.Get(slug)
+	if err != nil {
+		t.Fatalf("read card %q from canonical store: %v", slug, err)
+	}
+	return card
+}
+
+// assertArchCardsTableEmpty fails if reindex wrote to the retired mirror.
+func assertArchCardsTableEmpty(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM arch_cards").Scan(&count); err != nil {
+		t.Fatalf("count arch_cards: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("arch_cards has %d rows — reindex is mirroring cards into "+
+			"SQLite again; every reader now goes to the canonical store", count)
 	}
 }
 
@@ -110,12 +139,8 @@ func TestReindexArchCards_Idempotent(t *testing.T) {
 		t.Errorf("second reindex (total=%d, upserted=%d), want (1,1)", total, upserted)
 	}
 
-	// Exactly one row in the DB.
-	var count int
-	db.QueryRow("SELECT COUNT(*) FROM arch_cards").Scan(&count)
-	if count != 1 {
-		t.Errorf("arch_cards row count = %d, want 1", count)
-	}
+	// Still nothing in the retired mirror after a second pass.
+	assertArchCardsTableEmpty(t, db)
 }
 
 func TestReindexArchCards_ImportedYAMLAndLineageEdges(t *testing.T) {
@@ -206,7 +231,7 @@ func TestReindexArchCards_HTMLLedgerRow(t *testing.T) {
 		Kind:      corearch.KindDecision,
 		CreatedBy: "agent",
 		Links:     []string{"feat-87654321"},
-		Body:      "HTML ledger rows should reindex into arch_cards.",
+		Body:      "HTML ledger rows stay canonical and are not mirrored.",
 	}
 	if err := corearch.WriteLedger(filepath.Join(dir, corearch.LedgerFilename), []*corearch.Card{card}); err != nil {
 		t.Fatalf("write architecture ledger: %v", err)
@@ -223,11 +248,9 @@ func TestReindexArchCards_HTMLLedgerRow(t *testing.T) {
 		t.Fatalf("reindex = (%d,%d,%d), want (1,1,0)", total, upserted, errs)
 	}
 
-	var slug, createdBy string
-	if err := db.QueryRow(`SELECT slug, created_by FROM arch_cards WHERE slug = ?`, "html-ledger-card").Scan(&slug, &createdBy); err != nil {
-		t.Fatalf("query arch_cards: %v", err)
+	got := mustReadArchCard(t, dir, "html-ledger-card")
+	if got.CreatedBy != "agent" {
+		t.Fatalf("card created_by = %q, want agent", got.CreatedBy)
 	}
-	if slug != "html-ledger-card" || createdBy != "agent" {
-		t.Fatalf("arch_cards row = (%s,%s), want (html-ledger-card,agent)", slug, createdBy)
-	}
+	assertArchCardsTableEmpty(t, db)
 }

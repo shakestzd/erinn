@@ -76,7 +76,7 @@ func TestFindOrphans_IncludesTracks(t *testing.T) {
 
 func TestFindHubs_Empty(t *testing.T) {
 	database := openTestDB(t)
-	hubs, err := graph.FindHubs(database, 1)
+	hubs, err := graph.FindHubs(database, nil, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestFindHubs_StarGraph(t *testing.T) {
 	seedEdge(t, database, "hub", "feature", "b", "feature", "contains")
 	seedEdge(t, database, "hub", "feature", "c", "feature", "contains")
 
-	hubs, err := graph.FindHubs(database, 3)
+	hubs, err := graph.FindHubs(database, nil, 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestFindHubs_MinEdgesFilter(t *testing.T) {
 	database := openTestDB(t)
 	seedEdge(t, database, "a", "feature", "b", "feature", "blocks")
 	// a has 1 edge, b has 1 edge. minEdges=2 should return nothing.
-	hubs, err := graph.FindHubs(database, 2)
+	hubs, err := graph.FindHubs(database, nil, 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

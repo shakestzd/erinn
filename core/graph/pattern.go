@@ -57,7 +57,11 @@ func FindOrphans(db *sql.DB) ([]string, error) {
 
 // FindHubs returns node IDs that participate in at least minEdges edges
 // (counting both incoming and outgoing). Ordered by edge count descending.
-func FindHubs(db *sql.DB, minEdges int) ([]NodeResult, error) {
+//
+// archSrc resolves titles for architecture cards, which are genuine hubs:
+// every card carries a learned_from/has_learning edge pair per linked work
+// item. Passing nil leaves those rows with bare IDs.
+func FindHubs(db *sql.DB, archSrc ArchSource, minEdges int) ([]NodeResult, error) {
 	rows, err := db.Query(`
 		SELECT node_id, COUNT(*) as edge_count FROM (
 			SELECT from_node_id AS node_id FROM graph_edges
@@ -89,7 +93,7 @@ func FindHubs(db *sql.DB, minEdges int) ([]NodeResult, error) {
 		return nil, err
 	}
 
-	resolved := ResolveToMap(db, ids)
+	resolved := ResolveToMap(db, archSrc, ids)
 	results := make([]NodeResult, len(entries))
 	for i, h := range entries {
 		if r, ok := resolved[h.id]; ok {
@@ -136,7 +140,10 @@ func FindBottlenecks(db *sql.DB) ([]BottleneckResult, error) {
 		return nil, err
 	}
 
-	resolved := ResolveToMap(db, ids)
+	// No arch source: blocked_by edges never target an architecture card
+	// (cards only ever carry learned_from/has_learning), so no ID reaching
+	// here can be an arch node.
+	resolved := ResolveToMap(db, nil, ids)
 	for i := range entries {
 		if r, ok := resolved[entries[i].ID]; ok {
 			entries[i].Title = r.Title

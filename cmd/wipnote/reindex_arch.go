@@ -7,19 +7,24 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
-// reindexArchCards ingests the canonical .wipnote/architecture.html ledger
-// plus legacy/import .wipnote/arch/*.{yaml,md} cards into the arch_cards
-// SQLite read index and derives arch→work-item lineage edges. Returns
-// (total, upserted, errCount). This is a full reindex: rows for
-// deleted/renamed cards are purged so the table stays consistent with the
-// canonical ledger.
+// reindexArchCards reads the canonical .wipnote/architecture.html ledger plus
+// legacy/import .wipnote/arch/*.{yaml,md} cards and derives the arch→work-item
+// lineage edges. Returns (total, edgesFor, errCount).
+//
+// It no longer mirrors card content into the arch_cards SQLite table. Every
+// reader now goes to core/arch.Store, which reads the same canonical ledger
+// and is the path `wipnote arch` has always used; the mirror was a second copy
+// carrying a sync obligation for no reader that needed it (spk-e6e82b5a). The
+// table is left defined in the schema and its repository functions are left in
+// core/db so restoring the mirror is a matter of re-adding the upsert call.
+// Existing rows are cleared once so a stale mirror cannot be mistaken for live
+// data by anything that was missed.
 func reindexArchCards(database *sql.DB, wipnoteDir string, verbose bool) (int, int, int) {
 	ledgerCards, ledgerErr := loadLedgerCardsForReindex(wipnoteDir, verbose)
 	archDir := filepath.Join(wipnoteDir, "arch")
@@ -27,7 +32,8 @@ func reindexArchCards(database *sql.DB, wipnoteDir string, verbose bool) (int, i
 	if err != nil {
 		if os.IsNotExist(err) {
 			if len(ledgerCards) == 0 {
-				// No legacy dir and no ledger — purge any stale rows.
+				// No legacy dir and no ledger — clear the retired mirror and
+				// the derived edges.
 				_, _ = database.Exec(`DELETE FROM arch_cards`)
 				_, _ = database.Exec(`DELETE FROM graph_edges WHERE from_node_type = 'arch' OR to_node_type = 'arch'`)
 				if ledgerErr != nil {
@@ -55,6 +61,9 @@ func reindexArchCards(database *sql.DB, wipnoteDir string, verbose bool) (int, i
 	if ledgerErr != nil {
 		errCount++
 	}
+	// The arch_cards mirror is no longer written; clear it so nothing reads
+	// stale card content, and rebuild the derived edges from scratch.
+	_, _ = database.Exec(`DELETE FROM arch_cards`)
 	_, _ = database.Exec(`DELETE FROM graph_edges WHERE from_node_type = 'arch' OR to_node_type = 'arch'`)
 
 	for _, e := range entries {
@@ -100,46 +109,9 @@ func reindexArchCards(database *sql.DB, wipnoteDir string, verbose bool) (int, i
 	sort.Strings(slugs)
 	totalSources := len(ledgerCards) + len(selected)
 
-	upserted := 0
+	edgesFor := 0
 	for _, slug := range slugs {
 		card := cards[slug]
-		var createdAt, updatedAt *time.Time
-		if !card.CreatedAt.IsZero() {
-			t := card.CreatedAt
-			createdAt = &t
-		}
-		if !card.UpdatedAt.IsZero() {
-			t := card.UpdatedAt
-			updatedAt = &t
-		}
-
-		row, rowErr := dbpkg.ArchCardRowFromFields(
-			card.Name,
-			string(card.Kind),
-			card.Paths,
-			card.VerifiedAt,
-			card.Links,
-			card.CreatedBy,
-			card.SupersededBy,
-			card.Retired,
-			card.Body,
-			createdAt,
-			updatedAt,
-		)
-		if rowErr != nil {
-			errCount++
-			if verbose {
-				fmt.Printf("reindex arch: marshal error: %s: %v\n", card.Name, rowErr)
-			}
-			continue
-		}
-		if upsertErr := dbpkg.UpsertArchCard(database, row); upsertErr != nil {
-			errCount++
-			if verbose {
-				fmt.Printf("reindex arch: upsert error: %s: %v\n", card.Name, upsertErr)
-			}
-			continue
-		}
 		for _, link := range card.Links {
 			toType := archLinkNodeType(link)
 			if toType == "" {
@@ -179,14 +151,10 @@ func reindexArchCards(database *sql.DB, wipnoteDir string, verbose bool) (int, i
 				}
 			}
 		}
-		upserted++
+		edgesFor++
 	}
 
-	// Purge rows for cards that no longer exist in the canonical ledger or
-	// legacy/import file storage.
-	purgeStaleArchCards(database, diskSlugs, verbose)
-
-	return totalSources, upserted, errCount
+	return totalSources, edgesFor, errCount
 }
 
 func isArchCardFile(name string) bool {
@@ -236,26 +204,3 @@ func loadLedgerCardsForReindex(wipnoteDir string, verbose bool) (map[string]*arc
 	return cards, nil
 }
 
-// purgeStaleArchCards deletes arch_cards rows whose slugs are not in diskSlugs.
-func purgeStaleArchCards(database *sql.DB, diskSlugs map[string]struct{}, verbose bool) {
-	rows, err := database.Query(`SELECT slug FROM arch_cards`)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	var stale []string
-	for rows.Next() {
-		var slug string
-		if rows.Scan(&slug) == nil {
-			if _, ok := diskSlugs[slug]; !ok {
-				stale = append(stale, slug)
-			}
-		}
-	}
-	rows.Close()
-	for _, slug := range stale {
-		if _, err := database.Exec(`DELETE FROM arch_cards WHERE slug = ?`, slug); err == nil && verbose {
-			fmt.Printf("reindex arch: purged stale row: %s\n", slug)
-		}
-	}
-}

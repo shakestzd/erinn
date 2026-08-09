@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	corearch "github.com/shakestzd/wipnote/core/arch"
+	"github.com/shakestzd/wipnote/core/graph"
 )
 
 // graphNode represents a work item node in the graph response.
@@ -52,12 +52,12 @@ var perTypeCaps = map[string]int{
 // graphAPIHandler returns a force-directed graph payload for the dashboard.
 // By default it filters to nodes that have at least one edge; pass ?all=true
 // to include orphan nodes as well.
-func graphAPIHandler(database *sql.DB) http.HandlerFunc {
+func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		includeAll := r.URL.Query().Get("all") == "true"
 
 		// Load all nodes with their track_id for implicit edge derivation.
-		nodes, trackIDs, err := loadGraphNodes(database)
+		nodes, trackIDs, err := loadGraphNodes(database, archSourceFor(wipnoteDir))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -254,9 +254,10 @@ func graphAPIHandler(database *sql.DB) http.HandlerFunc {
 }
 
 // loadGraphNodes fetches all work items (features, bugs, spikes from the
-// features table) plus tracks from the tracks table. Returns nodes and a
-// parallel slice of track IDs for implicit edge derivation.
-func loadGraphNodes(database *sql.DB) ([]graphNode, []string, error) {
+// features table) plus tracks from the tracks table, and architecture cards
+// from archSrc. Returns nodes and a parallel slice of track IDs for implicit
+// edge derivation. A nil archSrc omits architecture nodes.
+func loadGraphNodes(database *sql.DB, archSrc graph.ArchSource) ([]graphNode, []string, error) {
 	var nodes []graphNode
 	var trackIDs []string
 
@@ -301,29 +302,11 @@ func loadGraphNodes(database *sql.DB) ([]graphNode, []string, error) {
 		trackIDs = append(trackIDs, "") // tracks don't have a parent track
 	}
 
-	// Architecture memory cards from arch_cards.
-	arows, aerr := database.Query(`
-		SELECT slug, COALESCE(kind, ''),
-			CASE WHEN retired = 1 OR COALESCE(superseded_by, '') != '' THEN 'retired' ELSE 'active' END
-		FROM arch_cards
-		ORDER BY COALESCE(updated_at, created_at, indexed_at) DESC, slug
-		LIMIT 500`)
-	if aerr == nil {
-		defer arows.Close()
-		for arows.Next() {
-			var slug, kind, status string
-			if err := arows.Scan(&slug, &kind, &status); err != nil {
-				continue
-			}
-			nodes = append(nodes, graphNode{
-				ID:     corearch.ArchNodeID(slug),
-				Type:   "arch",
-				Title:  slug,
-				Status: status,
-				Kind:   kind,
-			})
-			trackIDs = append(trackIDs, "")
-		}
+	// Architecture memory cards, read from their canonical HTML store rather
+	// than the retired arch_cards mirror (spk-e6e82b5a).
+	for _, c := range archGraphNodes(archSrc) {
+		nodes = append(nodes, c)
+		trackIDs = append(trackIDs, "")
 	}
 
 	// Sessions: include sessions with meaningful activity (>5 events and

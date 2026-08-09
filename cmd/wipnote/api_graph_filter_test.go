@@ -21,7 +21,7 @@ func TestGraphAPI_TypesFilter(t *testing.T) {
 	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('b1', 'bug', 'bug 1', 'done')`)
 	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('t1', 'track 1', 'done')`)
 
-	handler := graphAPIHandler(database)
+	handler := graphAPIHandler(database, t.TempDir())
 
 	// Request only features.
 	req := httptest.NewRequest("GET", "/api/graph?types=feature&all=true", nil)
@@ -55,7 +55,7 @@ func TestGraphAPI_DefaultReturnsAllTypes(t *testing.T) {
 	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('b1', 'bug', 'bug 1', 'done')`)
 	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('t1', 'track 1', 'done')`)
 
-	handler := graphAPIHandler(database)
+	handler := graphAPIHandler(database, t.TempDir())
 	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
@@ -85,7 +85,7 @@ func TestGraphAPI_PerTypeCaps(t *testing.T) {
 			"sess-"+string(rune('A'+i)))
 	}
 
-	handler := graphAPIHandler(database)
+	handler := graphAPIHandler(database, t.TempDir())
 	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)

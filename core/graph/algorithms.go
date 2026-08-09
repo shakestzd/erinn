@@ -159,14 +159,15 @@ func loadAdjacencyList(db *sql.DB) (map[string][]string, error) {
 }
 
 // resolveNodeIDs converts a list of IDs to NodeResults with metadata.
-func resolveNodeIDs(db *sql.DB, ids []string) ([]NodeResult, error) {
-	q := &QueryBuilder{db: db}
+func resolveNodeIDs(db *sql.DB, archSrc ArchSource, ids []string) ([]NodeResult, error) {
+	q := (&QueryBuilder{db: db}).WithArch(archSrc)
 	return q.resolveNodes(ids)
 }
 
 // ResolveNodeID looks up a single node ID and returns its metadata.
-func ResolveNodeID(db *sql.DB, id string) (NodeResult, error) {
-	results, err := resolveNodeIDs(db, []string{id})
+// archSrc may be nil when the ID cannot be an architecture card.
+func ResolveNodeID(db *sql.DB, archSrc ArchSource, id string) (NodeResult, error) {
+	results, err := resolveNodeIDs(db, archSrc, []string{id})
 	if err != nil {
 		return NodeResult{}, err
 	}
@@ -189,9 +190,10 @@ func FormatNodeLabel(id string, results map[string]NodeResult) string {
 }
 
 // ResolveToMap resolves a set of IDs and returns a lookup map.
-func ResolveToMap(db *sql.DB, ids []string) map[string]NodeResult {
+// archSrc supplies architecture cards; pass nil when arch IDs cannot occur.
+func ResolveToMap(db *sql.DB, archSrc ArchSource, ids []string) map[string]NodeResult {
 	m := make(map[string]NodeResult, len(ids))
-	results, err := resolveNodeIDs(db, ids)
+	results, err := resolveNodeIDs(db, archSrc, ids)
 	if err != nil {
 		return m
 	}

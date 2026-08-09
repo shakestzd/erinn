@@ -33,16 +33,34 @@ func (depthStep) kind() string  { return "depth" }
 
 // QueryBuilder chains graph traversal operations into a fluent API.
 // It reads from the graph_edges table and resolves node metadata from the
-// derived node indexes.
+// derived node indexes, except for architecture cards, which come from their
+// canonical HTML store via archs.
 type QueryBuilder struct {
 	db       *sql.DB
+	archs    *archLookup
 	steps    []queryStep
 	maxDepth int
 }
 
 // NewQuery creates a new QueryBuilder bound to the given database.
+// Architecture cards are invisible until WithArch supplies a source.
 func NewQuery(db *sql.DB) *QueryBuilder {
 	return &QueryBuilder{db: db, maxDepth: 10}
+}
+
+// WithArch attaches the architecture card source used to resolve arch nodes.
+func (q *QueryBuilder) WithArch(src ArchSource) *QueryBuilder {
+	q.archs = newArchLookup(src)
+	return q
+}
+
+// archLookupOrEmpty returns the attached lookup, or an empty one that resolves
+// no cards. Keeps resolveNodes free of nil checks.
+func (q *QueryBuilder) archLookupOrEmpty() *archLookup {
+	if q.archs == nil {
+		q.archs = newArchLookup(nil)
+	}
+	return q.archs
 }
 
 // From sets the starting node for the traversal.
@@ -287,8 +305,11 @@ var typeFilterColumns = map[string]map[string]string{
 	"file":    {"file_path": "file_path", "session_id": "session_id"},
 	"session": {"status": "status", "session_id": "session_id"},
 	"agent":   {}, // agent is a synthetic type; only identity equality via the UNION works
+	// arch fields are resolved in memory against the canonical card store
+	// (see archFieldValue), so these map to logical field names rather than
+	// SQL columns. Keep the two in step.
 	"arch": {
-		"status":     "CASE WHEN retired = 1 OR COALESCE(superseded_by, '') != '' THEN 'retired' ELSE 'active' END",
+		"status":     "status",
 		"kind":       "kind",
 		"created_by": "created_by",
 	},
@@ -317,25 +338,11 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 
 	allPlaceholders := make([]string, len(ids))
 	allArgs := make([]any, len(ids))
-	archSlugs := make([]string, 0, len(ids))
 	for i, id := range ids {
 		allPlaceholders[i] = "?"
 		allArgs[i] = id
-		if slug, ok := corearch.ArchSlugFromNodeID(id); ok {
-			archSlugs = append(archSlugs, slug)
-		}
 	}
 	allInClause := strings.Join(allPlaceholders, ",")
-	archInClause := "NULL"
-	archArgs := make([]any, 0, len(archSlugs))
-	if len(archSlugs) > 0 {
-		archPlaceholders := make([]string, len(archSlugs))
-		for i, slug := range archSlugs {
-			archPlaceholders[i] = "?"
-			archArgs = append(archArgs, slug)
-		}
-		archInClause = strings.Join(archPlaceholders, ",")
-	}
 
 	query := fmt.Sprintf(`
 		SELECT id, type, title, status FROM features WHERE id IN (%s)
@@ -348,23 +355,17 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 		UNION ALL
 		SELECT session_id AS id, 'session' AS type, COALESCE(title,'') AS title, COALESCE(status,'') AS status FROM sessions WHERE session_id IN (%s)
 		UNION ALL
-		SELECT 'arch:' || slug AS id, 'arch' AS type, slug AS title,
-			CASE WHEN retired = 1 OR COALESCE(superseded_by, '') != '' THEN 'retired' ELSE 'active' END AS status
-		FROM arch_cards WHERE slug IN (%s)
-		UNION ALL
 		SELECT DISTINCT name AS id, 'agent' AS type, name AS title, '' AS status FROM (
 			SELECT agent_name AS name FROM agent_lineage_trace WHERE agent_name != ''
 			UNION
 			SELECT agent_assigned AS name FROM sessions WHERE agent_assigned != ''
 		) WHERE name IN (%s)`,
-		allInClause, allInClause, allInClause, allInClause, allInClause, archInClause, allInClause)
+		allInClause, allInClause, allInClause, allInClause, allInClause, allInClause)
 
-	fullArgs := make([]any, 0, len(allArgs)*6+len(archArgs))
-	for i := 0; i < 5; i++ {
+	fullArgs := make([]any, 0, len(allArgs)*6)
+	for i := 0; i < 6; i++ {
 		fullArgs = append(fullArgs, allArgs...)
 	}
-	fullArgs = append(fullArgs, archArgs...)
-	fullArgs = append(fullArgs, allArgs...)
 
 	rows, err := q.db.Query(query, fullArgs...)
 	if err != nil {
@@ -382,6 +383,18 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	// Architecture cards come from the canonical HTML store, not SQL.
+	archs := q.archLookupOrEmpty()
+	for _, id := range ids {
+		slug, ok := corearch.ArchSlugFromNodeID(id)
+		if !ok {
+			continue
+		}
+		if c := archs.get(slug); c != nil {
+			resolved[id] = archNodeResult(c)
+		}
 	}
 
 	// Return in input order, including unresolved IDs with minimal info.

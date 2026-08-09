@@ -79,7 +79,7 @@ func TestExecuteDSL_CommitType(t *testing.T) {
 		t.Fatalf("seed commit: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "commits")
+	results, err := graph.ExecuteDSL(database, nil, "commits")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestExecuteDSL_CommitTypeSingular(t *testing.T) {
 		t.Fatalf("seed commit: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "commit")
+	results, err := graph.ExecuteDSL(database, nil, "commit")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestExecuteDSL_FileType(t *testing.T) {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "files")
+	results, err := graph.ExecuteDSL(database, nil, "files")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestExecuteDSL_SessionType(t *testing.T) {
 		t.Fatalf("seed session: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "sessions")
+	results, err := graph.ExecuteDSL(database, nil, "sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestExecuteDSL_SessionWithFilter(t *testing.T) {
 		t.Fatalf("seed session: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "sessions[status=active]")
+	results, err := graph.ExecuteDSL(database, nil, "sessions[status=active]")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestExecuteDSL_FeatureToCommitChain(t *testing.T) {
 	}
 	seedEdge(t, database, "feat-a", "feature", "abc123", "commit", "committed_for")
 
-	results, err := graph.ExecuteDSL(database, "features -> committed_for -> commits")
+	results, err := graph.ExecuteDSL(database, nil, "features -> committed_for -> commits")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestResolveNodes_CommitMetadata(t *testing.T) {
 		t.Fatalf("seed commit: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "commits")
+	results, err := graph.ExecuteDSL(database, nil, "commits")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestResolveNodes_FileMetadata(t *testing.T) {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "files")
+	results, err := graph.ExecuteDSL(database, nil, "files")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestResolveNodes_SessionMetadata(t *testing.T) {
 		t.Fatalf("seed session: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "sessions")
+	results, err := graph.ExecuteDSL(database, nil, "sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestExecuteDSL_AgentType(t *testing.T) {
 		t.Fatalf("seed session: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "agents")
+	results, err := graph.ExecuteDSL(database, nil, "agents")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestExecuteDSL_AgentTypeSingular(t *testing.T) {
 		t.Fatalf("seed lineage: %v", err)
 	}
 
-	results, err := graph.ExecuteDSL(database, "agent")
+	results, err := graph.ExecuteDSL(database, nil, "agent")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -394,18 +394,25 @@ func TestExecuteDSL_AgentTypeSingular(t *testing.T) {
 	}
 }
 
+// fakeArchSource serves architecture cards from memory. It stands in for
+// core/arch.Store, which reads the canonical .wipnote/architecture.html
+// ledger. Arch cards are deliberately not mirrored into SQLite, so seeding a
+// table is no longer a way to make them visible to a query (spk-e6e82b5a).
+type fakeArchSource []*corearch.Card
+
+func (f fakeArchSource) List(bool) ([]*corearch.Card, error) { return f, nil }
+
 func TestExecuteDSL_ArchTypeAndAliases(t *testing.T) {
 	database := openTestDB(t)
-	_, err := database.Exec(
-		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
-		"auth-learning", "decision", "agent", 0, "Prefer explicit auth boundaries.",
-	)
-	if err != nil {
-		t.Fatalf("seed arch card: %v", err)
-	}
+	archSrc := fakeArchSource{{
+		Name:      "auth-learning",
+		Kind:      corearch.KindDecision,
+		CreatedBy: "agent",
+		Body:      "Prefer explicit auth boundaries.",
+	}}
 
 	for _, query := range []string{"arch", "architecture", "architectures"} {
-		results, err := graph.ExecuteDSL(database, query)
+		results, err := graph.ExecuteDSL(database, archSrc, query)
 		if err != nil {
 			t.Fatalf("unexpected error for %q: %v", query, err)
 		}
@@ -426,22 +433,23 @@ func TestExecuteDSL_ArchTypeAndAliases(t *testing.T) {
 
 func TestExecuteDSL_ArchFilters(t *testing.T) {
 	database := openTestDB(t)
-	_, err := database.Exec(
-		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
-		"auth-learning", "decision", "agent", 0, "Prefer explicit auth boundaries.",
-	)
-	if err != nil {
-		t.Fatalf("seed active arch card: %v", err)
-	}
-	_, err = database.Exec(
-		`INSERT INTO arch_cards (slug, kind, created_by, superseded_by, retired, body) VALUES (?, ?, ?, ?, ?, ?)`,
-		"old-learning", "hazard", "reviewer", "new-learning", 0, "This guidance is retired.",
-	)
-	if err != nil {
-		t.Fatalf("seed retired arch card: %v", err)
+	archSrc := fakeArchSource{
+		{
+			Name:      "auth-learning",
+			Kind:      corearch.KindDecision,
+			CreatedBy: "agent",
+			Body:      "Prefer explicit auth boundaries.",
+		},
+		{
+			Name:         "old-learning",
+			Kind:         corearch.KindHazard,
+			CreatedBy:    "reviewer",
+			SupersededBy: "new-learning",
+			Body:         "This guidance is retired.",
+		},
 	}
 
-	results, err := graph.ExecuteDSL(database, "arch[kind=decision]")
+	results, err := graph.ExecuteDSL(database, archSrc, "arch[kind=decision]")
 	if err != nil {
 		t.Fatalf("arch[kind=decision]: %v", err)
 	}
@@ -449,7 +457,7 @@ func TestExecuteDSL_ArchFilters(t *testing.T) {
 		t.Fatalf("arch[kind=decision] = %+v, want auth-learning", results)
 	}
 
-	results, err = graph.ExecuteDSL(database, "arch[status=retired]")
+	results, err = graph.ExecuteDSL(database, archSrc, "arch[status=retired]")
 	if err != nil {
 		t.Fatalf("arch[status=retired]: %v", err)
 	}
@@ -457,12 +465,34 @@ func TestExecuteDSL_ArchFilters(t *testing.T) {
 		t.Fatalf("arch[status=retired] = %+v, want old-learning", results)
 	}
 
-	results, err = graph.ExecuteDSL(database, "arch[created_by=agent]")
+	results, err = graph.ExecuteDSL(database, archSrc, "arch[created_by=agent]")
 	if err != nil {
 		t.Fatalf("arch[created_by=agent]: %v", err)
 	}
 	if len(results) != 1 || results[0].ID != corearch.ArchNodeID("auth-learning") {
 		t.Fatalf("arch[created_by=agent] = %+v, want auth-learning", results)
+	}
+}
+
+// TestExecuteDSL_ArchIgnoresSQLiteMirror pins the direction of the migration:
+// a row sitting in the retired arch_cards table must not make a card visible.
+// Only the canonical store can.
+func TestExecuteDSL_ArchIgnoresSQLiteMirror(t *testing.T) {
+	database := openTestDB(t)
+	if _, err := database.Exec(
+		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
+		"stale-mirror-card", "decision", "agent", 0, "Only in SQLite.",
+	); err != nil {
+		t.Fatalf("seed arch_cards row: %v", err)
+	}
+
+	results, err := graph.ExecuteDSL(database, fakeArchSource{}, "arch")
+	if err != nil {
+		t.Fatalf("arch: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("arch returned %+v — the DSL is still reading the arch_cards "+
+			"mirror instead of the canonical card store", results)
 	}
 }
 
@@ -477,17 +507,17 @@ func TestExecuteDSL_RejectsWrongTypeField(t *testing.T) {
 	database := openTestDB(t)
 
 	// features[message=X] — message isn't a features column.
-	_, err := graph.ExecuteDSL(database, "features[message=hello]")
+	_, err := graph.ExecuteDSL(database, nil, "features[message=hello]")
 	if err == nil {
 		t.Fatal("expected error for features[message=X], got nil")
 	}
 	// sessions[type=Y] — type isn't a sessions column.
-	_, err = graph.ExecuteDSL(database, "sessions[type=foo]")
+	_, err = graph.ExecuteDSL(database, nil, "sessions[type=foo]")
 	if err == nil {
 		t.Fatal("expected error for sessions[type=Y], got nil")
 	}
 	// commits[status=Z] — status isn't a commits column.
-	_, err = graph.ExecuteDSL(database, "commits[status=done]")
+	_, err = graph.ExecuteDSL(database, nil, "commits[status=done]")
 	if err == nil {
 		t.Fatal("expected error for commits[status=Z], got nil")
 	}

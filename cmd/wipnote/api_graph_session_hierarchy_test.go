@@ -178,7 +178,7 @@ func TestLoadGraphNodes_IncludesSubagentSessions(t *testing.T) {
 	seedAgentEventForHierarchy(t, db, "sess-sub-inc", "feat-rootfeat", "1")
 	seedLineageTrace(t, db, "trace-sub-inc", "sess-sub-inc", "sess-root-inc", "feat-rootfeat")
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestLoadGraphNodes_SessionCappedAt500(t *testing.T) {
 		}
 	}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}

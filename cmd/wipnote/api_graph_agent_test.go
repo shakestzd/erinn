@@ -33,7 +33,7 @@ func TestLoadGraphNodes_AgentNodesOmitted(t *testing.T) {
 		t.Fatalf("seed lineage: %v", err)
 	}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}

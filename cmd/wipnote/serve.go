@@ -106,7 +106,7 @@ func buildSingleProjectMux(database, writeDB *sql.DB, wipnoteDir string) *http.S
 	// read-only for preview, writable for the ingest write path.
 	mux.Handle("/api/sessions/", sessionIngestHandler(database, writeDB))
 	mux.Handle("/api/features/", featureActivityRouter(database, wipnoteDir))
-	mux.Handle("/api/graph", graphAPIHandler(database))
+	mux.Handle("/api/graph", graphAPIHandler(database, wipnoteDir))
 	mux.Handle("/api/graph/agents", agentsHandler(database))
 	mux.Handle("/api/provenance/", provenanceHandler(database, wipnoteDir))
 	mux.Handle("/api/graph/commits", commitsForFeatureHandler(database))

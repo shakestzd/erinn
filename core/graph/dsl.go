@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-
-	corearch "github.com/shakestzd/wipnote/core/arch"
 )
 
 // ExecuteDSL parses and executes a DSL query, returning matched nodes.
@@ -22,7 +20,10 @@ import (
 //
 // The first segment must be a type (optionally with filter). Subsequent
 // segments alternate between relationship types and node types.
-func ExecuteDSL(db *sql.DB, input string) ([]NodeResult, error) {
+//
+// archSrc supplies architecture cards from their canonical HTML store; pass
+// nil when arch nodes are out of scope. See ArchSource.
+func ExecuteDSL(db *sql.DB, archSrc ArchSource, input string) ([]NodeResult, error) {
 	tokens, err := tokenize(input)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,11 @@ func ExecuteDSL(db *sql.DB, input string) ([]NodeResult, error) {
 		return nil, fmt.Errorf("dsl: query must start with a node type, got %q", tokens[0])
 	}
 
-	currentIDs, err := resolveTypeSelector(db, first)
+	// One lookup for the whole execution so the ledger is parsed at most once
+	// however many arch segments the query has.
+	archs := newArchLookup(archSrc)
+
+	currentIDs, err := resolveTypeSelector(db, archs, first)
 	if err != nil {
 		return nil, err
 	}
@@ -54,14 +59,14 @@ func ExecuteDSL(db *sql.DB, input string) ([]NodeResult, error) {
 				return nil, err
 			}
 		case nodeSelector:
-			currentIDs, err = filterBySelectorDSL(db, currentIDs, v)
+			currentIDs, err = filterBySelectorDSL(db, archs, currentIDs, v)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	q := &QueryBuilder{db: db}
+	q := &QueryBuilder{db: db, archs: archs}
 	return q.resolveNodes(currentIDs)
 }
 
@@ -192,8 +197,19 @@ func normalizeNodeType(s string) string {
 func NormalizeNodeType(s string) string { return normalizeNodeType(s) }
 
 // resolveTypeSelector queries for all node IDs matching a type+filter selector.
-func resolveTypeSelector(db *sql.DB, sel nodeSelector) ([]string, error) {
+func resolveTypeSelector(db *sql.DB, archs *archLookup, sel nodeSelector) ([]string, error) {
 	nodeType := normalizeNodeType(sel.nodeType)
+
+	// Architecture cards are served from their canonical HTML store, not from
+	// SQL, so this type never reaches the query builder below.
+	if nodeType == "arch" {
+		if sel.field != "" {
+			if _, ok := allowedColumnFor(nodeType, sel.field); !ok {
+				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
+			}
+		}
+		return archs.archSelect(sel.field, sel.value), nil
+	}
 
 	var query string
 	var args []any
@@ -267,17 +283,6 @@ func resolveTypeSelector(db *sql.DB, sel nodeSelector) ([]string, error) {
 		} else {
 			query = `SELECT id FROM tracks`
 		}
-	case "arch":
-		if sel.field != "" {
-			col, ok := allowedColumnFor(nodeType, sel.field)
-			if !ok {
-				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
-			}
-			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE %s = ?`, col)
-			args = append(args, sel.value)
-		} else {
-			query = `SELECT 'arch:' || slug FROM arch_cards`
-		}
 	default:
 		// features, bugs, spikes, plans, specs — all stored in features table
 		if sel.field != "" {
@@ -346,12 +351,22 @@ func followEdgesDSL(db *sql.DB, sourceIDs []string, relType string) ([]string, e
 }
 
 // filterBySelectorDSL filters IDs by a node selector (type + optional field).
-func filterBySelectorDSL(db *sql.DB, ids []string, sel nodeSelector) ([]string, error) {
+func filterBySelectorDSL(db *sql.DB, archs *archLookup, ids []string, sel nodeSelector) ([]string, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 
 	nodeType := normalizeNodeType(sel.nodeType)
+
+	// Architecture cards are served from their canonical HTML store.
+	if nodeType == "arch" {
+		if sel.field != "" {
+			if _, ok := allowedColumnFor(nodeType, sel.field); !ok {
+				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
+			}
+		}
+		return archs.archFilter(ids, sel.field, sel.value), nil
+	}
 
 	placeholders := make([]string, len(ids))
 	baseArgs := make([]any, len(ids))
@@ -433,33 +448,6 @@ func filterBySelectorDSL(db *sql.DB, ids []string, sel nodeSelector) ([]string, 
 			args = append(args, sel.value)
 		} else {
 			query = fmt.Sprintf(`SELECT id FROM tracks WHERE id IN (%s)`, inClause)
-		}
-	case "arch":
-		archSlugs := make([]string, 0, len(ids))
-		for _, id := range ids {
-			if slug, ok := corearch.ArchSlugFromNodeID(id); ok {
-				archSlugs = append(archSlugs, slug)
-			}
-		}
-		if len(archSlugs) == 0 {
-			return nil, nil
-		}
-		archPlaceholders := make([]string, len(archSlugs))
-		args = make([]any, len(archSlugs), len(archSlugs)+1)
-		for i, slug := range archSlugs {
-			archPlaceholders[i] = "?"
-			args[i] = slug
-		}
-		archInClause := strings.Join(archPlaceholders, ",")
-		if sel.field != "" {
-			col, ok := allowedColumnFor(nodeType, sel.field)
-			if !ok {
-				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
-			}
-			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE slug IN (%s) AND %s = ?`, archInClause, col)
-			args = append(args, sel.value)
-		} else {
-			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE slug IN (%s)`, archInClause)
 		}
 	default:
 		// features, bugs, spikes, plans, specs

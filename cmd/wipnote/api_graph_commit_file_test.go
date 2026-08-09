@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
@@ -47,7 +48,7 @@ func TestLoadGraphNodes_CommitNodesOmitted(t *testing.T) {
 		t.Fatalf("insert commit: %v", err)
 	}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -70,7 +71,7 @@ func TestLoadGraphNodes_FileNodesReturned(t *testing.T) {
 		t.Fatalf("insert feature_file: %v", err)
 	}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestLoadGraphNodes_FileDeduplication(t *testing.T) {
 		t.Fatalf("insert feature_file 2: %v", err)
 	}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, nil)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -143,16 +144,24 @@ func TestLoadGraphNodes_FileDeduplication(t *testing.T) {
 	}
 }
 
+// fakeGraphArchSource serves architecture cards from memory in place of
+// core/arch.Store. Cards are no longer mirrored into arch_cards, so seeding
+// that table does not make them visible to the dashboard (spk-e6e82b5a).
+type fakeGraphArchSource []*arch.Card
+
+func (f fakeGraphArchSource) List(bool) ([]*arch.Card, error) { return f, nil }
+
 func TestLoadGraphNodes_ArchNodesReturned(t *testing.T) {
 	db := openGraphTestDB(t)
 
-	_, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, retired, body)
-		VALUES ('auth-learning', 'decision', 'agent', 0, 'Prefer explicit auth boundaries.')`)
-	if err != nil {
-		t.Fatalf("insert arch card: %v", err)
-	}
+	archSrc := fakeGraphArchSource{{
+		Name:      "auth-learning",
+		Kind:      arch.KindDecision,
+		CreatedBy: "agent",
+		Body:      "Prefer explicit auth boundaries.",
+	}}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, archSrc)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -182,13 +191,15 @@ func TestLoadGraphNodes_ArchNodesReturned(t *testing.T) {
 func TestLoadGraphNodes_SupersededArchNodeIsRetired(t *testing.T) {
 	db := openGraphTestDB(t)
 
-	_, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, superseded_by, retired, body)
-		VALUES ('old-learning', 'decision', 'agent', 'new-learning', 0, 'Older guidance.')`)
-	if err != nil {
-		t.Fatalf("insert arch card: %v", err)
-	}
+	archSrc := fakeGraphArchSource{{
+		Name:         "old-learning",
+		Kind:         arch.KindDecision,
+		CreatedBy:    "agent",
+		SupersededBy: "new-learning",
+		Body:         "Older guidance.",
+	}}
 
-	nodes, _, err := loadGraphNodes(db)
+	nodes, _, err := loadGraphNodes(db, archSrc)
 	if err != nil {
 		t.Fatalf("loadGraphNodes: %v", err)
 	}
@@ -202,6 +213,29 @@ func TestLoadGraphNodes_SupersededArchNodeIsRetired(t *testing.T) {
 		}
 	}
 	t.Fatal("expected arch:old-learning node in graph nodes")
+}
+
+// TestLoadGraphNodes_ArchIgnoresSQLiteMirror pins the migration direction: a
+// row left in the retired arch_cards table must not surface as a graph node.
+func TestLoadGraphNodes_ArchIgnoresSQLiteMirror(t *testing.T) {
+	db := openGraphTestDB(t)
+
+	if _, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, retired, body)
+		VALUES ('stale-mirror-card', 'decision', 'agent', 0, 'Only in SQLite.')`); err != nil {
+		t.Fatalf("insert arch card: %v", err)
+	}
+
+	nodes, _, err := loadGraphNodes(db, fakeGraphArchSource{})
+	if err != nil {
+		t.Fatalf("loadGraphNodes: %v", err)
+	}
+
+	for _, n := range nodes {
+		if n.ID == "arch:stale-mirror-card" {
+			t.Fatal("stale arch_cards row surfaced as a graph node — the " +
+				"dashboard is still reading the SQLite mirror")
+		}
+	}
 }
 
 // TestLoadCommitEdges_CommittedFor verifies that commit->feature edges

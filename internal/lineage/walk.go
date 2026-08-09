@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
@@ -232,10 +233,19 @@ func resolveTitles(db *sql.DB, nodes []Node) {
 	for i, n := range nodes {
 		ids[i] = n.ID
 	}
-	labels := graph.ResolveToMap(db, ids)
+	// nil arch source: an architecture card's title is its slug, which is the
+	// node ID minus the "arch:" prefix, so it is filled in below without
+	// reading the card store. Only Title is consumed here — nothing in a
+	// lineage walk renders a card's kind or retirement status — so this
+	// reproduces what the arch_cards SELECT returned, exactly.
+	labels := graph.ResolveToMap(db, nil, ids)
 	for i := range nodes {
 		if r, ok := labels[nodes[i].ID]; ok {
 			nodes[i].Title = r.Title
+			continue
+		}
+		if slug, ok := arch.ArchSlugFromNodeID(nodes[i].ID); ok {
+			nodes[i].Title = slug
 		}
 	}
 }

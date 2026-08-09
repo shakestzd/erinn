@@ -301,7 +301,10 @@ func renderLineageTree(
 	forward, backward []lineageNode,
 	timeline bool,
 ) error {
-	rootLabel := graph.FormatNodeLabel(root, graph.ResolveToMap(db, []string{root}))
+	// nil arch source: detectLineageKind recognises no "arch:" root, so the
+	// pivot node here is never an architecture card. Cards reached as
+	// neighbours during the walk are labelled in lineage.resolveTitles.
+	rootLabel := graph.FormatNodeLabel(root, graph.ResolveToMap(db, nil, []string{root}))
 
 	sep := strings.Repeat("─", 60)
 	fmt.Fprintln(w, sep)

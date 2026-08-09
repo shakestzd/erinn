@@ -90,7 +90,7 @@ func runGraphCycles() error {
 
 	// Resolve node titles for display.
 	allIDs := graph.AllUniqueIDs(cycles)
-	resolved := graph.ResolveToMap(database, allIDs)
+	resolved := graph.ResolveToMap(database, archSourceFor(dir), allIDs)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -145,7 +145,7 @@ func runGraphPath(fromID, toID string) error {
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, path)
+	resolved := graph.ResolveToMap(database, archSourceFor(dir), path)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -202,7 +202,7 @@ func runGraphReach(startID string, depth int) error {
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, ids)
+	resolved := graph.ResolveToMap(database, archSourceFor(dir), ids)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -251,7 +251,7 @@ func runGraphOrphans() error {
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, ids)
+	resolved := graph.ResolveToMap(database, archSourceFor(dir), ids)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -293,7 +293,7 @@ func runGraphHubs(minEdges int) error {
 	}
 	defer database.Close()
 
-	hubs, err := graph.FindHubs(database, minEdges)
+	hubs, err := graph.FindHubs(database, archSourceFor(dir), minEdges)
 	if err != nil {
 		return err
 	}

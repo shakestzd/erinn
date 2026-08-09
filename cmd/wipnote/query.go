@@ -60,7 +60,7 @@ func runQuery(dsl string) error {
 
 	var results []graph.NodeResult
 	if err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-		r, derr := graph.ExecuteDSL(database, dsl)
+		r, derr := graph.ExecuteDSL(database, archSourceFor(dir), dsl)
 		if derr != nil {
 			return derr
 		}

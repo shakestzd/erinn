@@ -14,7 +14,7 @@ func TestExecuteDSL_SimpleChain(t *testing.T) {
 	seedFeature(t, database, "feat-y", "Y", "done")
 	seedEdge(t, database, "feat-x", "feature", "feat-y", "feature", "contains")
 
-	results, err := graph.ExecuteDSL(database, "features -> contains -> features")
+	results, err := graph.ExecuteDSL(database, nil, "features -> contains -> features")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestExecuteDSL_SimpleChain(t *testing.T) {
 
 func TestTokenize_Empty(t *testing.T) {
 	database := openTestDB(t)
-	_, err := graph.ExecuteDSL(database, "")
+	_, err := graph.ExecuteDSL(database, nil, "")
 	if err == nil {
 		t.Fatal("expected error for empty query")
 	}
@@ -33,7 +33,7 @@ func TestTokenize_Empty(t *testing.T) {
 
 func TestTokenize_UnclosedBracket(t *testing.T) {
 	database := openTestDB(t)
-	_, err := graph.ExecuteDSL(database, "features[status=todo")
+	_, err := graph.ExecuteDSL(database, nil, "features[status=todo")
 	if err == nil {
 		t.Fatal("expected error for unclosed bracket")
 	}
@@ -41,7 +41,7 @@ func TestTokenize_UnclosedBracket(t *testing.T) {
 
 func TestTokenize_BadFilter(t *testing.T) {
 	database := openTestDB(t)
-	_, err := graph.ExecuteDSL(database, "features[badfield]")
+	_, err := graph.ExecuteDSL(database, nil, "features[badfield]")
 	if err == nil {
 		t.Fatal("expected error for filter without =")
 	}
@@ -54,7 +54,7 @@ func TestExecuteDSL_SimpleType(t *testing.T) {
 	seedFeature(t, database, "feat-a", "A", "todo")
 	seedFeature(t, database, "feat-b", "B", "done")
 
-	results, err := graph.ExecuteDSL(database, "features")
+	results, err := graph.ExecuteDSL(database, nil, "features")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestExecuteDSL_TypeWithFilter(t *testing.T) {
 	seedFeature(t, database, "feat-a", "A", "todo")
 	seedFeature(t, database, "feat-b", "B", "done")
 
-	results, err := graph.ExecuteDSL(database, "features[status=todo]")
+	results, err := graph.ExecuteDSL(database, nil, "features[status=todo]")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestExecuteDSL_FollowRelation(t *testing.T) {
 	seedEdge(t, database, "trk-1", "track", "feat-a", "feature", "contains")
 	seedEdge(t, database, "trk-1", "track", "feat-b", "feature", "contains")
 
-	results, err := graph.ExecuteDSL(database, "tracks -> contains -> features")
+	results, err := graph.ExecuteDSL(database, nil, "tracks -> contains -> features")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestExecuteDSL_FollowWithFilter(t *testing.T) {
 	seedEdge(t, database, "trk-1", "track", "feat-a", "feature", "contains")
 	seedEdge(t, database, "trk-1", "track", "feat-b", "feature", "contains")
 
-	results, err := graph.ExecuteDSL(database,
+	results, err := graph.ExecuteDSL(database, nil,
 		"tracks -> contains -> features[status=todo]")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -120,7 +120,7 @@ func TestExecuteDSL_ChainedRelations(t *testing.T) {
 	seedEdge(t, database, "trk-1", "track", "feat-a", "feature", "contains")
 	seedEdge(t, database, "feat-a", "feature", "feat-b", "feature", "blocked_by")
 
-	results, err := graph.ExecuteDSL(database,
+	results, err := graph.ExecuteDSL(database, nil,
 		"tracks -> contains -> blocked_by -> features")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -138,7 +138,7 @@ func TestExecuteDSL_ChainedWithFilters(t *testing.T) {
 	seedEdge(t, database, "feat-a", "feature", "feat-b", "feature", "blocked_by")
 	seedEdge(t, database, "feat-a", "feature", "feat-c", "feature", "blocked_by")
 
-	results, err := graph.ExecuteDSL(database,
+	results, err := graph.ExecuteDSL(database, nil,
 		"features[status=todo] -> blocked_by -> features[status=done]")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -152,7 +152,7 @@ func TestExecuteDSL_NoResults(t *testing.T) {
 	database := openTestDB(t)
 	seedFeature(t, database, "feat-a", "A", "todo")
 
-	results, err := graph.ExecuteDSL(database,
+	results, err := graph.ExecuteDSL(database, nil,
 		"features -> blocked_by -> features")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -167,11 +167,11 @@ func TestExecuteDSL_PluralAndSingular(t *testing.T) {
 	seedTrack(t, database, "trk-1", "Track 1", "active")
 
 	// Both "tracks" and "track" should work.
-	r1, err := graph.ExecuteDSL(database, "tracks")
+	r1, err := graph.ExecuteDSL(database, nil, "tracks")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	r2, err := graph.ExecuteDSL(database, "track")
+	r2, err := graph.ExecuteDSL(database, nil, "track")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestExecuteDSL_InvalidField(t *testing.T) {
 	database := openTestDB(t)
 	seedFeature(t, database, "feat-a", "A", "todo")
 
-	_, err := graph.ExecuteDSL(database, "features[nonexistent=val]")
+	_, err := graph.ExecuteDSL(database, nil, "features[nonexistent=val]")
 	if err == nil {
 		t.Fatal("expected error for invalid filter field")
 	}

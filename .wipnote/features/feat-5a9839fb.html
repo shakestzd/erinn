@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-29T08:58:58.037115"
-             data-updated="2026-05-29T09:18:49.907951" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19">
+             data-updated="2026-08-09T20:43:08.011104" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19" data-affected_files=".wipnote/features/feat-5a9839fb.html,cmd/wipnote/workitem.go,cmd/wipnote/workitem_test.go,internal/db/claim_collision.go,internal/db/claim_collision_test.go">
 
         <header>
             <h1>Hard-refuse work-item start on live claim collision (DetectCollaboration warn-&gt;block)</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T08:59:32.060007">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                    <li><a href="../sessions/c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T08:59:32.060007">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Promote DetectCollaboration (internal/db/claim_collision.go) from warn-and-allow to a hard refusal in wipnote feature/bug/spike start. Refuse with non-zero exit + remediation ONLY when another claimant session is LIVE (active within the liveness window); reclaim silently when the existing claim is stale/dead. Add --force to opt into deliberate concurrent collaboration (preserves today's warn-and-allow). Harness-agnostic: works on Claude/Codex/Gemini because all shell out to the wipnote CLI; no hook/exit-2 semantics required. Closes the #1 coordination gap identified in the agent-coordination-substrate assessment.</p>
+            <p>Promote DetectCollaboration (internal/db/claim_collision.go) from warn-and-allow to a hard refusal in wipnote feature/bug/spike start. Refuse with non-zero exit + remediation ONLY when another claimant session is LIVE (active within the liveness window); reclaim silently when the existing claim is stale/dead. Add --force to opt into deliberate concurrent collaboration (preserves today&#39;s warn-and-allow). Harness-agnostic: works on Claude/Codex/Gemini because all shell out to the wipnote CLI; no hook/exit-2 semantics required. Closes the #1 coordination gap identified in the agent-coordination-substrate assessment.</p>
         </section>
     </article>
 </body>

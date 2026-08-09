@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-11T07:44:47.335444"
-             data-updated="2026-06-11T08:42:12.138192" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+             data-updated="2026-08-09T20:41:49.435743" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac" data-affected_files=".wipnote/bugs/bug-38680a65.html,cmd/wipnote/arch_cmds.go,cmd/wipnote/arch_cmds_test.go,cmd/wipnote/ingest.go,cmd/wipnote/ingest_events_test.go,cmd/wipnote/reindex_feature_files_test.go,cmd/wipnote/reindex_files.go">
 
         <header>
             <h1>arch resolve --for &lt;work-item&gt; returns no matches despite linked commits touching covered paths</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-c96e069b.html" data-relationship="blocks" data-since="2026-06-11T08:10:26.737687">Seed operational-hazard cards; slim dispatch-prompt boilerplate</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:03:36.652975">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:03:36.652975">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:44:47.344378">trk-53715165</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocks">
-                <h3>Blocks:</h3>
-                <ul>
-                    <li><a href="feat-c96e069b.html" data-relationship="blocks" data-since="2026-06-11T08:10:26.737687">Seed operational-hazard cards; slim dispatch-prompt boilerplate</a></li>
+                    <li><a href="../tracks/trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:44:47.344378">trk-53715165</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>ROOT CAUSE (researched 2026-06-11): resolveWorkItemPaths (cmd/wipnote/arch_cmds.go ~417) has NO fallback when feature_files is empty — it silently returns [] and the caller cannot distinguish 'empty/unindexed DB' from 'item touched no files'. The active project DB had zero git_commits rows (never reindexed), so ALL work-item resolves fail there, bugs and features alike; the feature_id column and trailer parser handle bug- IDs correctly (reindex_trailers.go ~37-48), so this is NOT bug-type-specific — test coverage just never included bug items. DURABLE FIX — three-tier fallback chain in resolveWorkItemPaths: (1) feature_files rows [current fast path]; (2) git_commits for the item -> git diff-tree expansion inline (extract expandCommitFiles helper from reindexFeatureFiles, reindex_files.go ~49-77, and share it); (3) parse linked commits from the item's canonical HTML and diff-tree those (works with zero DB); (4) still empty -> message 'No files attributed yet; try wipnote reindex'. Also split the no-match message: no-paths-attributed vs paths-but-no-cards. TESTS: TestReindexFeatureFiles_BugTypeItem; TestArchResolve_ForBugItem_FallsBackToCommitFiles (empty feature_files, expects tier-2 hit). REJECTED: schema rename feature_id->work_item_id (churn, no behavior); always-reindex-before-resolve (too slow for skill-injection hot path). Effort ~2.5h incl helper extraction. Note: agent-context skill injection depends on this fix.</p>
+            <p>ROOT CAUSE (researched 2026-06-11): resolveWorkItemPaths (cmd/wipnote/arch_cmds.go ~417) has NO fallback when feature_files is empty — it silently returns [] and the caller cannot distinguish &#39;empty/unindexed DB&#39; from &#39;item touched no files&#39;. The active project DB had zero git_commits rows (never reindexed), so ALL work-item resolves fail there, bugs and features alike; the feature_id column and trailer parser handle bug- IDs correctly (reindex_trailers.go ~37-48), so this is NOT bug-type-specific — test coverage just never included bug items. DURABLE FIX — three-tier fallback chain in resolveWorkItemPaths: (1) feature_files rows [current fast path]; (2) git_commits for the item -&gt; git diff-tree expansion inline (extract expandCommitFiles helper from reindexFeatureFiles, reindex_files.go ~49-77, and share it); (3) parse linked commits from the item&#39;s canonical HTML and diff-tree those (works with zero DB); (4) still empty -&gt; message &#39;No files attributed yet; try wipnote reindex&#39;. Also split the no-match message: no-paths-attributed vs paths-but-no-cards. TESTS: TestReindexFeatureFiles_BugTypeItem; TestArchResolve_ForBugItem_FallsBackToCommitFiles (empty feature_files, expects tier-2 hit). REJECTED: schema rename feature_id-&gt;work_item_id (churn, no behavior); always-reindex-before-resolve (too slow for skill-injection hot path). Effort ~2.5h incl helper extraction. Note: agent-context skill injection depends on this fix.</p>
         </section>
     </article>
 </body>

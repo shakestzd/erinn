@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-11T09:11:29.685365"
-             data-updated="2026-06-11T10:15:02.236171" data-agent-assigned="claude-code" data-track-id="trk-9f0ac8e2" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-43-g4562c9fd0">
+             data-updated="2026-08-09T20:41:52.499493" data-agent-assigned="claude-code" data-track-id="trk-9f0ac8e2" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-43-g4562c9fd0" data-affected_files=".wipnote/bugs/bug-474380ef.html,cmd/wipnote/hook_worktree_create_test.go,core/hooks/harness.go,core/hooks/missing_events.go">
 
         <header>
             <h1>WorktreeCreate hook rejects current Claude Code payload (name-only, no worktree_base_path)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-9f0ac8e2.html" data-relationship="part_of" data-since="2026-06-11T09:11:29.6967">trk-9f0ac8e2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="2fa74e7e-e402-42f2-bfb3-5a93568a3d28.html" data-relationship="implemented_in" data-since="2026-06-11T09:11:35.366151">session 2fa74e7e-e402-42f2-bfb3-5a93568a3d28</a></li>
+                    <li><a href="../sessions/2fa74e7e-e402-42f2-bfb3-5a93568a3d28.html" data-relationship="implemented_in" data-since="2026-06-11T09:11:35.366151">session 2fa74e7e-e402-42f2-bfb3-5a93568a3d28</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-9f0ac8e2.html" data-relationship="part_of" data-since="2026-06-11T09:11:29.6967">trk-9f0ac8e2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Blocking: parallel agent dispatch via isolation=worktree fails. Claude Code WorktreeCreate payload drifted to {session_id,transcript_path,cwd,hook_event_name,name} — no worktree_name/worktree_base_path. Fix: fall back worktree_name<-name in ParseClaudeWorktreeCreateEvent, default base_path<-cwd/.claude/worktrees in hooks.WorktreeCreate. Observed 2026-06-11, trace /tmp/wipnote-hook-trace.jsonl.</p>
+            <p>Blocking: parallel agent dispatch via isolation=worktree fails. Claude Code WorktreeCreate payload drifted to {session_id,transcript_path,cwd,hook_event_name,name} — no worktree_name/worktree_base_path. Fix: fall back worktree_name&lt;-name in ParseClaudeWorktreeCreateEvent, default base_path&lt;-cwd/.claude/worktrees in hooks.WorktreeCreate. Observed 2026-06-11, trace /tmp/wipnote-hook-trace.jsonl.</p>
         </section>
     </article>
 </body>

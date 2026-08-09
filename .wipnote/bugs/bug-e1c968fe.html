@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>[P1] Worktree .git file carries cross-machine absolute paths — breaks in devcontainer</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T23:33:01.963432"
-             data-updated="2026-04-22T03:01:29.087232" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+             data-updated="2026-08-09T20:42:37.888577" data-agent-assigned="claude-code" data-track-id="trk-787f57d3" data-affected_files="cmd/htmlgraph/check.go,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/check_host_paths_test.go,cmd/htmlgraph/testdata/bad-path-sample.html,cmd/htmlgraph/testdata/clean-sample.html,internal/hooks/session_start.go,internal/worktree/repair.go,internal/worktree/repair_test.go,scripts/check-host-paths.sh">
 
         <header>
             <h1>[P1] Worktree .git file carries cross-machine absolute paths — breaks in devcontainer</h1>
@@ -24,24 +24,24 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:33:02.379256">trk-787f57d3</a></li>
-                    <li><a href="bug-5150e42a.html" data-relationship="part_of" data-since="2026-04-21T23:33:25.133898">[P2] Cross-environment absolute-path drift — class audit</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:20:11.188091">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                    <li><a href="../sessions/dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:20:11.188091">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:33:02.379256">trk-787f57d3</a></li>
+                    <li><a href="../bugs/bug-5150e42a.html" data-relationship="part_of" data-since="2026-04-21T23:33:25.133898">[P2] Cross-environment absolute-path drift — class audit</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Symptom: a Claude Code session opened in <repo-root>/.claude/worktrees/trk-cd61bbae (Linux devcontainer) had CWD showing '<repo-root>/.claude/worktrees/trk-cd61bbae' and the worktree's .git file contained 'gitdir: <repo-root>/.git/worktrees/trk-cd61bbae' — a macOS path that does not exist in the container. All git commands failed until the .git file was manually rewritten. This is the same class as the existing memory about settings.local.json cross-machine path drift. Fix options: (a) on /htmlgraph:execute entry (or session_start hook), detect mismatch between worktree .git gitdir and the current repo root and rewrite before any git command runs; (b) when creating worktrees via htmlgraph, use a relative gitdir where supported, or regenerate on session_start; (c) move worktrees out of .claude/worktrees into an env-local location (e.g. ~/.htmlgraph/worktrees//) that is not shared across hosts. Acceptance: fresh Claude Code session in a worktree created on the other host works immediately, no manual .git repair.</p>
+            <p>Symptom: a Claude Code session opened in /.claude/worktrees/trk-cd61bbae (Linux devcontainer) had CWD showing &#39;/.claude/worktrees/trk-cd61bbae&#39; and the worktree&#39;s .git file contained &#39;gitdir: /.git/worktrees/trk-cd61bbae&#39; — a macOS path that does not exist in the container. All git commands failed until the .git file was manually rewritten. This is the same class as the existing memory about settings.local.json cross-machine path drift. Fix options: (a) on /htmlgraph:execute entry (or session_start hook), detect mismatch between worktree .git gitdir and the current repo root and rewrite before any git command runs; (b) when creating worktrees via htmlgraph, use a relative gitdir where supported, or regenerate on session_start; (c) move worktrees out of .claude/worktrees into an env-local location (e.g. ~/.htmlgraph/worktrees//) that is not shared across hosts. Acceptance: fresh Claude Code session in a worktree created on the other host works immediately, no manual .git repair.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-12T02:15:33.302824"
-             data-updated="2026-05-12T02:38:44.062306" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:01.993964" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".wipnote/features/feat-3973e948.html,.wipnote/features/feat-39b81fa6.html,.wipnote/features/feat-3e0ff3c8.html,.wipnote/features/feat-4417b8df.html,.wipnote/features/feat-a57eb374.html,.wipnote/features/feat-ab99d13b.html,.wipnote/features/feat-b6a9f2d4.html,.wipnote/features/feat-edbc978b.html,.wipnote/plans/plan-2133adf2.html,.wipnote/plans/plan-2133adf2.yaml,cmd/wipnote/workitem_create.go,cmd/wipnote/workitem_create_test.go">
 
         <header>
             <h1>Normalize CLI --files input on workitem create</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:33.30544">trk-08dcbb33</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:33.312499">plan-2133adf2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:33.314358">feat-edbc978b</a></li>
+                    <li><a href="../features/feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:33.314358">feat-edbc978b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:34.696855">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:34.696855">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:33.30544">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:33.312499">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -53,7 +53,7 @@
         <section data-content>
             <h3>Description</h3>
             <p>`cmd/wipnote/workitem_create.go:131` — `--files` is currently passed
-verbatim to `edit.SetProperty("affected_files", o.files)`.
+verbatim to `edit.SetProperty(&#34;affected_files&#34;, o.files)`.
 
 Change: split the comma-separated input, run each through
 `paths.NormalizeToRepoRelative`, rejoin. Outside-repo paths get the

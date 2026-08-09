@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-20T07:52:34.619872"
-             data-updated="2026-05-20T08:34:17.882376" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293">
+             data-updated="2026-08-09T20:41:48.473239" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293" data-affected_files=".claude/settings.local.json,.wipnote/bugs/bug-2a99e9d4.html,.wipnote/bugs/bug-3658bd4f.html,.wipnote/bugs/bug-53e78bcc.html,.wipnote/bugs/bug-9a298dfa.html,.wipnote/session-families.json,.wipnote/tracks/trk-0677c709.html,cmd/wipnote/check_gate_support.go,cmd/wipnote/check_gate_test.go,cmd/wipnote/sqlite_write_boundary_test.go">
 
         <header>
             <h1>wipnote check --gate hardcoded to load &lt;project&gt;/plugin/config/quality-gate-flake-allowlist.json — fails in every non-wipnote project</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:52:36.75895">Plan: Launch readiness — wipnote public launch blockers</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T07:58:25.82131">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
+                    <li><a href="../sessions/93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T07:58:25.82131">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:52:34.637198">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:52:34.637198">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../plans/plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:52:36.75895">Plan: Launch readiness — wipnote public launch blockers</a></li>
                 </ul>
             </section>
         </nav>
@@ -57,7 +57,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>First-time-use surfacing: in a non-wipnote project (e.g. user's actual app), 'wipnote check --gate' fails with 'load gate allowlist: open /plugin/config/quality-gate-flake-allowlist.json: no such file or directory'. This file only exists in the wipnote repo. Downstream effect: feature/bug/spike completion requires a passing gate record, but the gate can never produce one in any other project. The entire completion flow is broken for real users. CRITICAL Show-HN blocker — affects every cloner/installer doing actual work. Fix direction: make the allowlist optional (treat missing as empty), or ship a sensible default at a wipnote-managed user-local path, or relax the gate to not require this file at all.</p>
+            <p>First-time-use surfacing: in a non-wipnote project (e.g. user&#39;s actual app), &#39;wipnote check --gate&#39; fails with &#39;load gate allowlist: open /plugin/config/quality-gate-flake-allowlist.json: no such file or directory&#39;. This file only exists in the wipnote repo. Downstream effect: feature/bug/spike completion requires a passing gate record, but the gate can never produce one in any other project. The entire completion flow is broken for real users. CRITICAL Show-HN blocker — affects every cloner/installer doing actual work. Fix direction: make the allowlist optional (treat missing as empty), or ship a sensible default at a wipnote-managed user-local path, or relax the gate to not require this file at all.</p>
         </section>
     </article>
 </body>

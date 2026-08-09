@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-12T02:15:34.033666"
-             data-updated="2026-05-12T03:00:35.746779" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:00.342883" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".wipnote/features/feat-3973e948.html,.wipnote/features/feat-39b81fa6.html,.wipnote/features/feat-3e0ff3c8.html,.wipnote/features/feat-4417b8df.html,.wipnote/features/feat-a57eb374.html,.wipnote/features/feat-ab99d13b.html,.wipnote/features/feat-b6a9f2d4.html,.wipnote/features/feat-edbc978b.html,.wipnote/plans/plan-2133adf2.html,.wipnote/plans/plan-2133adf2.yaml,cmd/wipnote/migrate.go,cmd/wipnote/migrate_normalize.go,cmd/wipnote/migrate_normalize_test.go,cmd/wipnote/migrate_restore.go,cmd/wipnote/sqlite_write_boundary_test.go,internal/hooks/yolo_guard.go,internal/migrate/normalize.go,internal/migrate/normalize_apply.go,internal/migrate/normalize_test.go">
 
         <header>
             <h1>Idempotent migration rewriter with collision detection and dirty-tree guard</h1>
@@ -24,32 +24,32 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:34.042496">plan-2133adf2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.04337">feat-edbc978b</a></li>
-                    <li><a href="feat-b6a9f2d4.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.045177">feat-b6a9f2d4</a></li>
-                    <li><a href="feat-ab99d13b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.047287">feat-ab99d13b</a></li>
-                    <li><a href="feat-3973e948.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.050132">feat-3973e948</a></li>
-                    <li><a href="feat-4417b8df.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.05188">feat-4417b8df</a></li>
+                    <li><a href="../features/feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.04337">feat-edbc978b</a></li>
+                    <li><a href="../features/feat-b6a9f2d4.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.045177">feat-b6a9f2d4</a></li>
+                    <li><a href="../features/feat-ab99d13b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.047287">feat-ab99d13b</a></li>
+                    <li><a href="../features/feat-3973e948.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.050132">feat-3973e948</a></li>
+                    <li><a href="../features/feat-4417b8df.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.05188">feat-4417b8df</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:44:38.400628">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:44:38.400628">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:34.037003">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:34.037003">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:34.042496">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -83,12 +83,12 @@ Targets (7, corrected from initial 6):
   7. `affected_files` properties in `.wipnote/{features,bugs,spikes}/*.html`
 
 Out-of-scope (documented explicitly):
-  - `sessions.transcript_path` — Claude's private machine-local store.
+  - `sessions.transcript_path` — Claude&#39;s private machine-local store.
   - `.wipnote/.active-session` — transient per-session JSON; rewritten
     on next SessionStart anyway.
 
 Idempotency: re-running on already-relative records is a no-op.
-Achieved by skipping any value that doesn't match `HostPathPattern`.
+Achieved by skipping any value that doesn&#39;t match `HostPathPattern`.
 
 Backup + dry-run + restore:
   - `--backup` (default on): copies touched HTML to `.wipnote/.backup-/`.

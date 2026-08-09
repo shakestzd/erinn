@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-10T02:34:24.370572"
-             data-updated="2026-05-10T08:19:56.373309" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:44.396223" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".wipnote/plans/plan-3a6f9865.html,.wipnote/plans/plan-3a6f9865.yaml,cmd/wipnote/codex_launch.go,cmd/wipnote/gemini_launch.go,internal/harness/registry.go,internal/harness/registry_codex.go,internal/harness/registry_gemini.go,internal/harness/registry_test.go">
 
         <header>
             <h1>Launcher OTel config from registry — eliminate per-launcher env var hardcoding</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.382555">plan-3a6f9865</a></li>
+                    <li><a href="../features/feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.385815">feat-7295fd01</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:49:39.366575">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
-                <ul>
-                    <li><a href="feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.385815">feat-7295fd01</a></li>
+                    <li><a href="../sessions/a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:49:39.366575">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.375805">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.375805">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.382555">plan-3a6f9865</a></li>
                 </ul>
             </section>
         </nav>
@@ -62,9 +62,9 @@ OtelEnv OtelEnvFunc
 ```
 
 Populate OtelEnv in registry_codex.go and registry_gemini.go:
-- Codex: returns ["OTEL_EXPORTER_OTLP_ENDPOINT=...", "OTEL_SERVICE_NAME=codex-cli", ...]
+- Codex: returns [&#34;OTEL_EXPORTER_OTLP_ENDPOINT=...&#34;, &#34;OTEL_SERVICE_NAME=codex-cli&#34;, ...]
   The env var name strings are const-declared within registry_codex.go.
-- Gemini: returns ["GEMINI_TELEMETRY_ENABLED=true", "GEMINI_TELEMETRY_OTLP_ENDPOINT=...", ...]
+- Gemini: returns [&#34;GEMINI_TELEMETRY_ENABLED=true&#34;, &#34;GEMINI_TELEMETRY_OTLP_ENDPOINT=...&#34;, ...]
   Same pattern in registry_gemini.go.
 - Claude: OtelEnv left nil (Claude Code injects its own OTel config).
 
@@ -75,8 +75,8 @@ Add BuildAgentEnv() method to HarnessConfig:
 ```go
 func (c *HarnessConfig) BuildAgentEnv() []string {
     return []string{
-        "WIPNOTE_AGENT_ID=" + c.AgentID,
-        "WIPNOTE_AGENT_TYPE=" + c.AgentID,
+        &#34;WIPNOTE_AGENT_ID=&#34; + c.AgentID,
+        &#34;WIPNOTE_AGENT_TYPE=&#34; + c.AgentID,
     }
 }
 ```

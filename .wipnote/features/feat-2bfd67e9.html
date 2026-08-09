@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-16T00:07:40.096244"
-             data-updated="2026-05-16T04:58:44.236923" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:56.600116" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".wipnote/features/feat-2bfd67e9.html,cmd/wipnote/workitem.go,cmd/wipnote/workitem_commit.go,cmd/wipnote/workitem_commit_test.go">
 
         <header>
             <h1>Transactional wipnote * complete (compensating re-open on commit failure)</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T00:07:40.924223">plan-83f909bc</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T04:25:41.989121">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
+                    <li><a href="../sessions/ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T04:25:41.989121">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T00:07:40.335182">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T00:07:40.335182">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T00:07:40.924223">plan-83f909bc</a></li>
                 </ul>
             </section>
         </nav>
@@ -52,11 +52,11 @@ in-process status-field revert is physically impossible. New design:
 capture pre-commit HEAD before col.Complete; add
 commitWipnoteArtifactStrict in cmd/wipnote/workitem_commit.go (a variant
 that RETURNS an error) and call it ONLY from the complete path. After it
-runs, assert two invariants: (a) the item's own artifact path is clean
+runs, assert two invariants: (a) the item&#39;s own artifact path is clean
 (no unstaged/uncommitted .wipnote//.html), and (b) git log -1
 --format=%H --  advanced vs the captured pre-commit HEAD. On
 failure: perform a COMPENSATING RE-OPEN transition — a second state
-write, col.Edit(id).SetStatus("in-progress").Save() (or the equivalent
+write, col.Edit(id).SetStatus(&#34;in-progress&#34;).Save() (or the equivalent
 revert transition) — so the item ends in-progress, not done, then exit
 non-zero printing the exact remediation command. This second write has
 its own side-effect surface (lineage trace edges, session events, agent

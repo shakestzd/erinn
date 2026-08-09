@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-12T02:15:34.255311"
-             data-updated="2026-05-12T03:04:11.246475" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:28.69073" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".wipnote/features/feat-3973e948.html,.wipnote/features/feat-39b81fa6.html,.wipnote/features/feat-3e0ff3c8.html,.wipnote/features/feat-4417b8df.html,.wipnote/features/feat-a57eb374.html,.wipnote/features/feat-ab99d13b.html,.wipnote/features/feat-b6a9f2d4.html,.wipnote/features/feat-edbc978b.html,.wipnote/plans/plan-2133adf2.html,.wipnote/plans/plan-2133adf2.yaml,internal/hooks/roundtrip_regression_test.go">
 
         <header>
             <h1>Worktree round-trip regression gate</h1>
@@ -24,31 +24,31 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T03:01:08.140704">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:34.259814">plan-2133adf2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-b6a9f2d4.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.260836">feat-b6a9f2d4</a></li>
-                    <li><a href="feat-ab99d13b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.262175">feat-ab99d13b</a></li>
-                    <li><a href="feat-3973e948.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.263483">feat-3973e948</a></li>
-                    <li><a href="feat-4417b8df.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.26645">feat-4417b8df</a></li>
+                    <li><a href="../features/feat-b6a9f2d4.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.260836">feat-b6a9f2d4</a></li>
+                    <li><a href="../features/feat-ab99d13b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.262175">feat-ab99d13b</a></li>
+                    <li><a href="../features/feat-3973e948.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.263483">feat-3973e948</a></li>
+                    <li><a href="../features/feat-4417b8df.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:34.26645">feat-4417b8df</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T03:01:08.140704">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:34.257464">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:34.257464">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:34.259814">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -74,12 +74,12 @@ harness (which is not callable from `go test`):
      `wipnote trace feat-test-N`, `wipnote feature show feat-test-N`
      via direct CLI invocation against the test DB.
   6. Assert: every printed file path is repo-relative; no
-     `/workspaces/.../worktrees/...` substring appears in any output.
+     `[host-path]/worktrees/...` substring appears in any output.
 
 Tagged `//go:build integration` if needed. Use `t.Cleanup` for
 worktree removal. Add a `TestMain` that scans for stale worktrees
 from prior crashed runs at startup and cleans them up (handles the
-SIGKILL case where `t.Cleanup` doesn't run).</p>
+SIGKILL case where `t.Cleanup` doesn&#39;t run).</p>
         </section>
     </article>
 </body>

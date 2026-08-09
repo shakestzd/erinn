@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Subagent resolver clobbers agent_id to &#39;codex&#39; and agent_type defaults to general-purpose</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-23T21:40:45.161699"
-             data-updated="2026-04-23T22:02:19.975369" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:42.038197" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-0beaa018.html,.htmlgraph/bugs/bug-10ca4796.html,.htmlgraph/bugs/bug-1b095c09.html,.htmlgraph/bugs/bug-27cbefbc.html,.htmlgraph/bugs/bug-3043976d.html,.htmlgraph/bugs/bug-6d235100.html,.htmlgraph/bugs/bug-b58a330e.html,.htmlgraph/bugs/bug-dd81395e.html,.htmlgraph/bugs/bug-e5c2df6d.html,.htmlgraph/bugs/bug-ec4d3d8f.html,.htmlgraph/tracks/trk-0677c709.html,internal/hooks/harness.go,internal/hooks/harness_test.go,internal/hooks/subagent_start_test.go">
 
         <header>
             <h1>Subagent resolver clobbers agent_id to &#39;codex&#39; and agent_type defaults to general-purpose</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T21:40:45.170887">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T21:53:01.436185">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T21:53:01.436185">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T21:40:45.170887">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Dashboard shows every subagent delegation row labeled GENERAL-PURPOSE / agent_id=codex, regardless of the named agent invoked via Task/Agent (htmlgraph:researcher, htmlgraph:haiku-coder, htmlgraph:sonnet-coder). Trace at /tmp/htmlgraph-hook-trace.jsonl confirms Claude Code sends the correct values in raw_payload (agent_id='', agent_type='htmlgraph:') but the 'resolved' object the hook handler sees has agent_id='codex' and effectively empty agent_type (falling through to the 'general-purpose' default at internal/hooks/subagent_start.go:29). Some resolver step between stdin JSON decode and handler invocation mutates agent_id. Likely suspects: (1) HTMLGRAPH_AGENT_ID or similar env leaked from an earlier 'codex exec' process in the parent shell chain — there IS a live codex process in the container from prior delegation; (2) an agent.ResolveAgentID() or similar helper that prefers env/harness context over raw_payload; (3) resolveSessionIDWithHarness hardcoded branches on event.AgentID=='codex' (internal/hooks/runner.go:205) — if agent_id is already mutated before this check, downstream attribution is permanently wrong. Fix: trust raw_payload agent_id/agent_type for subagent events when is_subagent=true; do not let parent-session env override Claude-Code-supplied values. Files: internal/hooks/runner.go, internal/hooks/subagent_start.go, internal/agent/*.go. Add a regression test that asserts a subagent payload with agent_id='task-xxx' and agent_type='htmlgraph:researcher' produces exactly those values in the stored agent_events row.</p>
+            <p>Dashboard shows every subagent delegation row labeled GENERAL-PURPOSE / agent_id=codex, regardless of the named agent invoked via Task/Agent (htmlgraph:researcher, htmlgraph:haiku-coder, htmlgraph:sonnet-coder). Trace at /tmp/htmlgraph-hook-trace.jsonl confirms Claude Code sends the correct values in raw_payload (agent_id=&#39;&#39;, agent_type=&#39;htmlgraph:&#39;) but the &#39;resolved&#39; object the hook handler sees has agent_id=&#39;codex&#39; and effectively empty agent_type (falling through to the &#39;general-purpose&#39; default at internal/hooks/subagent_start.go:29). Some resolver step between stdin JSON decode and handler invocation mutates agent_id. Likely suspects: (1) HTMLGRAPH_AGENT_ID or similar env leaked from an earlier &#39;codex exec&#39; process in the parent shell chain — there IS a live codex process in the container from prior delegation; (2) an agent.ResolveAgentID() or similar helper that prefers env/harness context over raw_payload; (3) resolveSessionIDWithHarness hardcoded branches on event.AgentID==&#39;codex&#39; (internal/hooks/runner.go:205) — if agent_id is already mutated before this check, downstream attribution is permanently wrong. Fix: trust raw_payload agent_id/agent_type for subagent events when is_subagent=true; do not let parent-session env override Claude-Code-supplied values. Files: internal/hooks/runner.go, internal/hooks/subagent_start.go, internal/agent/*.go. Add a regression test that asserts a subagent payload with agent_id=&#39;task-xxx&#39; and agent_type=&#39;htmlgraph:researcher&#39; produces exactly those values in the stored agent_events row.</p>
         </section>
     </article>
 </body>

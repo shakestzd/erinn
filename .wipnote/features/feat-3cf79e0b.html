@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Address PR #62 review feedback (registry hardening &#43; indexer removal)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-29T03:43:22.274887"
-             data-updated="2026-05-01T17:50:12.635099" data-agent-assigned="claude-code">
+             data-updated="2026-08-09T20:43:01.093991" data-agent-assigned="claude-code" data-affected_files=".htmlgraph/bugs/bug-0403e704.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4d3c3139.html,.htmlgraph/bugs/bug-ccf8b887.html,.htmlgraph/bugs/bug-f22b6349.html,.htmlgraph/bugs/bug-f92bedff.html,.htmlgraph/bugs/bug-ff6a3286.html,.htmlgraph/features/feat-09024fb0.html,.htmlgraph/features/feat-1c3ebad9.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-35519ac2.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-500da04c.html,.htmlgraph/features/feat-57d35c02.html,.htmlgraph/features/feat-6286f19f.html,.htmlgraph/features/feat-725953d3.html,.htmlgraph/features/feat-75426991.html,.htmlgraph/features/feat-7af2dda7.html,.htmlgraph/features/feat-7b094d00.html,.htmlgraph/features/feat-7b195a56.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-9104fb56.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-af47836b.html,.htmlgraph/features/feat-bc3c0067.html,.htmlgraph/features/feat-c6b3d956.html,.htmlgraph/features/feat-dcf3d618.html,.htmlgraph/features/feat-e195d658.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-cb36e595.html">
 
         <header>
             <h1>Address PR #62 review feedback (registry hardening &#43; indexer removal)</h1>
@@ -24,17 +24,17 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implements">
-                <h3>Implements:</h3>
-                <ul>
-                    <li><a href="bug-ccf8b887.html" data-relationship="implements" data-since="2026-04-29T03:43:28.64612">Address PR #62 review feedback (registry hardening &#43; indexer removal)</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8ef0905c-77f1-4349-8e61-8380555d170c.html" data-relationship="implemented_in" data-since="2026-04-29T04:00:01.670691">session 8ef0905c-77f1-4349-8e61-8380555d170c</a></li>
-                    <li><a href="c2fe2500-e4d2-4ac8-a26a-e834bd9fe2f1.html" data-relationship="implemented_in" data-since="2026-04-29T06:57:10.767899">session c2fe2500-e4d2-4ac8-a26a-e834bd9fe2f1</a></li>
+                    <li><a href="../sessions/8ef0905c-77f1-4349-8e61-8380555d170c.html" data-relationship="implemented_in" data-since="2026-04-29T04:00:01.670691">session 8ef0905c-77f1-4349-8e61-8380555d170c</a></li>
+                    <li><a href="../sessions/c2fe2500-e4d2-4ac8-a26a-e834bd9fe2f1.html" data-relationship="implemented_in" data-since="2026-04-29T06:57:10.767899">session c2fe2500-e4d2-4ac8-a26a-e834bd9fe2f1</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implements">
+                <h3>Implements:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-ccf8b887.html" data-relationship="implements" data-since="2026-04-29T03:43:28.64612">Address PR #62 review feedback (registry hardening &#43; indexer removal)</a></li>
                 </ul>
             </section>
         </nav>
@@ -42,14 +42,14 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-0" data-agent="claude-code">✅ Split out indexer-removal hunk to separate PR [task:1]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-1" data-agent="claude-code">✅ Fix TestMain defer-after-os.Exit leak [task:2]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-2" data-agent="claude-code">✅ Soften PR title — drop concurrent writes [task:3]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-3" data-agent="claude-code">✅ Document Save() Prune side-effect or rename [task:4]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-4" data-agent="claude-code">✅ Add legacy-path fallback in DefaultPath [task:5]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-5" data-agent="claude-code">✅ serve_parent stat-then-skip &#43; reconcile DefaultPath [task:6]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-6" data-agent="claude-code">✅ Refactor withRegistryAtAndStale helper [task:7]</li>
-                <li data-completed="true" data-step-id="step-feat-3cf79e0b-7" data-agent="claude-code">✅ Run quality gates and push [task:8]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Split out indexer-removal hunk to separate PR [task:1]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Fix TestMain defer-after-os.Exit leak [task:2]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Soften PR title — drop concurrent writes [task:3]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Document Save() Prune side-effect or rename [task:4]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add legacy-path fallback in DefaultPath [task:5]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ serve_parent stat-then-skip &#43; reconcile DefaultPath [task:6]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Refactor withRegistryAtAndStale helper [task:7]</li>
+                <li data-completed="true" data-step-id="step-feat-3cf79e0b-7" data-agent="claude-code" data-created-by-agent="claude-code">✅ Run quality gates and push [task:8]</li>
             </ol>
         </section>
 
@@ -63,7 +63,7 @@ Concrete actions, in priority order:
 
 2. (🟡) Fix TestMain defer-after-os.Exit leak in cmd/htmlgraph/worktree_helpers_test.go (lines ~469-484). Move os.RemoveAll calls before os.Exit(code).
 
-3. (🟡) Soften PR #62 title — drop 'concurrent writes' (no locking added) OR actually add file-level locking (flock) around Save(). Drop 'atomic write via temp-file+rename' from summary since that pre-existed.
+3. (🟡) Soften PR #62 title — drop &#39;concurrent writes&#39; (no locking added) OR actually add file-level locking (flock) around Save(). Drop &#39;atomic write via temp-file+rename&#39; from summary since that pre-existed.
 
 4. (🟡) Either rename registry.Save() to SaveAndPrune()/Compact() to reflect new semantics, OR beef up the godoc to make the Prune() side-effect impossible to miss.
 
@@ -75,7 +75,7 @@ Concrete actions, in priority order:
 
 8. (🟢) Add a regression test asserting /api/indexer/status now 404s after the indexer removal in serve_child.go.
 
-After fixes: run go build ./... && go vet ./... && go test ./... — all must pass. Push to the PR #62 branch (or a new branch for the split-out indexer PR).</p>
+After fixes: run go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... — all must pass. Push to the PR #62 branch (or a new branch for the split-out indexer PR).</p>
         </section>
     </article>
 </body>

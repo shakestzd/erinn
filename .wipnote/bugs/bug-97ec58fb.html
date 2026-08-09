@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-14T02:53:42.727901"
-             data-updated="2026-05-14T03:07:56.202192" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-role="gemini" data-created-by-cli-version="0.58.0-1892-g725f1dd79">
+             data-updated="2026-08-09T20:42:18.015653" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-role="gemini" data-created-by-cli-version="0.58.0-1892-g725f1dd79" data-affected_files=".wipnote/bugs/bug-97ec58fb.html">
 
         <header>
             <h1>Yolo guard false positive: blocking infrastructure/setup commands as &#39;external research required&#39;</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-14T02:53:42.739837">trk-be293476</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-6c3e6d60.html" data-relationship="caused_by" data-since="2026-05-14T02:53:42.737281">feat-6c3e6d60</a></li>
+                    <li><a href="../features/feat-6c3e6d60.html" data-relationship="caused_by" data-since="2026-05-14T02:53:42.737281">feat-6c3e6d60</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2b72258-c8fd-4699-a800-0a72788e1574.html" data-relationship="implemented_in" data-since="2026-05-14T02:53:46.071464">session e2b72258-c8fd-4699-a800-0a72788e1574</a></li>
+                    <li><a href="../sessions/e2b72258-c8fd-4699-a800-0a72788e1574.html" data-relationship="implemented_in" data-since="2026-05-14T02:53:46.071464">session e2b72258-c8fd-4699-a800-0a72788e1574</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-be293476.html" data-relationship="part_of" data-since="2026-05-14T02:53:42.739837">trk-be293476</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Bash commands like mkdir -p ~/.gotest or mkdir -p /workspaces/go-tests are blocked by checkYoloBashResearchGuard if no research has been done. These are often necessary setup for tests (especially in noexec environments) and shouldn't be blocked as 'modifying files outside the project' in the same way as destructive edits.</p>
+            <p>Bash commands like mkdir -p ~/.gotest or mkdir -p /workspaces/go-tests are blocked by checkYoloBashResearchGuard if no research has been done. These are often necessary setup for tests (especially in noexec environments) and shouldn&#39;t be blocked as &#39;modifying files outside the project&#39; in the same way as destructive edits.</p>
         </section>
     </article>
 </body>

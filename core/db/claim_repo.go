@@ -255,7 +255,7 @@ func HeartbeatClaimByWorkItem(db *sql.DB, workItemID, sessionID, writePath strin
 // identically on the daemon's ExecContext and the direct fallback Exec.
 //
 // The write_scope SET expression is a single CASE: no-op when writePath is
-// empty (?4 = ”), otherwise merges + dedupes + FIFO-caps to writeScopePathsCap.
+// empty (?4 = the empty string ''), otherwise merges + dedupes + FIFO-caps to writeScopePathsCap.
 //
 // Implementation note: modernc.org/sqlite rejects a correlated reference to
 // the UPDATE target column (write_scope) inside a subquery used as an OFFSET

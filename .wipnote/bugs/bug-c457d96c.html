@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>go1.26 gofmt rewrote apostrophes in doc comments, corrupting five explanations</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c457d96c"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-08-09T15:01:04.693914"
+             data-updated="2026-08-09T15:01:52.596585" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>go1.26 gofmt rewrote apostrophes in doc comments, corrupting five explanations</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T15:01:52.596507">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T15:01:04.706248">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The formatting sweep applied go1.26 gofmt, which normalises straight apostrophes into typographic quotes inside doc comments. Five files were affected and in every case the apostrophes were the SUBJECT of the comment rather than incidental punctuation. Four comments explained that a column stores the empty string rather than null — written as two apostrophes — and now display a single typographic character that is neither, in code paths where the empty-versus-null distinction has previously caused real defects and where these comments exist specifically to stop that recurring. The fifth documents the harness delimiter for multiline literal strings, three apostrophes, which is the entire subject of the function and is now unreadable. No behaviour changed and the tree builds clean; the damage is purely to explanations, which makes it the same class as the misleading-documentation findings recorded earlier — a comment that asserts something untrue — except introduced by an automated tool rather than by drift. Restore the five comments, using backticks or a spelled-out description so a future formatter cannot mangle them again. Then decide whether this formatter should be run on this codebase at all without a post-pass that rejects character substitutions inside comments.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>[P2] Skills prescribe redundant sequential git/htmlgraph commands that can be chained</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T23:38:32.289658"
-             data-updated="2026-04-22T03:33:10.079019" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+             data-updated="2026-08-09T20:42:41.552321" data-agent-assigned="claude-code" data-track-id="trk-787f57d3" data-affected_files="plugin/commands/git-commit.md,plugin/skills/execute/SKILL.md">
 
         <header>
             <h1>[P2] Skills prescribe redundant sequential git/htmlgraph commands that can be chained</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="bug-cf929f1a.html" data-relationship="relates_to" data-since="2026-04-21T23:39:01.309353">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
-                </ul>
-            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:32.644327">trk-787f57d3</a></li>
+                    <li><a href="../tracks/trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:32.644327">trk-787f57d3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-cf929f1a.html" data-relationship="relates_to" data-since="2026-04-21T23:39:01.309353">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Audit findings F5 + F6: (a) plugin/skills/execute/SKILL.md calls 'git worktree list' four separate times (lines 325-326, 409, 431, 446-455) for the same information; the cleanup section at 446 has 'git worktree prune' but only after a separate list call — should be 'git worktree prune && git worktree list' chained; (b) plugin/commands/git-commit.md:32-33 prescribes 'git diff --stat HEAD' then 'git status --short' as two separate steps — should be chained. Fix: audit all plugin skills and commands for consecutive related commands, chain with && where no output-parsing dependency exists. Acceptance: no two consecutive git or htmlgraph commands in a single numbered step without a justifying comment.</p>
+            <p>Audit findings F5 + F6: (a) plugin/skills/execute/SKILL.md calls &#39;git worktree list&#39; four separate times (lines 325-326, 409, 431, 446-455) for the same information; the cleanup section at 446 has &#39;git worktree prune&#39; but only after a separate list call — should be &#39;git worktree prune &amp;&amp; git worktree list&#39; chained; (b) plugin/commands/git-commit.md:32-33 prescribes &#39;git diff --stat HEAD&#39; then &#39;git status --short&#39; as two separate steps — should be chained. Fix: audit all plugin skills and commands for consecutive related commands, chain with &amp;&amp; where no output-parsing dependency exists. Acceptance: no two consecutive git or htmlgraph commands in a single numbered step without a justifying comment.</p>
         </section>
     </article>
 </body>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>assistant_text parent_span uses transcript parentUuid verbatim — points at tool_result on turns with tool calls</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T10:56:57.882942"
-             data-updated="2026-04-21T11:01:35.558175" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:43.195634" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="internal/hooks/transcript_assistant.go,internal/hooks/transcript_assistant_test.go">
 
         <header>
             <h1>assistant_text parent_span uses transcript parentUuid verbatim — points at tool_result on turns with tool calls</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T10:56:57.883825">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T10:56:57.987848">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T10:56:57.987848">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T10:56:57.883825">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>transcript_assistant.go writes assistant_text rows with parent_span = record.parentUuid. But parentUuid on assistant text records that follow tool calls points at the preceding tool_result record (type='user' but content is tool_result), not at the original user text prompt. Result: assistant_text.parent_span never equals any user_prompt.span_id in the DB, the primary client-side bridge match fails, and the dashboard falls back to a timestamp-window heuristic. Fix: in transcript_assistant.go, walk the parentUuid chain upward until we hit the nearest ancestor with type='user' AND content that is a text block (not a tool_result array). Use THAT ancestor's uuid as parent_span on the assistant_text row. Keep session_id/trace_id logic unchanged. Primary bridge match will then work directly without the timestamp fallback.</p>
+            <p>transcript_assistant.go writes assistant_text rows with parent_span = record.parentUuid. But parentUuid on assistant text records that follow tool calls points at the preceding tool_result record (type=&#39;user&#39; but content is tool_result), not at the original user text prompt. Result: assistant_text.parent_span never equals any user_prompt.span_id in the DB, the primary client-side bridge match fails, and the dashboard falls back to a timestamp-window heuristic. Fix: in transcript_assistant.go, walk the parentUuid chain upward until we hit the nearest ancestor with type=&#39;user&#39; AND content that is a text block (not a tool_result array). Use THAT ancestor&#39;s uuid as parent_span on the assistant_text row. Keep session_id/trace_id logic unchanged. Primary bridge match will then work directly without the timestamp fallback.</p>
         </section>
     </article>
 </body>

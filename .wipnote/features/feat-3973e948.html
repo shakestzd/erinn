@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-12T02:15:32.966653"
-             data-updated="2026-05-12T02:43:24.736751" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:00.177494" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".wipnote/features/feat-3973e948.html,.wipnote/features/feat-39b81fa6.html,.wipnote/features/feat-3e0ff3c8.html,.wipnote/features/feat-4417b8df.html,.wipnote/features/feat-a57eb374.html,.wipnote/features/feat-ab99d13b.html,.wipnote/features/feat-b6a9f2d4.html,.wipnote/features/feat-edbc978b.html,.wipnote/plans/plan-2133adf2.html,.wipnote/plans/plan-2133adf2.yaml,internal/hooks/cwd_normalize_test.go,internal/hooks/session_html.go,internal/hooks/session_start.go,internal/hooks/subagent_start.go,internal/paths/normalize.go">
 
         <header>
             <h1>Normalize SessionStart and SubagentStart CWD attribution</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:32.974268">plan-2133adf2</a></li>
+                    <li><a href="../features/feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:32.975537">feat-edbc978b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:23.924274">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
-                <ul>
-                    <li><a href="feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:32.975537">feat-edbc978b</a></li>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:23.924274">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:32.969039">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:32.969039">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:32.974268">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -73,9 +73,9 @@ from the deliberate-verbatim comment while still making the foreign
 origin queryable.
 
 Rewrite the deliberate-verbatim comment in `session_html.go:53-57` to
-describe the new rule: "normalize to canonical root for local
+describe the new rule: &#34;normalize to canonical root for local
 sessions; mark with `unresolved:` for sessions ingested from foreign
-machines (different canonical root)."</p>
+machines (different canonical root).&#34;</p>
         </section>
     </article>
 </body>

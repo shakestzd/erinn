@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Launcher spawns per-session collector child</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T22:29:21.256073"
-             data-updated="2026-04-25T00:53:45.639542" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:04.183586" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/claude.go,cmd/htmlgraph/claude_env.go,cmd/htmlgraph/claude_env_test.go,cmd/htmlgraph/claude_otel_collect_spawn.go,cmd/htmlgraph/claude_otel_collect_spawn_test.go">
 
         <header>
             <h1>Launcher spawns per-session collector child</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-24T22:29:21.262941">plan-1cd284e0</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-56aa1d48.html" data-relationship="blocked_by" data-since="2026-04-24T22:29:21.292577">feat-56aa1d48</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-24T22:29:21.259987">trk-c4615ad2</a></li>
+                    <li><a href="../features/feat-56aa1d48.html" data-relationship="blocked_by" data-since="2026-04-24T22:29:21.292577">feat-56aa1d48</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c95933d1-92d9-4aed-9abe-be5b24d902e3.html" data-relationship="implemented_in" data-since="2026-04-25T00:25:32.1344">session c95933d1-92d9-4aed-9abe-be5b24d902e3</a></li>
+                    <li><a href="../sessions/c95933d1-92d9-4aed-9abe-be5b24d902e3.html" data-relationship="implemented_in" data-since="2026-04-25T00:25:32.1344">session c95933d1-92d9-4aed-9abe-be5b24d902e3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-24T22:29:21.259987">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-24T22:29:21.262941">plan-1cd284e0</a></li>
                 </ul>
             </section>
         </nav>
@@ -56,13 +56,13 @@
 
 
 ## Why
-The launcher is the only process that lives exactly as long as one Claude Code session. Spawning the collector here is what makes session ID owned by the launcher a code-level fact, not just documentation. Reusing the serve_child.go:70 handshake format gives the launcher one parsing convention for both children. Capturing the ephemeral port from child stdout is the irreversible step — once claude-code is exec'd with a given OTel endpoint, it cannot be reconfigured at runtime. Fail-fast on bind failure prevents orphaned claude-code processes exporting telemetry to nowhere. Directly addresses the parallel-terminal merging root cause (bug-e8b8900b).
+The launcher is the only process that lives exactly as long as one Claude Code session. Spawning the collector here is what makes session ID owned by the launcher a code-level fact, not just documentation. Reusing the serve_child.go:70 handshake format gives the launcher one parsing convention for both children. Capturing the ephemeral port from child stdout is the irreversible step — once claude-code is exec&#39;d with a given OTel endpoint, it cannot be reconfigured at runtime. Fail-fast on bind failure prevents orphaned claude-code processes exporting telemetry to nowhere. Directly addresses the parallel-terminal merging root cause (bug-e8b8900b).
 
 
 ## Done When
 - htmlgraph claude launches a detached otel-collect child with Setpgid:true, reads its port from a dedicated stdout pipe with 3s timeout or less, sets OTEL_EXPORTER_OTLP_ENDPOINT to the child address, and propagates HTMLGRAPH_SESSION_ID to Claude Code.
 - Running htmlgraph claude in three terminals in the same project produces three distinct otel-collect children on three distinct ports writing to three distinct NDJSON files with no cross-session events mixed.
-- Collector bind failure aborts launchClaude with non-zero exit and a clear error message; no orphaned claude-code process is exec'd.
+- Collector bind failure aborts launchClaude with non-zero exit and a clear error message; no orphaned claude-code process is exec&#39;d.
 - Deferred SIGTERM fires on clean launcher exit; launcher SIGKILL leaves the collector as an orphan (accepted per Q3 layered policy — SessionEnd hook is primary, launcher defer is secondary, idle timeout is tertiary).
 - The collector PID is written to .htmlgraph/sessions//.collector-pid within 500ms of spawn using the existing PID-lockfile writer pattern.</p>
         </section>

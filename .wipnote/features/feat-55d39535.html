@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph context-pack &lt;work-item-id&gt; — onboarding briefing for dispatched agents</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T17:04:18.865443"
-             data-updated="2026-05-01T18:35:50.032733" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2">
+             data-updated="2026-08-09T20:43:06.377742" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2" data-affected_files=".htmlgraph/features/feat-55d39535.html,cmd/htmlgraph/context_pack.go,cmd/htmlgraph/context_pack_test.go,cmd/htmlgraph/main.go">
 
         <header>
             <h1>htmlgraph context-pack &lt;work-item-id&gt; — onboarding briefing for dispatched agents</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:04:18.870385">trk-2c83a1e2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T18:20:03.410208">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T18:20:03.410208">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:04:18.870385">trk-2c83a1e2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Single-command bundle that emits a markdown briefing for an agent picking up a work item. Output: claim command, branch-sync state, work-item description + steps, code-surface helpers (derived from track-aligned blame), file paths (with package qualifiers), recent same-track commits for stylistic continuity, and any open questions on related plan slices. Once shipped, agent prompts collapse from manual context bundling (track IDs, helper signatures, file globs, sync state) to: 'run htmlgraph context-pack , then implement.' Eliminates ~half of the per-agent orientation overhead. Depends on existing internal/blame, internal/migrate, and the work-item store. Out of scope: any LLM-judged synthesis — pack output is purely derived data + raw markdown, not summarized.</p>
+            <p>Single-command bundle that emits a markdown briefing for an agent picking up a work item. Output: claim command, branch-sync state, work-item description + steps, code-surface helpers (derived from track-aligned blame), file paths (with package qualifiers), recent same-track commits for stylistic continuity, and any open questions on related plan slices. Once shipped, agent prompts collapse from manual context bundling (track IDs, helper signatures, file globs, sync state) to: &#39;run htmlgraph context-pack , then implement.&#39; Eliminates ~half of the per-agent orientation overhead. Depends on existing internal/blame, internal/migrate, and the work-item store. Out of scope: any LLM-judged synthesis — pack output is purely derived data + raw markdown, not summarized.</p>
         </section>
     </article>
 </body>

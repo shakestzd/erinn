@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Devcontainer build fails: base image Go 1.23 vs go.mod 1.24</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-23T05:18:00.88261"
-             data-updated="2026-04-23T05:18:55.789863" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:14.034374" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".devcontainer/Dockerfile,.htmlgraph/bugs/bug-84a61338.html,.htmlgraph/features/feat-be0a57b7.html,.htmlgraph/tracks/trk-0677c709.html">
 
         <header>
             <h1>Devcontainer build fails: base image Go 1.23 vs go.mod 1.24</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T05:18:00.884953">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-e2b6f964.html" data-relationship="caused_by" data-since="2026-04-23T05:18:00.883967">feat-e2b6f964</a></li>
+                    <li><a href="../features/feat-e2b6f964.html" data-relationship="caused_by" data-since="2026-04-23T05:18:00.883967">feat-e2b6f964</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="b113ac79-7565-4ab4-9af5-3457a2da9c57.html" data-relationship="implemented_in" data-since="2026-04-23T05:18:17.83996">session b113ac79-7565-4ab4-9af5-3457a2da9c57</a></li>
+                    <li><a href="../sessions/b113ac79-7565-4ab4-9af5-3457a2da9c57.html" data-relationship="implemented_in" data-since="2026-04-23T05:18:17.83996">session b113ac79-7565-4ab4-9af5-3457a2da9c57</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T05:18:00.884953">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Post-create script exits 1. Error: 'go.mod requires go >= 1.24.0 (running go 1.23.11; GOTOOLCHAIN=local)'. Base image: mcr.microsoft.com/devcontainers/go:1-1.23-bookworm. Options: (a) bump base to 1-1.24-bookworm, (b) set GOTOOLCHAIN=auto so Go auto-downloads. Blocks devcontainer rebuild workflow.</p>
+            <p>Post-create script exits 1. Error: &#39;go.mod requires go &gt;= 1.24.0 (running go 1.23.11; GOTOOLCHAIN=local)&#39;. Base image: mcr.microsoft.com/devcontainers/go:1-1.23-bookworm. Options: (a) bump base to 1-1.24-bookworm, (b) set GOTOOLCHAIN=auto so Go auto-downloads. Blocks devcontainer rebuild workflow.</p>
         </section>
     </article>
 </body>

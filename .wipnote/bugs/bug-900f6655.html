@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-21T22:53:01.206987"
-             data-updated="2026-05-21T23:16:53.008736" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
+             data-updated="2026-08-09T20:42:15.938413" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8" data-affected_files=".wipnote/bugs/bug-900f6655.html,cmd/wipnote/check_gate_support.go,cmd/wipnote/check_gate_test.go,cmd/wipnote/ingest.go,cmd/wipnote/provenance_gate_test.go,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/workitem.go,internal/hooks/posttooluse.go,internal/hooks/posttooluse_test.go">
 
         <header>
             <h1>feature complete unbypassable in non-Python projects: gate hardcodes pytest, --allow-dirty &#43; --accepted-advisory don&#39;t compose (issue #114)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-21T22:53:01.216266">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-21T22:53:28.74901">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-21T22:53:28.74901">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-21T22:53:01.216266">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two coupled root causes. (1) check --gate spawns pytest even with no pyproject.toml/requirements.txt; should detect project type by manifest like Go/JS and treat 'no applicable test runner' as pass. (2) The three completion guards (dirty-tree, no-commit advisory, passing-gate record) chain instead of compose; --accepted-advisory and --allow-dirty don't bypass the gate guard, leaving no legitimate close path.
+            <p>Two coupled root causes. (1) check --gate spawns pytest even with no pyproject.toml/requirements.txt; should detect project type by manifest like Go/JS and treat &#39;no applicable test runner&#39; as pass. (2) The three completion guards (dirty-tree, no-commit advisory, passing-gate record) chain instead of compose; --accepted-advisory and --allow-dirty don&#39;t bypass the gate guard, leaving no legitimate close path.
 [2026-05-21 23:10 claude-code] accepted-advisory (provenance override): orchestrator handles commit/PR; implementation verified by full quality gate pass</p>
         </section>
     </article>

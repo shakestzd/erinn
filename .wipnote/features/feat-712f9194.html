@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-13T04:03:57.065005"
-             data-updated="2026-05-13T04:48:23.491551" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43">
+             data-updated="2026-08-09T20:43:13.435986" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43" data-affected_files=".wipnote/features/feat-712f9194.html,cmd/wipnote/main.go,cmd/wipnote/sync.go,cmd/wipnote/sync_test.go,cmd/wipnote/workitem.go,cmd/wipnote/workitem_commit.go,cmd/wipnote/workitem_commit_test.go,cmd/wipnote/workitem_create.go">
 
         <header>
             <h1>Auto-commit .wipnote/ artifact on every state transition (create/start/complete/reopen)</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="feat-fdf99806.html" data-relationship="relates_to" data-since="2026-05-13T04:04:03.918663">Auto-commit .wipnote/ artifact on feature/bug/spike complete</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T04:06:53.450425">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
+                    <li><a href="../sessions/e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T04:06:53.450425">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T04:03:57.070305">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T04:03:57.070305">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-fdf99806.html" data-relationship="relates_to" data-since="2026-05-13T04:04:03.918663">Auto-commit .wipnote/ artifact on feature/bug/spike complete</a></li>
                 </ul>
             </section>
         </nav>
@@ -70,7 +70,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Close half the durability gap from feat-fdf99806 follow-up discussion. Currently commitWipnoteArtifact only fires on 'complete'. Long-running in-progress items have no git durability between create and complete — exactly the failure mode that caused the lost-7-HTMLs incident on 2026-05-11. Fix: fire on every state transition. Expected ~3 commits per item lifecycle (create/start/complete), each tightly scoped to a single .html file via the existing absolute-path-in-git-commit pattern. Mid-flight add-step/edit mutations still uncommitted between transitions — that's the C-feature's job. Estimate: S (~15-30 lines + tests).</p>
+            <p>Close half the durability gap from feat-fdf99806 follow-up discussion. Currently commitWipnoteArtifact only fires on &#39;complete&#39;. Long-running in-progress items have no git durability between create and complete — exactly the failure mode that caused the lost-7-HTMLs incident on 2026-05-11. Fix: fire on every state transition. Expected ~3 commits per item lifecycle (create/start/complete), each tightly scoped to a single .html file via the existing absolute-path-in-git-commit pattern. Mid-flight add-step/edit mutations still uncommitted between transitions — that&#39;s the C-feature&#39;s job. Estimate: S (~15-30 lines + tests).</p>
         </section>
     </article>
 </body>

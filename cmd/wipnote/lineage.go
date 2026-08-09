@@ -444,13 +444,20 @@ func runLineageFile(w io.Writer, db *sql.DB, filePath string, opts lineageOpts) 
 //
 // Two known shapes exist today (see core/graph/pattern.go and
 // maybeAttachDedupRelation in workitem_create.go):
+//
 //   - similarity_score  → a dedup heuristic guess auto-attached by `create`
 //     and tagged for human triage. Rendered with a "⚠" marker — the same
 //     glyph `wipnote who` already uses for "needs a human look".
+//
 //   - origin            → a mechanically synthesized edge (plan-slice
 //     ordering, batch-apply spec). Rendered as "(derived: <origin>)" — a
 //     plain caveat, not a warning, since these are legitimate structural
 //     edges rather than unverified guesses.
+//
+//   - tombstoned       → the edge is canonical but its target no longer
+//     resolves (a pruned session). Rendered as "(<kind> pruned)" so the node
+//     reads as unresolvable-but-real rather than as a live neighbour whose
+//     title merely failed to load — resolveTitles leaves both blank.
 //
 // Any other non-empty metadata falls back to a generic "(meta)" marker so a
 // future signal we don't yet know about still doesn't silently render as
@@ -458,6 +465,12 @@ func runLineageFile(w io.Writer, db *sql.DB, filePath string, opts lineageOpts) 
 func edgeCaveat(meta map[string]string) string {
 	if len(meta) == 0 {
 		return ""
+	}
+	// Checked first: an unresolvable target is a statement about whether the
+	// node on the other end exists at all, which outranks any confidence or
+	// provenance signal about the edge itself.
+	if kind, ok := meta[graph.EdgeMetaTombstoned]; ok {
+		return fmt.Sprintf("  (%s pruned)", kind)
 	}
 	if score, ok := meta["similarity_score"]; ok {
 		tag := meta["tag"]

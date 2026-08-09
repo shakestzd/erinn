@@ -306,3 +306,73 @@ func TestProvenanceHandler_AgentNodeResolves(t *testing.T) {
 		t.Errorf("expected worked_on edge to %s; got %+v", featureID, resp.Downstream)
 	}
 }
+
+// TestProvenanceHandler_TombstonedLinkIsMarked pins the provenance reader half
+// of the tombstone policy (feat-d1439606).
+//
+// The panel renders `link.title || link.id` and makes every row clickable. A
+// tombstoned peer resolves to nothing, so without the flag it arrives as a bare
+// id with empty type and title — visually identical to a live peer whose
+// metadata lookup failed — and clicking it 404s. The flag is what lets the
+// reader tell "pruned, nothing to open" from "live, lookup failed".
+func TestProvenanceHandler_TombstonedLinkIsMarked(t *testing.T) {
+	database, featureID := setupProvenanceDBWithData(t)
+
+	const prunedSession = "44443333-2222-1111-0000-fffeeeddd000"
+	// Tombstoned: the work item still declares the session in canonical HTML.
+	if err := db.InsertEdge(database,
+		featureID+"-implemented_in-"+prunedSession, featureID, "feature",
+		prunedSession, "unknown", "implemented_in",
+		map[string]string{"tombstoned": "session"},
+	); err != nil {
+		t.Fatalf("insert tombstoned edge: %v", err)
+	}
+	// Live control: same relationship, resolvable peer, no marker.
+	if err := db.InsertEdge(database,
+		featureID+"-implemented_in-sess-001", featureID, "feature",
+		"sess-001", "session", "implemented_in", nil,
+	); err != nil {
+		t.Fatalf("insert live edge: %v", err)
+	}
+
+	mux := buildSingleProjectMux(database, nil, t.TempDir())
+	req := httptest.NewRequest(http.MethodGet, "/api/provenance/"+featureID, nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET provenance: got %d, body: %s", w.Code, w.Body.String())
+	}
+	var resp provenanceResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	var tombstone, live *provenanceLink
+	for i := range resp.Downstream {
+		switch resp.Downstream[i].ID {
+		case prunedSession:
+			tombstone = &resp.Downstream[i]
+		case "sess-001":
+			live = &resp.Downstream[i]
+		}
+	}
+
+	if tombstone == nil {
+		t.Fatalf("tombstoned link to %s absent from downstream: %+v", prunedSession, resp.Downstream)
+	}
+	if !tombstone.Tombstoned {
+		t.Errorf("link to pruned session %s is not flagged; the panel would render it as a live peer "+
+			"with a dead click", prunedSession)
+	}
+	if tombstone.Type != "session" {
+		t.Errorf("tombstoned link type: got %q, want \"session\" — the marker is the only source for it, "+
+			"since there is no row left to resolve", tombstone.Type)
+	}
+
+	if live == nil {
+		t.Fatalf("live link to sess-001 absent from downstream: %+v", resp.Downstream)
+	}
+	if live.Tombstoned {
+		t.Errorf("live session link was flagged as tombstoned")
+	}
+}

@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"time"
+
+	"github.com/shakestzd/wipnote/core/graph"
 )
 
 // normalizeTimes returns sensible defaults for zero-value timestamps.
@@ -52,8 +54,18 @@ func collectStaleIDs(database *sql.DB, query string, validIDs map[string]bool) [
 	return stale
 }
 
-// collectStaleEdgeIDs returns edge_ids where either endpoint (from_node_id or
-// to_node_id) refers to a node no longer backed by an HTML file.
+// collectStaleEdgeIDs returns edge_ids whose endpoints no longer resolve to a
+// node the current pass registered.
+//
+// The SOURCE must be valid unconditionally: an edge from an unknown node is not
+// a canonical declaration, so nothing licenses keeping it.
+//
+// The TARGET goes through the same gate indexNodeEdges applies
+// (graph.ClassifyEdgeTarget), which is the whole reason the tombstone policy
+// survives a rebuild. purgeStaleEntries runs BEFORE reindexEdges re-inserts
+// anything, so a purge that judged targets by validIDs alone would delete every
+// tombstone written by the previous pass and the fix would undo itself on the
+// second reindex.
 func collectStaleEdgeIDs(database *sql.DB, validIDs map[string]bool) []string {
 	rows, err := database.Query("SELECT edge_id, from_node_id, to_node_id FROM graph_edges")
 	if err != nil {
@@ -65,7 +77,7 @@ func collectStaleEdgeIDs(database *sql.DB, validIDs map[string]bool) []string {
 	for rows.Next() {
 		var edgeID, fromID, toID string
 		if rows.Scan(&edgeID, &fromID, &toID) == nil {
-			if !validIDs[fromID] || !validIDs[toID] {
+			if !validIDs[fromID] || graph.ClassifyEdgeTarget(toID, validIDs) == graph.EdgeTargetDangling {
 				stale = append(stale, edgeID)
 			}
 		}

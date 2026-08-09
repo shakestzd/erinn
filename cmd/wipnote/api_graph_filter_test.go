@@ -162,3 +162,80 @@ func TestSortByActivity(t *testing.T) {
 		t.Errorf("expected [1,2,0], got %v", indices)
 	}
 }
+
+// TestGraphAPI_NoDanglingEdgeEndpoints pins the invariant the D3 renderer
+// depends on: every edge in the payload names two nodes that are also in the
+// payload. d3.forceLink throws on a link referencing an unknown id, and one
+// throw blanks the whole graph.
+//
+// It is checked under ?all=true because that path used to skip the endpoint
+// filter entirely. The tombstone policy (feat-d1439606) makes the gap
+// reachable in normal operation: an item→pruned-session edge is now kept in
+// graph_edges by design, and a pruned session has no sessions row to become a
+// node from.
+func TestGraphAPI_NoDanglingEdgeEndpoints(t *testing.T) {
+	database, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('feat-graph-1', 'feature', 'feat 1', 'done')`)
+	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('trk-graph-1', 'track 1', 'done')`)
+
+	const prunedSession = "aaaa1111-bbbb-2222-cccc-333344445555"
+	if err := dbpkg.InsertEdge(database,
+		"feat-graph-1-implemented_in-"+prunedSession, "feat-graph-1", "feature",
+		prunedSession, "unknown", "implemented_in",
+		map[string]string{"tombstoned": "session"},
+	); err != nil {
+		t.Fatalf("insert tombstoned edge: %v", err)
+	}
+	if err := dbpkg.InsertEdge(database,
+		"feat-graph-1-part_of-trk-graph-1", "feat-graph-1", "feature",
+		"trk-graph-1", "track", "part_of", nil,
+	); err != nil {
+		t.Fatalf("insert live edge: %v", err)
+	}
+
+	for _, url := range []string{"/api/graph?all=true", "/api/graph"} {
+		t.Run(url, func(t *testing.T) {
+			handler := graphAPIHandler(database, t.TempDir())
+			req := httptest.NewRequest("GET", url, nil)
+			w := httptest.NewRecorder()
+			handler(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("status: %d", w.Code)
+			}
+			var data graphData
+			if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			present := make(map[string]bool, len(data.Nodes))
+			for _, n := range data.Nodes {
+				present[n.ID] = true
+			}
+			for _, e := range data.Edges {
+				if !present[e.Source] {
+					t.Errorf("edge %s -%s-> %s names a SOURCE that is not a node in the payload",
+						e.Source, e.Type, e.Target)
+				}
+				if !present[e.Target] {
+					t.Errorf("edge %s -%s-> %s names a TARGET that is not a node in the payload",
+						e.Source, e.Type, e.Target)
+				}
+			}
+		})
+	}
+
+	// Guard against the check passing because the payload is empty.
+	handler := graphAPIHandler(database, t.TempDir())
+	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+	var data graphData
+	json.Unmarshal(w.Body.Bytes(), &data)
+	if len(data.Edges) == 0 {
+		t.Fatalf("payload has no edges at all — the endpoint check is vacuous")
+	}
+}

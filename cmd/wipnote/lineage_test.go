@@ -469,6 +469,22 @@ func TestEdgeCaveat(t *testing.T) {
 			"  (derived: batch_apply)",
 		},
 		{"unknown metadata", map[string]string{"note": "something else"}, "  (meta)"},
+		{
+			// A tombstoned target has no row anywhere, so resolveTitles leaves
+			// Title blank and the node would otherwise print as a bare UUID —
+			// indistinguishable from a live neighbour whose title lookup
+			// failed. The marker is what makes it read as unresolvable-but-real.
+			"tombstoned session",
+			map[string]string{"tombstoned": "session"},
+			"  (session pruned)",
+		},
+		{
+			// Outranks the confidence and provenance markers: whether the node
+			// on the other end exists at all is the more basic fact.
+			"tombstone wins over other signals",
+			map[string]string{"tombstoned": "session", "origin": "plan_slice_deps", "similarity_score": "0.9"},
+			"  (session pruned)",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

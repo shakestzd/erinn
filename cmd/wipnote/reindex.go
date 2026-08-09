@@ -796,15 +796,29 @@ func reindexEdges(database *sql.DB, wipnoteDir string, validIDs map[string]bool)
 	}
 }
 
-// indexNodeEdges inserts every graph edge declared by node whose target is a
-// known (valid) node. Shared by reindexEdges (file-backed) and
+// indexNodeEdges inserts every graph edge declared by node, applying the
+// target-validity gate. Shared by reindexEdges (file-backed) and
 // reindexWorkitemLedger (archive-backed) so archived items keep their lineage
 // edges in graph_edges and remain traversable by wipnote lineage/trace.
+//
+// Both callers gate the SOURCE on validIDs before calling, so every edge that
+// reaches here is declared by a canonical HTML node. That is what licenses the
+// tombstone half of the gate: the declaration is git-tracked and permanent even
+// when the session it names has been pruned, so graph.EdgeTargetTombstoned
+// keeps the edge with a marker rather than erasing the provenance record
+// (bug-10e166d8). A target that is neither valid nor session-shaped is still a
+// genuine dangling reference and is still dropped.
 func indexNodeEdges(database *sql.DB, node *models.Node, fromNodeType string, validIDs map[string]bool) {
 	for _, edges := range node.Edges {
 		for _, e := range edges {
-			if !validIDs[e.TargetID] {
+			props := e.Properties
+			switch graph.ClassifyEdgeTarget(e.TargetID, validIDs) {
+			case graph.EdgeTargetDangling:
 				continue
+			case graph.EdgeTargetTombstoned:
+				props = graph.MarkEdgeTombstoned(props)
+			case graph.EdgeTargetLive:
+				// Unchanged: a live target indexes exactly as it always has.
 			}
 			edgeID := fmt.Sprintf("%s-%s-%s", node.ID, string(e.Relationship), e.TargetID)
 			_ = dbpkg.InsertEdge(
@@ -812,7 +826,7 @@ func indexNodeEdges(database *sql.DB, node *models.Node, fromNodeType string, va
 				edgeID, node.ID, fromNodeType,
 				e.TargetID, inferNodeTypeFromID(e.TargetID),
 				string(e.Relationship),
-				e.Properties,
+				props,
 			)
 		}
 	}

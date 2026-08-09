@@ -291,3 +291,64 @@ func TestPurgeStaleEntries_StaleEdgesRemoved(t *testing.T) {
 		t.Errorf("stale edge still in DB")
 	}
 }
+
+// TestPurgeStaleEntries_TombstonedEdgeSurvives pins the purge half of the
+// tombstone policy (feat-d1439606) at the function boundary, because the full
+// reindex hides it: purgeStaleEntries runs immediately before reindexEdges,
+// which re-inserts anything the purge just deleted, so an end-state census
+// cannot tell a preserved tombstone from a deleted-and-restored one.
+//
+// It is observable on the purge-only path — runFullReindex in purge_spikes.go
+// calls purgeStaleEntries with no edge pass after it — and it is the invariant
+// that keeps the two halves of the gate from contradicting each other if the
+// reindex passes are ever reordered.
+func TestPurgeStaleEntries_TombstonedEdgeSurvives(t *testing.T) {
+	database := openReindexTestDB(t)
+
+	const prunedSession = "77776666-5555-4444-3333-222211110000"
+	// Declared by a canonical work item; the session it names has aged out.
+	if err := dbpkg.InsertEdge(database,
+		"edge-tombstone-001", "feat-live-001", "feature", prunedSession, "unknown",
+		"implemented_in", map[string]string{"tombstoned": "session"},
+	); err != nil {
+		t.Fatalf("InsertEdge tombstone: %v", err)
+	}
+	// Same source, but the target is a work item that does not exist. This one
+	// is a genuine dangling reference and must still go.
+	if err := dbpkg.InsertEdge(database,
+		"edge-dangling-001", "feat-live-001", "feature", "feat-gone-999", "feature",
+		"relates_to", nil,
+	); err != nil {
+		t.Fatalf("InsertEdge dangling: %v", err)
+	}
+	// A session-shaped TARGET does not license an unknown SOURCE: an edge from
+	// a node nothing on disk backs is not a canonical declaration.
+	if err := dbpkg.InsertEdge(database,
+		"edge-orphan-source-001", prunedSession, "session", "feat-live-001", "feature",
+		"implements", nil,
+	); err != nil {
+		t.Fatalf("InsertEdge orphan source: %v", err)
+	}
+
+	validIDs := map[string]bool{"feat-live-001": true}
+	if _, edgesPurged := purgeStaleEntries(database, validIDs); edgesPurged != 2 {
+		t.Errorf("edges purged: got %d, want 2 (the dangling reference and the orphan-sourced row)", edgesPurged)
+	}
+
+	survived := func(edgeID string) bool {
+		var n int
+		database.QueryRow(`SELECT COUNT(*) FROM graph_edges WHERE edge_id = ?`, edgeID).Scan(&n) //nolint:errcheck
+		return n > 0
+	}
+	if !survived("edge-tombstone-001") {
+		t.Errorf("purge deleted the tombstoned edge feat-live-001 -implemented_in-> %s;\n"+
+			"the declaration is canonical and git-tracked — only the session is ephemeral", prunedSession)
+	}
+	if survived("edge-dangling-001") {
+		t.Errorf("purge kept the dangling reference feat-live-001 -relates_to-> feat-gone-999; " +
+			"only session-shaped targets may tombstone")
+	}
+	if survived("edge-orphan-source-001") {
+		t.Errorf("purge kept an edge whose SOURCE (%s) resolves to nothing", prunedSession)
+	}
+}

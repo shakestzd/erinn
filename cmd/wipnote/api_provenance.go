@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
@@ -32,6 +34,13 @@ type provenanceLink struct {
 	Type         string `json:"type"`
 	Title        string `json:"title"`
 	Relationship string `json:"relationship"`
+	// Tombstoned marks a link whose peer no longer resolves to any node — a
+	// session that was pruned after the canonical HTML declared the edge.
+	// Without it the panel cannot tell a pruned peer from a live one whose
+	// metadata lookup happened to fail: resolveLinkMetadata leaves Type and
+	// Title empty in both cases, and /api/provenance/{peer} 404s for the
+	// tombstone, so the row would render as a bare id with a dead click.
+	Tombstoned bool `json:"tombstoned,omitempty"`
 }
 
 // commitResult is the JSON shape for /api/graph/commits items.
@@ -205,12 +214,16 @@ func loadDownstreamLinks(database *sql.DB, id string, nodeType string) []provena
 
 // loadPersistedEdges returns IDs and relationship types from graph_edges.
 // If upstream is true, returns edges pointing TO id; otherwise edges FROM id.
+//
+// The metadata column comes along so a tombstoned edge can be flagged. The
+// marker lives on the edge rather than the peer because the peer is exactly
+// what is gone — there is no row anywhere else to ask.
 func loadPersistedEdges(database *sql.DB, id string, upstream bool) []provenanceLink {
 	var query string
 	if upstream {
-		query = `SELECT from_node_id, relationship_type FROM graph_edges WHERE to_node_id = ?`
+		query = `SELECT from_node_id, relationship_type, metadata FROM graph_edges WHERE to_node_id = ?`
 	} else {
-		query = `SELECT to_node_id, relationship_type FROM graph_edges WHERE from_node_id = ?`
+		query = `SELECT to_node_id, relationship_type, metadata FROM graph_edges WHERE from_node_id = ?`
 	}
 	rows, err := database.Query(query, id)
 	if err != nil {
@@ -220,12 +233,37 @@ func loadPersistedEdges(database *sql.DB, id string, upstream bool) []provenance
 	var links []provenanceLink
 	for rows.Next() {
 		var peerID, rel string
-		if err := rows.Scan(&peerID, &rel); err != nil {
+		var meta sql.NullString
+		if err := rows.Scan(&peerID, &rel, &meta); err != nil {
 			continue
 		}
-		links = append(links, provenanceLink{ID: peerID, Relationship: rel})
+		link := provenanceLink{ID: peerID, Relationship: rel}
+		// The tombstone marker names the kind the vanished peer was, which is
+		// the only source for Type — resolveLinkMetadata cannot find a row to
+		// read it from.
+		if kind := edgeTombstoneKind(meta); kind != "" {
+			link.Tombstoned = true
+			link.Type = kind
+		}
+		links = append(links, link)
 	}
 	return links
+}
+
+// edgeTombstoneKind decodes the graph_edges.metadata JSON far enough to answer
+// one question, returning the tombstoned node kind or "" when the edge carries
+// no marker. Best-effort by design: a NULL column is the common case (an edge
+// from `link add` carries no metadata at all) and a malformed payload must not
+// make a live peer look pruned, so both read as "".
+func edgeTombstoneKind(meta sql.NullString) string {
+	if !meta.Valid || meta.String == "" {
+		return ""
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(meta.String), &parsed); err != nil {
+		return ""
+	}
+	return parsed[graph.EdgeMetaTombstoned]
 }
 
 // loadDerivedEdges returns IDs and relationship types from the same sources

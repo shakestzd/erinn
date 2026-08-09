@@ -3157,30 +3157,12 @@ function openProvenancePanel(nodeId) {
 
       upstreamEl.innerHTML = '';
       (data.upstream || []).forEach(function(link) {
-        var li = document.createElement('li');
-        var rel = document.createElement('span');
-        rel.className = 'provenance-rel';
-        rel.textContent = link.relationship;
-        var label = document.createElement('span');
-        label.textContent = link.title || link.id;
-        li.appendChild(rel);
-        li.appendChild(label);
-        li.onclick = function() { openProvenancePanel(link.id); };
-        upstreamEl.appendChild(li);
+        upstreamEl.appendChild(buildProvenanceLinkItem(link));
       });
 
       downstreamEl.innerHTML = '';
       (data.downstream || []).forEach(function(link) {
-        var li = document.createElement('li');
-        var rel = document.createElement('span');
-        rel.className = 'provenance-rel';
-        rel.textContent = link.relationship;
-        var label = document.createElement('span');
-        label.textContent = link.title || link.id;
-        li.appendChild(rel);
-        li.appendChild(label);
-        li.onclick = function() { openProvenancePanel(link.id); };
-        downstreamEl.appendChild(li);
+        downstreamEl.appendChild(buildProvenanceLinkItem(link));
       });
 
       panel.classList.remove('hidden');
@@ -3190,6 +3172,33 @@ function openProvenancePanel(nodeId) {
       if (myToken !== provenanceFetchToken) return;
       console.error('provenance fetch failed', err);
     });
+}
+
+// buildProvenanceLinkItem renders one upstream/downstream row.
+//
+// A tombstoned link is a real, canonically-declared edge whose peer no longer
+// exists — a session pruned after the work item recorded it. There is nothing
+// to open, so the row is marked and left inert; making it clickable would 404
+// and silently do nothing.
+function buildProvenanceLinkItem(link) {
+  var li = document.createElement('li');
+  var rel = document.createElement('span');
+  rel.className = 'provenance-rel';
+  rel.textContent = link.relationship;
+  var label = document.createElement('span');
+  label.textContent = link.title || link.id;
+  li.appendChild(rel);
+  li.appendChild(label);
+  if (link.tombstoned) {
+    var marker = document.createElement('span');
+    marker.className = 'provenance-tombstone';
+    marker.textContent = ' (' + (link.type || 'node') + ' pruned)';
+    li.appendChild(marker);
+    li.classList.add('provenance-link-pruned');
+  } else {
+    li.onclick = function() { openProvenancePanel(link.id); };
+  }
+  return li;
 }
 
 (function() {

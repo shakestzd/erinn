@@ -217,26 +217,35 @@ func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 				}
 			}
 			nodes = filtered
-
-			// Rebuild node set after filtering.
-			nodeSet = make(map[string]struct{}, len(nodes))
-			for _, n := range nodes {
-				nodeSet[n.ID] = struct{}{}
-			}
-
-			// Drop edges whose endpoints are no longer present.
-			filteredEdges := make([]graphEdge, 0, len(edges))
-			for _, e := range edges {
-				if _, ok := nodeSet[e.Source]; !ok {
-					continue
-				}
-				if _, ok := nodeSet[e.Target]; !ok {
-					continue
-				}
-				filteredEdges = append(filteredEdges, e)
-			}
-			edges = filteredEdges
 		}
+
+		// Drop edges whose endpoints are not in the payload. This runs on EVERY
+		// path, including ?all=true, because d3.forceLink throws on a link
+		// naming an unknown node id — one dangling edge blanks the whole graph.
+		//
+		// The tombstone policy makes that reachable in normal operation: an
+		// item→pruned-session edge is now kept in graph_edges by design
+		// (bug-10e166d8), and a pruned session has no sessions row to become a
+		// node from. The graph view already drops edges to live-but-quiet
+		// sessions the same way — loadGraphNodes only admits sessions with
+		// meaningful activity — so tombstones inherit that existing policy
+		// rather than a new one. `wipnote lineage` and /api/provenance are the
+		// surfaces that render them, each with its own pruned marker.
+		nodeSet = make(map[string]struct{}, len(nodes))
+		for _, n := range nodes {
+			nodeSet[n.ID] = struct{}{}
+		}
+		presentEdges := make([]graphEdge, 0, len(edges))
+		for _, e := range edges {
+			if _, ok := nodeSet[e.Source]; !ok {
+				continue
+			}
+			if _, ok := nodeSet[e.Target]; !ok {
+				continue
+			}
+			presentEdges = append(presentEdges, e)
+		}
+		edges = presentEdges
 
 		if nodes == nil {
 			nodes = []graphNode{}

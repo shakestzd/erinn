@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.680265"
-             data-updated="2026-05-27T00:38:56.817391" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-08-09T20:42:50.99096" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e" data-affected_files=".wipnote/features/feat-18dac61f.html,.wipnote/guard-profile.yaml,cmd/wipnote/claude.go,cmd/wipnote/codex.go,cmd/wipnote/gemini_launch.go,cmd/wipnote/guard_init.go,cmd/wipnote/guard_init_test.go,cmd/wipnote/main.go,internal/guardprofile/discover.go,internal/guardprofile/discover_test.go,internal/guardprofile/signature.go">
 
         <header>
             <h1>Guard setup as a launch-time initialization step (feat-534f209f)</h1>
@@ -27,32 +27,32 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
+                    <li><a href="../features/feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:51:55.065833">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.685335">plan-1187cb00</a></li>
+                    <li><a href="../sessions/e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:51:55.065833">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.689248">trk-fb4a1d6e</a></li>
+                    <li><a href="../tracks/trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.689248">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.685335">plan-1187cb00</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Make guard setup part of wipnote's project INITIALIZATION, checked on every
+            <p>Make guard setup part of wipnote&#39;s project INITIALIZATION, checked on every
 interactive CLI launch — peer to the per-session OTel collector bootstrap,
 not a gate-time afterthought (user pivot 2026-05-26).
 Add a PURE discovery core internal/guardprofile/discover.go:
@@ -61,7 +61,7 @@ docs, and subprojects, returning a proposed phase-grouped profile struct
 with NO writes and NO git. Add cmd/wipnote/guard_init.go: ensureGuardProfile
 (projectRoot) that on each interactive launch checks for an APPROVED profile
 and, if absent AND interactive (isTerminal(), cmd/wipnote/relevant.go:100),
-presents Propose()'s output for approve/edit, writes
+presents Propose()&#39;s output for approve/edit, writes
 .wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git config
 user.name or session identity; at = now), and commits it via runGitMutation.
 Wire ensureGuardProfile into the launcher bootstraps right beside the OTel

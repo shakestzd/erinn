@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-15T07:46:27.341486"
-             data-updated="2026-05-15T07:52:04.934537" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-6-g9d56d99eb">
+             data-updated="2026-08-09T20:42:28.272991" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-6-g9d56d99eb" data-affected_files=".wipnote/bugs/bug-bf41b6b4.html,agents/architect-coder.md,agents/feature-coder.md,agents/patch-coder.md,agents/reader.md,agents/researcher.md,agents/test-runner.md,internal/pluginbuild/gemini_agents.go,packages/gemini-extension/agents/architect-coder.md,packages/gemini-extension/agents/feature-coder.md,packages/gemini-extension/agents/patch-coder.md,packages/gemini-extension/agents/reader.md,packages/gemini-extension/agents/researcher.md,packages/gemini-extension/agents/test-runner.md,plugin/agents/architect-coder.md,plugin/agents/feature-coder.md,plugin/agents/researcher.md,plugin/agents/test-runner.md">
 
         <header>
             <h1>Agent definitions: drop timeout_mins on Claude &#43; verify Gemini flash alias</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T07:46:27.345966">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T07:46:29.930104">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                    <li><a href="../sessions/08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T07:46:29.930104">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T07:46:27.345966">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Doc audit (2026-05-15) found two issues. (1) timeout_mins is set on 4 Claude Code agent .md files (researcher, feature-coder, architect-coder, test-runner) but is NOT in the Claude Code subagent frontmatter schema per https://code.claude.com/docs/en/sub-agents — silently ignored. Remove from Claude-side definitions; keep for Gemini where the field IS documented (default 10 min). (2) Gemini researcher.md uses model: flash (shorthand). Docs at https://github.com/google-gemini/gemini-cli show full IDs (e.g., gemini-3-flash-preview); whether 'flash' is a valid alias is unverified — must be confirmed against docs before editing.</p>
+            <p>Doc audit (2026-05-15) found two issues. (1) timeout_mins is set on 4 Claude Code agent .md files (researcher, feature-coder, architect-coder, test-runner) but is NOT in the Claude Code subagent frontmatter schema per https://code.claude.com/docs/en/sub-agents — silently ignored. Remove from Claude-side definitions; keep for Gemini where the field IS documented (default 10 min). (2) Gemini researcher.md uses model: flash (shorthand). Docs at https://github.com/google-gemini/gemini-cli show full IDs (e.g., gemini-3-flash-preview); whether &#39;flash&#39; is a valid alias is unverified — must be confirmed against docs before editing.</p>
         </section>
     </article>
 </body>

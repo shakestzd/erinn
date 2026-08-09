@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Graph view startup performance — sub-second load &#43; no-bounce render</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-11T03:35:44.679857"
-             data-updated="2026-04-11T04:12:57.432851" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:19.34878" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files="cmd/htmlgraph/api_graph.go,cmd/htmlgraph/dashboard/js/app.js">
 
         <header>
             <h1>Graph view startup performance — sub-second load &#43; no-bounce render</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T03:35:47.682883">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                    <li><a href="../sessions/8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T03:35:47.682883">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T03:35:44.681375">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T03:35:44.681375">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -44,7 +44,7 @@
 
 Scope (three stacked fixes):
 
-1. Query optimization (Approach A — biggest lever). Profile the five queries in cmd/htmlgraph/api_graph.go. Primary suspect: the sessions-with-activity filter at lines 196-209 uses correlated EXISTS + GROUP BY HAVING COUNT(*) > 5 over 43k events. Replace with a single aggregated query. Add indexes on agent_events(session_id, feature_id) if missing. Target: /api/graph responds in under 500ms.
+1. Query optimization (Approach A — biggest lever). Profile the five queries in cmd/htmlgraph/api_graph.go. Primary suspect: the sessions-with-activity filter at lines 196-209 uses correlated EXISTS + GROUP BY HAVING COUNT(*) &gt; 5 over 43k events. Replace with a single aggregated query. Add indexes on agent_events(session_id, feature_id) if missing. Target: /api/graph responds in under 500ms.
 
 2. Bounce fix (Approach C — cheap win). Seed D3 node positions from a stable hash of the node ID before running the force simulation, and start the simulation at alpha(0.3) instead of alpha(1). Nodes appear in roughly stable positions and settle with a small shiver instead of bouncing from random.
 

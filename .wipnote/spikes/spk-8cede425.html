@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-18T09:03:13.385071"
-             data-updated="2026-05-18T21:54:22.764899" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9">
+             data-updated="2026-08-09T20:43:53.429458" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9" data-affected_files=".wipnote/spikes/spk-8cede425.html,packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md,packages/gemini-extension/skills/orchestrator-directives-skill/SKILL.md,plugin/skills/orchestrator-directives-skill/SKILL.md,skills/orchestrator-directives-skill/SKILL.md">
 
         <header>
             <h1>Orchestrator auto-resume of budget-paused subagents (skill enhancement &#43; known-issue note)</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T21:42:49.563677">session d2101130-3162-4850-8793-414841978b28</a></li>
+                    <li><a href="../sessions/d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T21:42:49.563677">session d2101130-3162-4850-8793-414841978b28</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-18T09:03:13.389818">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-18T09:03:13.389818">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,7 +48,7 @@
         <section data-content>
             <h3>Description</h3>
             <p>In this devcontainer Claude Code subagents pause at a low tool budget and return an intermediate (non-final) message, requiring a manual SendMessage resume — pure orchestration overhead, contradicting wipnotes reduce-agent-overhead goal. Not a Go defect (harness/agent-teams runtime behavior). Spike: codify auto-resume-on-non-final-return as a systematic pattern in the orchestrator-directives skill + add a known-issue note. Plugin/skill change, not internal/.
-[2026-05-18 21:53 claude-code] accepted-advisory (provenance override): Codified two orchestration patterns in the orchestrator-directives skill SOURCE (plugin/skills/orchestrator-directives-skill/SKILL.md), regenerated to all 3 harness trees via wipnote plugin build-ports: Pattern A — auto-resume budget-paused subagents (detect non-final/mid-task return, re-engage the SAME agent via the harness's agent-resume mechanism with restated finish-line, never re-dispatch); Pattern B — completion gate for subagent-delegated code (orchestrator runs its OWN session-scoped wipnote check --gate + --accepted-advisory; folds in bug-3718b630 as the tracked underlying defect whose durable fix belongs in binary/hooks); plus a Known Issues/Environment note. Resume guidance is harness-agnostic (Claude Code concrete SendMessage/agentId example; Codex/Gemini generic — no invented APIs). Commit chain: 64002739e (core codification + build-ports regen all 3 trees), be8aee4f1 (roborev followup: harness-agnostic rewrite). roborev job 3291 on be8aee4: no issues found. Orchestrator session gate passed on re-run (signature 8856845a3b6); first attempt hit the known flaky bug-36df6c7f (3rd occurrence this session, FAIL-then-pass; docs-only change so categorically not a regression). Subagent-delegated; advisory accepted per bug-3718b630.</p>
+[2026-05-18 21:53 claude-code] accepted-advisory (provenance override): Codified two orchestration patterns in the orchestrator-directives skill SOURCE (plugin/skills/orchestrator-directives-skill/SKILL.md), regenerated to all 3 harness trees via wipnote plugin build-ports: Pattern A — auto-resume budget-paused subagents (detect non-final/mid-task return, re-engage the SAME agent via the harness&#39;s agent-resume mechanism with restated finish-line, never re-dispatch); Pattern B — completion gate for subagent-delegated code (orchestrator runs its OWN session-scoped wipnote check --gate + --accepted-advisory; folds in bug-3718b630 as the tracked underlying defect whose durable fix belongs in binary/hooks); plus a Known Issues/Environment note. Resume guidance is harness-agnostic (Claude Code concrete SendMessage/agentId example; Codex/Gemini generic — no invented APIs). Commit chain: 64002739e (core codification + build-ports regen all 3 trees), be8aee4f1 (roborev followup: harness-agnostic rewrite). roborev job 3291 on be8aee4: no issues found. Orchestrator session gate passed on re-run (signature 8856845a3b6); first attempt hit the known flaky bug-36df6c7f (3rd occurrence this session, FAIL-then-pass; docs-only change so categorically not a regression). Subagent-delegated; advisory accepted per bug-3718b630.</p>
         </section>
     </article>
 </body>

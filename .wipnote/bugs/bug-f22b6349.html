@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Legacy SQLite warning prints on every htmlgraph invocation, polluting agent output</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T17:04:18.986381"
-             data-updated="2026-05-01T17:32:54.526385" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2">
+             data-updated="2026-08-09T20:42:42.085844" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2" data-affected_files=".htmlgraph/bugs/bug-0403e704.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-f22b6349.html,.htmlgraph/bugs/bug-f92bedff.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-500da04c.html,.htmlgraph/features/feat-57d35c02.html,.htmlgraph/features/feat-725953d3.html,.htmlgraph/features/feat-7af2dda7.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-af47836b.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/tracks/trk-2c83a1e2.html,internal/storage/dbpath.go,internal/storage/dbpath_test.go">
 
         <header>
             <h1>Legacy SQLite warning prints on every htmlgraph invocation, polluting agent output</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="2d51eb66-2587-4507-979e-180e096ef576.html" data-relationship="implemented_in" data-since="2026-05-01T17:05:28.321784">session 2d51eb66-2587-4507-979e-180e096ef576</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-f92bedff.html" data-relationship="caused_by" data-since="2026-05-01T17:04:18.992521">bug-f92bedff</a></li>
+                    <li><a href="../bugs/bug-f92bedff.html" data-relationship="caused_by" data-since="2026-05-01T17:04:18.992521">bug-f92bedff</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/2d51eb66-2587-4507-979e-180e096ef576.html" data-relationship="implemented_in" data-since="2026-05-01T17:05:28.321784">session 2d51eb66-2587-4507-979e-180e096ef576</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:04:18.99798">trk-2c83a1e2</a></li>
+                    <li><a href="../tracks/trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:04:18.99798">trk-2c83a1e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,18 +47,18 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-0" data-agent="claude-code">✅ Locate the warning emission site (likely cmd/htmlgraph/main.go or internal/storage/dbpath.go) — grep for &#39;legacy SQLite&#39; or &#39;WARNING: legacy&#39;</li>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-1" data-agent="claude-code">✅ Implement option (a): if the legacy .htmlgraph/htmlgraph.db file is zero-byte, delete it silently. If it is non-empty, leave it (do not auto-delete data) but only print the warning once per process</li>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-2" data-agent="claude-code">✅ Use a sync.Once or package-level bool to guard the warning emission so it appears at most once per process invocation. Do not introduce new state files (no .legacy-warned marker; sync.Once is sufficient)</li>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-3" data-agent="claude-code">✅ Add a unit test that runs the warning code path twice in the same process and asserts the warning is emitted exactly once on the first call</li>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-4" data-agent="claude-code">✅ Verify by running htmlgraph status and htmlgraph wip show in succession in a single shell — warning should appear at most once across both invocations (each is a separate process, so each prints once; that is the acceptable outcome)</li>
-                <li data-completed="true" data-step-id="step-bug-f22b6349-5" data-agent="claude-code">✅ Run go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... to confirm no regressions</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Locate the warning emission site (likely cmd/htmlgraph/main.go or internal/storage/dbpath.go) — grep for &#39;legacy SQLite&#39; or &#39;WARNING: legacy&#39;</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement option (a): if the legacy .htmlgraph/htmlgraph.db file is zero-byte, delete it silently. If it is non-empty, leave it (do not auto-delete data) but only print the warning once per process</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Use a sync.Once or package-level bool to guard the warning emission so it appears at most once per process invocation. Do not introduce new state files (no .legacy-warned marker; sync.Once is sufficient)</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add a unit test that runs the warning code path twice in the same process and asserts the warning is emitted exactly once on the first call</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Verify by running htmlgraph status and htmlgraph wip show in succession in a single shell — warning should appear at most once across both invocations (each is a separate process, so each prints once; that is the acceptable outcome)</li>
+                <li data-completed="true" data-step-id="step-bug-f22b6349-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Run go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... to confirm no regressions</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Every htmlgraph CLI command emits: '[htmlgraph] WARNING: legacy SQLite file at .htmlgraph/htmlgraph.db (0 MB) is unused — DB now lives in the user cache dir.' This bloats every agent transcript and adds noise that crowds out signal. Two acceptable fixes: (a) auto-delete the legacy file on first detection (it is empty / vestigial; the user is told to delete it anyway) and emit the warning at most once via .htmlgraph/.legacy-warned marker, (b) gate the warning behind a once-per-day check via mtime on a state file under the cache dir. Preferred: (a), with the auto-delete behavior gated on the file being zero-byte and the message logged at INFO level rather than WARNING. The warning has shown up in every dispatched agent transcript for the past N sessions and is no longer actionable.</p>
+            <p>Every htmlgraph CLI command emits: &#39;[htmlgraph] WARNING: legacy SQLite file at .htmlgraph/htmlgraph.db (0 MB) is unused — DB now lives in the user cache dir.&#39; This bloats every agent transcript and adds noise that crowds out signal. Two acceptable fixes: (a) auto-delete the legacy file on first detection (it is empty / vestigial; the user is told to delete it anyway) and emit the warning at most once via .htmlgraph/.legacy-warned marker, (b) gate the warning behind a once-per-day check via mtime on a state file under the cache dir. Preferred: (a), with the auto-delete behavior gated on the file being zero-byte and the message logged at INFO level rather than WARNING. The warning has shown up in every dispatched agent transcript for the past N sessions and is no longer actionable.</p>
         </section>
     </article>
 </body>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Tests pollute real ~/.cache/htmlgraph instead of an isolated cache root</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-27T23:30:07.35473"
-             data-updated="2026-04-28T00:16:08.432088" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:15.17184" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-051fcdc0.html,.htmlgraph/bugs/bug-08681166.html,.htmlgraph/bugs/bug-0ac5ad08.html,.htmlgraph/bugs/bug-1e5166ea.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-2138cbea.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4697c62c.html,.htmlgraph/bugs/bug-59b98285.html,.htmlgraph/bugs/bug-5d7220f3.html,.htmlgraph/bugs/bug-5f02971e.html,.htmlgraph/bugs/bug-62f14f8c.html,.htmlgraph/bugs/bug-633b2c6d.html,.htmlgraph/bugs/bug-6a4cc391.html,.htmlgraph/bugs/bug-727e4901.html,.htmlgraph/bugs/bug-7d105494.html,.htmlgraph/bugs/bug-8c34e1f5.html,.htmlgraph/bugs/bug-905779c3.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a312db4d.html,.htmlgraph/bugs/bug-bb5b26f6.html,.htmlgraph/bugs/bug-c58ab226.html,.htmlgraph/bugs/bug-c5a34bc3.html,.htmlgraph/bugs/bug-cc26f6d1.html,.htmlgraph/bugs/bug-cc41e3d2.html,.htmlgraph/bugs/bug-d035a6c3.html,.htmlgraph/bugs/bug-d0c8b1e2.html,.htmlgraph/bugs/bug-de827cbf.html,.htmlgraph/bugs/bug-e24934e4.html,.htmlgraph/bugs/bug-f0eff9b7.html,.htmlgraph/bugs/bug-f9de355d.html,.htmlgraph/features/feat-03deaa60.html,.htmlgraph/features/feat-0fe674d9.html,.htmlgraph/features/feat-17ed3fd7.html,.htmlgraph/features/feat-19396f85.html,.htmlgraph/features/feat-2377191e.html,.htmlgraph/features/feat-31dcb795.html,.htmlgraph/features/feat-33807582.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-3a65c5ca.html,.htmlgraph/features/feat-44d8c24f.html,.htmlgraph/features/feat-4d3a2b5d.html,.htmlgraph/features/feat-4e802333.html,.htmlgraph/features/feat-5144acc8.html,.htmlgraph/features/feat-56aa1d48.html,.htmlgraph/features/feat-56cddb0f.html,.htmlgraph/features/feat-58e5975f.html,.htmlgraph/features/feat-605aaaac.html,.htmlgraph/features/feat-65432141.html,.htmlgraph/features/feat-6dbc7112.html,.htmlgraph/features/feat-71c86472.html,.htmlgraph/features/feat-7837411f.html,.htmlgraph/features/feat-9772ba80.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-ad358044.html,.htmlgraph/features/feat-b6479241.html,.htmlgraph/features/feat-bb06e3f6.html,.htmlgraph/features/feat-c87a1fd8.html,.htmlgraph/features/feat-d1f3b2a6.html,.htmlgraph/features/feat-e25b40a0.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/features/feat-f0f893a3.html,.htmlgraph/features/feat-f18d5c35.html,.htmlgraph/plans/plan-1c14d560.html,.htmlgraph/plans/plan-1c14d560.yaml,.htmlgraph/plans/plan-3bbc313f.html,.htmlgraph/plans/plan-3bbc313f.yaml,.htmlgraph/plans/plan-8ee8f517.html,.htmlgraph/plans/plan-8ee8f517.yaml,.htmlgraph/spikes/spk-09d20cf8.html,.htmlgraph/spikes/spk-a25964fa.html,.htmlgraph/spikes/spk-dfb051a3.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-a30e8df4.html,.htmlgraph/tracks/trk-c4615ad2.html,.htmlgraph/tracks/trk-cb36e595.html,cmd/htmlgraph/blame.go,cmd/htmlgraph/blame_test.go,cmd/htmlgraph/cache.go,cmd/htmlgraph/cache_pollution_test.go,cmd/htmlgraph/code_areas.go,cmd/htmlgraph/code_areas_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/multiharness_test.go,cmd/htmlgraph/otel_collect.go,cmd/htmlgraph/testmain_test.go,cmd/htmlgraph/worktree_helpers_test.go,docs/cli/blame.md,docs/code-areas.md,internal/blame/areas.go,internal/blame/areas_test.go,internal/blame/blame.go,internal/blame/blame_test.go,internal/otel/sink/ndjson/ndjson.go,internal/otel/sink/ndjson/ndjson_test.go,internal/otel/sink/sink_test.go,internal/storage/dbpath.go,internal/storage/evict.go,internal/storage/evict_test.go,scripts/host-paths-allowlist-patterns.conf">
 
         <header>
             <h1>Tests pollute real ~/.cache/htmlgraph instead of an isolated cache root</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-27T23:30:07.357887">trk-0677c709</a></li>
+                    <li><a href="../features/feat-9b767422.html" data-relationship="caused_by" data-since="2026-04-27T23:30:25.104586">Implement htmlgraph cache eviction &#43; cache subcommands</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="412cdeef-bc20-424f-9b11-e6e716d579a6.html" data-relationship="implemented_in" data-since="2026-04-27T23:32:28.330817">session 412cdeef-bc20-424f-9b11-e6e716d579a6</a></li>
+                    <li><a href="../sessions/412cdeef-bc20-424f-9b11-e6e716d579a6.html" data-relationship="implemented_in" data-since="2026-04-27T23:32:28.330817">session 412cdeef-bc20-424f-9b11-e6e716d579a6</a></li>
                 </ul>
             </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="feat-9b767422.html" data-relationship="caused_by" data-since="2026-04-27T23:30:25.104586">Implement htmlgraph cache eviction &#43; cache subcommands</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-27T23:30:07.357887">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Many cmd/htmlgraph/*_test.go files create temporary project roots via t.TempDir() and then exercise code paths that resolve storage.CanonicalDBPath(projectDir). CanonicalDBPath hashes the absolute project path and returns /htmlgraph//htmlgraph.db, so each unique tempdir produces a fresh subdirectory under the user's real cache. Across a single 'go test ./cmd/htmlgraph/...' run this can create hundreds of entries. Evidence (2026-04-27): the ~/.cache/htmlgraph cache regrew to 6,022 subdirs / 2.5 GB, with 2,012 new subdirs / 834 MiB added in the four hours immediately after eviction was wired up — the new opportunistic prune fired at 10:21 but didn't evict anything because entries were <90 days and the total dipped under the 1 GiB threshold between bursts. Defeats the eviction policy added in feat-9b767422 entirely, and is the same shape that caused the original 17,843-subdir / 7.3 GB explosion (spk-dfb051a3). Tests that touch CanonicalDBPath should either set HTMLGRAPH_DB_PATH to t.TempDir()/htmlgraph.db (workitem_test, projects_test, plan_feedback_cmd_test, cleanup_test already do) or share a single per-package cache override via TestMain. Surfaced while validating feat-9b767422.</p>
+            <p>Many cmd/htmlgraph/*_test.go files create temporary project roots via t.TempDir() and then exercise code paths that resolve storage.CanonicalDBPath(projectDir). CanonicalDBPath hashes the absolute project path and returns /htmlgraph//htmlgraph.db, so each unique tempdir produces a fresh subdirectory under the user&#39;s real cache. Across a single &#39;go test ./cmd/htmlgraph/...&#39; run this can create hundreds of entries. Evidence (2026-04-27): the ~/.cache/htmlgraph cache regrew to 6,022 subdirs / 2.5 GB, with 2,012 new subdirs / 834 MiB added in the four hours immediately after eviction was wired up — the new opportunistic prune fired at 10:21 but didn&#39;t evict anything because entries were &lt;90 days and the total dipped under the 1 GiB threshold between bursts. Defeats the eviction policy added in feat-9b767422 entirely, and is the same shape that caused the original 17,843-subdir / 7.3 GB explosion (spk-dfb051a3). Tests that touch CanonicalDBPath should either set HTMLGRAPH_DB_PATH to t.TempDir()/htmlgraph.db (workitem_test, projects_test, plan_feedback_cmd_test, cleanup_test already do) or share a single per-package cache override via TestMain. Surfaced while validating feat-9b767422.</p>
         </section>
     </article>
 </body>

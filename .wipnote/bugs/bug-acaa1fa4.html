@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>codex.go modernize: interface{} -&gt; any &#43; strings.SplitSeq</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-02T23:06:22.43307"
-             data-updated="2026-05-02T23:08:42.726888" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:24.513036" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-07a41751.html,.htmlgraph/bugs/bug-4b399212.html,.htmlgraph/bugs/bug-68dff527.html,.htmlgraph/bugs/bug-7899a7ee.html,.htmlgraph/bugs/bug-acaa1fa4.html,cmd/htmlgraph/codex.go">
 
         <header>
             <h1>codex.go modernize: interface{} -&gt; any &#43; strings.SplitSeq</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-02T23:06:22.483346">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="6b432d50-b2c3-4045-960e-a815085f56c3.html" data-relationship="implemented_in" data-since="2026-05-02T23:06:22.850738">session 6b432d50-b2c3-4045-960e-a815085f56c3</a></li>
+                    <li><a href="../sessions/6b432d50-b2c3-4045-960e-a815085f56c3.html" data-relationship="implemented_in" data-since="2026-05-02T23:06:22.850738">session 6b432d50-b2c3-4045-960e-a815085f56c3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-02T23:06:22.483346">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-up to bug-68dff527. After cleaning up the 8 lint findings, the IDE surfaced 10 modernize informational hints in cmd/htmlgraph/codex.go: 9 efaceany (interface{} -> any) at lines 67/73/74/85/86/114/124/136/177, plus 1 stringsseq (strings.Split -> strings.SplitSeq) at line 47. Mechanical replacement; Go 1.25.5 supports both. Scope strictly codex.go.</p>
+            <p>Follow-up to bug-68dff527. After cleaning up the 8 lint findings, the IDE surfaced 10 modernize informational hints in cmd/htmlgraph/codex.go: 9 efaceany (interface{} -&gt; any) at lines 67/73/74/85/86/114/124/136/177, plus 1 stringsseq (strings.Split -&gt; strings.SplitSeq) at line 47. Mechanical replacement; Go 1.25.5 supports both. Scope strictly codex.go.</p>
         </section>
     </article>
 </body>

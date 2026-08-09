@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Dispatched sub-agents commit directly to main instead of isolated branch</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-05T03:47:56.011725"
-             data-updated="2026-05-05T16:09:59.404241" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:09.350421" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files="internal/hooks/pretooluse.go,internal/hooks/worktree_commit_guard.go,internal/hooks/worktree_commit_guard_test.go">
 
         <header>
             <h1>Dispatched sub-agents commit directly to main instead of isolated branch</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-d2d2be20.html" data-relationship="caused_by" data-since="2026-05-05T03:47:56.035353">feat-d2d2be20</a></li>
+                    <li><a href="../features/feat-d2d2be20.html" data-relationship="caused_by" data-since="2026-05-05T03:47:56.035353">feat-d2d2be20</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T03:47:56.040876">trk-cb36e595</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T03:47:56.040876">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
@@ -44,11 +44,11 @@
 
 When orchestrator dispatches sub-agents via Agent(isolation:worktree, ...), some sub-agents land commits directly on main rather than on isolated worktree branches as documented. Two of N sub-agents in the cited dispatch had this happen; quality gates passed by luck — broken main is the failure mode.
 
-Suspicion (from issue): isolation:worktree is being interpreted as 'reuse the parent's working directory' when the parent is itself inside a worktree. The parent orchestrator was running inside a track worktree (e.g., .claude/worktrees/1-0-ui-completeness-close-trk-9a3c622d on branch trk-9a3c622d); when sub-agents spawned with isolation:worktree, no new worktrees were created (git worktree list showed no sub-agent worktrees), and the agents wrote/committed in the parent's wd, which after a checkout had ended up on main.
+Suspicion (from issue): isolation:worktree is being interpreted as &#39;reuse the parent&#39;s working directory&#39; when the parent is itself inside a worktree. The parent orchestrator was running inside a track worktree (e.g., .claude/worktrees/1-0-ui-completeness-close-trk-9a3c622d on branch trk-9a3c622d); when sub-agents spawned with isolation:worktree, no new worktrees were created (git worktree list showed no sub-agent worktrees), and the agents wrote/committed in the parent&#39;s wd, which after a checkout had ended up on main.
 
 Verbatim from agent reports:
-- 'Branch: trk-9a3c622d, Commit: df1b7c5' — but commit actually landed on main
-- 'Branch: main (commit a6c2119)' — explicitly main
+- &#39;Branch: trk-9a3c622d, Commit: df1b7c5&#39; — but commit actually landed on main
+- &#39;Branch: main (commit a6c2119)&#39; — explicitly main
 
 Affected commits visible in git log main:
 - df1b7c5 feat(web): wire Config page to /api/config (feat-73190d78)
@@ -61,7 +61,7 @@ Note: isolation:worktree is a Claude Code Agent tool primitive, not htmlgraph co
 (b) Documentation update warning that isolation:worktree is unreliable when the parent is in a worktree
 (c) Upstream Claude Code report
 
-Recommended: (a) — a PreToolUse guard at hook level that refuses git commit calls from sub-agents when on main without an explicit per-agent branch. Defense-in-depth at htmlgraph's layer, not dependent on Claude Code's worktree creation behavior.</p>
+Recommended: (a) — a PreToolUse guard at hook level that refuses git commit calls from sub-agents when on main without an explicit per-agent branch. Defense-in-depth at htmlgraph&#39;s layer, not dependent on Claude Code&#39;s worktree creation behavior.</p>
         </section>
     </article>
 </body>

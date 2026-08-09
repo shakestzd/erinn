@@ -211,6 +211,13 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 		}
 		node.Status = models.StatusDone
 		node.UpdatedAt = time.Now().UTC()
+		// feat-7ee73444: collapse the item's telemetry and git history into
+		// rollup properties inside this same locked read-modify-write, so the
+		// numbers land in the canonical HTML with the status transition rather
+		// than through a second write. ApplyRollup never fails — a rollup it
+		// cannot compute degrades to a marked absence, never a blocked
+		// completion.
+		ApplyRollup(node, c.base.DB, id)
 		return nil
 	}, func(*models.Node) {
 		// bug-74a7bda7: the completion status transition is THE

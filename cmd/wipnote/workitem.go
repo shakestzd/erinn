@@ -207,10 +207,12 @@ var wiResearchWaiver string
 var wiLearningKind string
 
 // acceptedAdvisoryMarker prefixes the content note the override rationale is
-// persisted under. Node.Properties does NOT round-trip through the canonical
-// HTML writer/parser (only edge properties do), but Node.Content does (via
-// section[data-content]); so the audited reason is stored as a content note
-// with this stable, parseable prefix and recovered with acceptedAdvisoryOf.
+// persisted under. This predates bug-c65a5f4e, when Node.Properties genuinely
+// did not round-trip through the canonical HTML writer/parser and Node.Content
+// (via section[data-content]) was the only durable place to put it. Properties
+// round-trip now — feat-7ee73444's rollups rely on exactly that — but the
+// content-note encoding is kept because existing artifacts carry it and
+// acceptedAdvisoryOf reads them back by this stable, parseable prefix.
 const acceptedAdvisoryMarker = "accepted-advisory (provenance override): "
 
 // acceptedAdvisoryOf returns the recorded provenance-advisory reason for a
@@ -294,7 +296,6 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	defer p.Close()
 
 	col := collectionFor(p, typeName)
-
 
 	// CRISPI spec-enforcement gate: when completing a feature with the
 	// gate opted in via config, refuse if the feature HTML has no usable
@@ -1134,6 +1135,8 @@ func printNodeDetail(n *models.Node) {
 		}
 	}
 
+	printRollup(n)
+
 	if n.Content != "" {
 		fmt.Println("\nContent:")
 		for _, line := range strings.Split(n.Content, "\n") {
@@ -1144,6 +1147,44 @@ func printNodeDetail(n *models.Node) {
 	// Hint for finalized plans: surface the idempotent dispatch command.
 	if n.Type == "plan" && string(n.Status) == "finalized" {
 		fmt.Printf("\nNext: wipnote plan finalize-yaml %s   (idempotent — creates features, embeds decisions, prints dispatch summary)\n", n.ID)
+	}
+}
+
+// printRollup renders the outcome rollup that Collection.Complete persisted
+// into the item's canonical HTML (feat-7ee73444). This is the surface agents
+// actually read, so each number is printed next to its provenance rather than
+// alone — a cost figure whose source says "degraded_under_report" must not be
+// readable as a clean total. Metrics that were omitted for want of data are
+// simply not here; the markers (telemetry/git/unavailable) explain why.
+func printRollup(n *models.Node) {
+	props := workitem.RollupProps(n)
+	if len(props) == 0 {
+		return
+	}
+
+	keys := make([]string, 0, len(props))
+	for k := range props {
+		if strings.HasSuffix(k, "-source") || strings.HasSuffix(k, "-coverage") {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	fmt.Println("\nRollup:")
+	for _, k := range keys {
+		line := fmt.Sprintf("  %-16s %s", k, props[k])
+		var qual []string
+		if src := props[k+"-source"]; src != "" {
+			qual = append(qual, src)
+		}
+		if cov := props[k+"-coverage"]; cov != "" {
+			qual = append(qual, "coverage "+cov)
+		}
+		if len(qual) > 0 {
+			line += "  (" + strings.Join(qual, ", ") + ")"
+		}
+		fmt.Println(line)
 	}
 }
 

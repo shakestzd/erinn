@@ -50,14 +50,28 @@ func TestWriteNodeHTML_FullRoundTrip(t *testing.T) {
 		UpdatedAt: ts,
 
 		// map[string]any — the bug this test exists to catch. Mixes
-		// attribute-safe string values (the three live SetProperty call
-		// sites) with non-string values that must take the JSON escape
-		// hatch to preserve their Go type.
+		// attribute-safe string values (the live SetProperty call sites, plus
+		// the rollup keys) with non-string values that must take the JSON
+		// escape hatch to preserve their Go type.
+		//
+		// The rollup keys (feat-7ee73444) belong here rather than in a test of
+		// their own: outcome rollups are written through Properties precisely
+		// so they inherit a proven round-trip, and if that ever stops holding,
+		// a completed work item silently loses its numbers on the next
+		// rewrite. Hyphenated keys are also the only attribute-safe keys in
+		// this map, so they pin that half of the key charset.
 		Properties: map[string]any{
-			"standalone_reason":  "pre-enforcement",
-			"created_in_session": "019ebc63ba7ae905adb1f8db7504",
-			"retry_count":        float64(2),
-			"is_flaky":           true,
+			"standalone_reason":            "pre-enforcement",
+			"created_in_session":           "019ebc63ba7ae905adb1f8db7504",
+			"retry_count":                  float64(2),
+			"is_flaky":                     true,
+			"rollup-failure-rate":          "0.3333",
+			"rollup-failure-rate-source":   "otel_success",
+			"rollup-failure-rate-coverage": "3/5",
+			"rollup-cost-usd":              "1.2500",
+			"rollup-cost-usd-source":       "otel_cost_usd:degraded_under_report",
+			"rollup-telemetry":             "unavailable",
+			"rollup-computed-at":           "2026-08-09T00:00:00Z",
 		},
 
 		Edges: map[string][]models.Edge{

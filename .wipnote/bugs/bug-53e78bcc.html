@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-20T07:50:48.560275"
-             data-updated="2026-05-20T09:44:19.719719" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293">
+             data-updated="2026-08-09T20:41:58.505645" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293" data-affected_files=".goreleaser.yml,.wipnote/bugs/bug-53e78bcc.html,cmd/wipnote/share_paths.go,cmd/wipnote/share_paths_test.go">
 
         <header>
             <h1>wipnote codex/gemini broken from binary install: validator sentinel &#39;.agents/plugins/marketplace.json&#39; doesn&#39;t match bundled tarball layout (flattened to marketplace.json at root)</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T09:31:05.001398">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:50:48.633362">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:50:48.633362">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:50:50.849161">Plan: Launch readiness — wipnote public launch blockers</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T09:31:05.001398">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
+                    <li><a href="../plans/plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:50:50.849161">Plan: Launch readiness — wipnote public launch blockers</a></li>
                 </ul>
             </section>
         </nav>
@@ -53,7 +53,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>share_paths.go isValidHarnessTree checks for treeRoot/.agents/plugins/marketplace.json as the codex-marketplace sentinel. The repo source has that exact path under packages/codex-marketplace/, so dev mode works. But the GoReleaser archive flattens .agents/plugins/ out — the published tarball has codex-marketplace/marketplace.json at the root with no .agents/plugins/ prefix. Result: every binary-install user gets 'wipnote codex-marketplace tree not found' even when the tree is correctly installed. WIPNOTE_CODEX_DIR override does NOT bypass validation, so the error is unavoidable from a binary install. Same risk pattern likely affects wipnote gemini (different sentinel — gemini-extension.json — needs separate verification). wipnote claude is unaffected (its sentinel .claude-plugin/plugin.json survives the flattening). Fix requires choosing one of: (a) update validator to accept the flattened layout, (b) update GoReleaser/plugin-build-ports to preserve deep layout, (c) consolidate so dev source and bundled tree share one layout. Out-of-scope for tonight's launch flag-plant since codex/gemini are documented experimental; needs focused follow-up. NOT a blocker for wipnote claude dogfooding or the Show-HN positioning, which is the Claude path.</p>
+            <p>share_paths.go isValidHarnessTree checks for treeRoot/.agents/plugins/marketplace.json as the codex-marketplace sentinel. The repo source has that exact path under packages/codex-marketplace/, so dev mode works. But the GoReleaser archive flattens .agents/plugins/ out — the published tarball has codex-marketplace/marketplace.json at the root with no .agents/plugins/ prefix. Result: every binary-install user gets &#39;wipnote codex-marketplace tree not found&#39; even when the tree is correctly installed. WIPNOTE_CODEX_DIR override does NOT bypass validation, so the error is unavoidable from a binary install. Same risk pattern likely affects wipnote gemini (different sentinel — gemini-extension.json — needs separate verification). wipnote claude is unaffected (its sentinel .claude-plugin/plugin.json survives the flattening). Fix requires choosing one of: (a) update validator to accept the flattened layout, (b) update GoReleaser/plugin-build-ports to preserve deep layout, (c) consolidate so dev source and bundled tree share one layout. Out-of-scope for tonight&#39;s launch flag-plant since codex/gemini are documented experimental; needs focused follow-up. NOT a blocker for wipnote claude dogfooding or the Show-HN positioning, which is the Claude path.</p>
         </section>
     </article>
 </body>

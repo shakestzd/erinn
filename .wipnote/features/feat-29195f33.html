@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-07T13:48:57.123607"
-             data-updated="2026-06-10T03:09:53.728299" data-agent-assigned="claude-code" data-track-id="trk-1ea27426" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+             data-updated="2026-08-09T20:42:55.943979" data-agent-assigned="claude-code" data-track-id="trk-1ea27426" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802" data-affected_files=".wipnote/features/feat-29195f33.html,core/hooks/commit_portdrift_guard.go,core/hooks/commit_portdrift_guard_test.go,core/hooks/lifecycle_injection.go,core/hooks/lifecycle_injection_test.go,core/hooks/missing_events.go,core/hooks/session_end.go,core/ingest/gemini_parser_test.go">
 
         <header>
             <h1>Invert commit-portdrift guard out of core hooks</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-1ea27426.html" data-relationship="part_of" data-since="2026-06-07T13:48:57.128828">trk-1ea27426</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T01:33:46.77488">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T01:33:46.77488">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1ea27426.html" data-relationship="part_of" data-since="2026-06-07T13:48:57.128828">trk-1ea27426</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Replace hooks/commit_portdrift_guard.go's pluginbuild.CheckPorts import with an external pre-commit hook so port/ can hold pluginbuild + packages/codex + packages/gemini independently.</p>
+            <p>Replace hooks/commit_portdrift_guard.go&#39;s pluginbuild.CheckPorts import with an external pre-commit hook so port/ can hold pluginbuild + packages/codex + packages/gemini independently.</p>
         </section>
     </article>
 </body>

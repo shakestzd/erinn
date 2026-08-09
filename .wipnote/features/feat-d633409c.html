@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-18T21:16:13.686322"
-             data-updated="2026-05-18T21:42:26.50173" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c">
+             data-updated="2026-08-09T20:43:39.848794" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c" data-affected_files=".wipnote/features/feat-d633409c.html,cmd/wipnote/recommend.go,cmd/wipnote/wip.go,cmd/wipnote/wip_test.go,cmd/wipnote/workitem.go">
 
         <header>
             <h1>WIP-limit redesign: per-owner-session soft limit &#43; global advisory (implements spk-54c5c25e)</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T21:16:32.570525">session d2101130-3162-4850-8793-414841978b28</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-18T21:16:13.693788">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-18T21:16:13.693788">trk-08dcbb33</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="spk-54c5c25e.html" data-relationship="relates_to" data-since="2026-05-18T21:16:32.498081">Stale-WIP accumulation &#43; WIP-limit semantics for multi-harness parallel dogfooding</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T21:16:32.570525">session d2101130-3162-4850-8793-414841978b28</a></li>
+                    <li><a href="../spikes/spk-54c5c25e.html" data-relationship="relates_to" data-since="2026-05-18T21:16:32.498081">Stale-WIP accumulation &#43; WIP-limit semantics for multi-harness parallel dogfooding</a></li>
                 </ul>
             </section>
         </nav>
@@ -53,8 +53,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Implements the spk-54c5c25e proposal. Replace single advisory const wipLimit=5 (cmd/wipnote/wip.go:17; read at wip.go:52/55 and recommend.go:157/160/205) with wipPerSessionSoftLimit=3 + wipGlobalAdvisoryLimit=10. wip show groups in-progress items by owner session (from implemented_in edge), prints per-session counts, flags sessions >=3 with [SOFT LIMIT], flags global total >=10 with [ADVISORY], and flags items whose owner session is not in the live session list with [SESSION DEAD?]. recommend.go uses wipGlobalAdvisoryLimit; recommend --json .wip.limit becomes .wip.advisory_limit (+ add per_session_soft_limit). Optional: non-fatal stderr advisory in cmd/wipnote/workitem.go wiSetStatusWithAgent at the in-progress transition when the session reaches wipPerSessionSoftLimit. Strictly advisory — NO hard gate at start/create (yolo/orchestrator pre-start items legitimately). Non-breaking; no .wipnote HTML format change; items lacking implemented_in fall into an unknown bucket. Add/extend tests for: per-session grouping, SESSION DEAD? detection, global advisory threshold, json schema field rename. Reuse existing wip/recommend code patterns; keep enforcement in cmd/wipnote (no internal/ changes).
-[2026-05-18 21:41 claude-code] accepted-advisory (provenance override): WIP-limit redesign implemented per spk-54c5c25e proposal (user-approved 3/10 thresholds, advisory-only). const wipLimit=5 replaced with wipPerSessionSoftLimit=3 + wipGlobalAdvisoryLimit=10; wip show now session-grouped with [SOFT LIMIT]/[ADVISORY]/[SESSION DEAD?]; recommend.go + JSON schema (.wip.limit -> .wip.advisory_limit + per_session_soft_limit); non-fatal per-session stderr advisory in workitem.go in-progress transition; no hard gate; no internal/ changes. Commit chain: dcde44414 (core redesign + 7 non-vacuous tests), bedb346cb (roborev followup: wipLiveSessions uses canonical activeOnly=true status='active' per session_repo.go:85, ownership via most-recent implemented_in edge by .Since shared across runWipShow + workitem advisory, +3 tests). roborev job 3285 on bedb346: no issues found. Orchestrator session gate passed first attempt (signature 642993e8466). Subagent-delegated; advisory accepted per bug-3718b630.</p>
+            <p>Implements the spk-54c5c25e proposal. Replace single advisory const wipLimit=5 (cmd/wipnote/wip.go:17; read at wip.go:52/55 and recommend.go:157/160/205) with wipPerSessionSoftLimit=3 + wipGlobalAdvisoryLimit=10. wip show groups in-progress items by owner session (from implemented_in edge), prints per-session counts, flags sessions &gt;=3 with [SOFT LIMIT], flags global total &gt;=10 with [ADVISORY], and flags items whose owner session is not in the live session list with [SESSION DEAD?]. recommend.go uses wipGlobalAdvisoryLimit; recommend --json .wip.limit becomes .wip.advisory_limit (+ add per_session_soft_limit). Optional: non-fatal stderr advisory in cmd/wipnote/workitem.go wiSetStatusWithAgent at the in-progress transition when the session reaches wipPerSessionSoftLimit. Strictly advisory — NO hard gate at start/create (yolo/orchestrator pre-start items legitimately). Non-breaking; no .wipnote HTML format change; items lacking implemented_in fall into an unknown bucket. Add/extend tests for: per-session grouping, SESSION DEAD? detection, global advisory threshold, json schema field rename. Reuse existing wip/recommend code patterns; keep enforcement in cmd/wipnote (no internal/ changes).
+[2026-05-18 21:41 claude-code] accepted-advisory (provenance override): WIP-limit redesign implemented per spk-54c5c25e proposal (user-approved 3/10 thresholds, advisory-only). const wipLimit=5 replaced with wipPerSessionSoftLimit=3 + wipGlobalAdvisoryLimit=10; wip show now session-grouped with [SOFT LIMIT]/[ADVISORY]/[SESSION DEAD?]; recommend.go + JSON schema (.wip.limit -&gt; .wip.advisory_limit + per_session_soft_limit); non-fatal per-session stderr advisory in workitem.go in-progress transition; no hard gate; no internal/ changes. Commit chain: dcde44414 (core redesign + 7 non-vacuous tests), bedb346cb (roborev followup: wipLiveSessions uses canonical activeOnly=true status=&#39;active&#39; per session_repo.go:85, ownership via most-recent implemented_in edge by .Since shared across runWipShow + workitem advisory, +3 tests). roborev job 3285 on bedb346: no issues found. Orchestrator session gate passed first attempt (signature 642993e8466). Subagent-delegated; advisory accepted per bug-3718b630.</p>
         </section>
     </article>
 </body>

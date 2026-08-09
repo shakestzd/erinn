@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Parser extension: OpenSpec Requirement format &#43; `[F]` failed-status revival</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-04T16:44:08.851691"
-             data-updated="2026-05-04T18:42:33.686696" data-agent-assigned="claude-code" data-track-id="trk-13e39042">
+             data-updated="2026-08-09T20:42:52.320924" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-affected_files=".htmlgraph/plans/plan-cc24034c.html,.htmlgraph/plans/plan-cc24034c.yaml,cmd/htmlgraph/compliance.go,cmd/htmlgraph/compliance_test.go">
 
         <header>
             <h1>Parser extension: OpenSpec Requirement format &#43; `[F]` failed-status revival</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T18:31:27.368959">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:08.863878">plan-cc24034c</a></li>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T18:31:27.368959">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:08.856664">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:08.856664">trk-13e39042</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:08.863878">plan-cc24034c</a></li>
                 </ul>
             </section>
         </nav>
@@ -49,8 +49,8 @@
             <p>Extend `parseCriteria` in `cmd/htmlgraph/compliance.go` to recognise both the legacy `[ ]/[x]` checkbox format AND the new OpenSpec `### Requirement:` / `#### Scenario:` format. Format detection by first-heading match: `## Acceptance Criteria` → legacy mode; `## ADDED Requirements` (or `## MODIFIED Requirements`) → new mode. Reject hybrid pollution: only checkboxes directly under `## Acceptance Criteria` count as legacy criteria; only `### Requirement:` headings directly under `## ADDED Requirements` count as new. Revive the dead `criterionFailed` switch path by extending the regex to capture `[F]`/`[f]` as failed status.
 
 **Implementation:**
-1. Update the `criterionPattern` regex from `(?i)^[\s\-\d\.]*\[([x\s])\]\s+(.+)$` to `(?i)^[\s\-\d\.]*\[([xfF\s])\]\s+(.+)$` and add the failed-status mapping: `m[1] == "F" || m[1] == "f"` → `criterionFailed`.
-2. Add a section-state machine to `parseCriteria`: track which top-level heading we're under (`## Acceptance Criteria` vs `## ADDED Requirements` vs neither). Apply the format-specific parsing only inside its own scope.
+1. Update the `criterionPattern` regex from `(?i)^[\s\-\d\.]*\[([x\s])\]\s+(.+)$` to `(?i)^[\s\-\d\.]*\[([xfF\s])\]\s+(.+)$` and add the failed-status mapping: `m[1] == &#34;F&#34; || m[1] == &#34;f&#34;` → `criterionFailed`.
+2. Add a section-state machine to `parseCriteria`: track which top-level heading we&#39;re under (`## Acceptance Criteria` vs `## ADDED Requirements` vs neither). Apply the format-specific parsing only inside its own scope.
 3. New format parsing: when inside `## ADDED Requirements` or `## MODIFIED Requirements`, treat each `### Requirement: ` as one criterion. Status derivation per recommendation in q-criterion-status-mapping: look for `- [x]/[ ]/[F]` task lines inside any `#### Scenario:` block beneath the requirement; if all scenarios pass, status=passed; if any fails, status=failed; if any unchecked, status=unchecked.
 4. Update `criterion` struct and downstream consumers (`computeCompliance`, `formatCompliance`, JSON output) to handle `criterionFailed` as a real path — populate the previously-dead switch cases.</p>
         </section>

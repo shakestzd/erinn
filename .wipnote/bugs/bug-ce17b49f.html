@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-24T00:05:34.375746"
-             data-updated="2026-05-24T01:04:12.710812" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:42:32.201042" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-ce17b49f.html,cmd/wipnote/git_lock_retry.go,cmd/wipnote/git_lock_retry_test.go,cmd/wipnote/workitem_commit.go">
 
         <header>
             <h1>Artifact autocommit hard-fails on transient git index.lock (IDE/gitstatus daemon), re-opening completed work items</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T00:05:34.434226">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-24T00:06:04.13335">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-24T00:06:04.13335">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T00:05:34.434226">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>commitWipnoteArtifact and commitWipnoteArtifactStrict (cmd/wipnote/workitem_commit.go) run 'git add'/'git commit' and fail immediately on ANY error, including a transient "Unable to create .git/index.lock: File exists / Another git process seems to be running". That lock is routinely held for a fraction of a second by a git-status daemon (gitstatusd), IDE, or concurrent git ls-files. On the strict path this re-opens the just-completed work item and forces a manual 'rm .git/index.lock' + retry (hit 3+ times in one session). Fix: wrap the git add/commit invocations in a bounded retry-with-backoff that retries ONLY on the index-lock contention signature (mirror the existing internal/db RetryOnBusy/DefaultBusyBackoff pattern: ~200/600/1800ms). Real failures (hook rejection, permission denied, nothing-to-commit) must still fail/return fast — only lock contention is retried. Do NOT auto-delete the lock (could be a genuine concurrent git); just wait and retry. Affects any user with a git daemon/IDE running, so the fix belongs in the binary.
+            <p>commitWipnoteArtifact and commitWipnoteArtifactStrict (cmd/wipnote/workitem_commit.go) run &#39;git add&#39;/&#39;git commit&#39; and fail immediately on ANY error, including a transient &#34;Unable to create .git/index.lock: File exists / Another git process seems to be running&#34;. That lock is routinely held for a fraction of a second by a git-status daemon (gitstatusd), IDE, or concurrent git ls-files. On the strict path this re-opens the just-completed work item and forces a manual &#39;rm .git/index.lock&#39; + retry (hit 3+ times in one session). Fix: wrap the git add/commit invocations in a bounded retry-with-backoff that retries ONLY on the index-lock contention signature (mirror the existing internal/db RetryOnBusy/DefaultBusyBackoff pattern: ~200/600/1800ms). Real failures (hook rejection, permission denied, nothing-to-commit) must still fail/return fast — only lock contention is retried. Do NOT auto-delete the lock (could be a genuine concurrent git); just wait and retry. Affects any user with a git daemon/IDE running, so the fix belongs in the binary.
 [2026-05-24 00:10 claude-code] accepted-advisory (provenance override): Implementation complete; source commit deferred per task spec (Do NOT git commit/push)</p>
         </section>
     </article>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-23T20:41:55.490862"
-             data-updated="2026-05-23T21:30:34.891651" data-agent-assigned="claude-code" data-track-id="trk-43648254" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:42:17.194522" data-agent-assigned="claude-code" data-track-id="trk-43648254" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-92ef522c.html,internal/childproc/childproc_test.go,scripts/deploy-all.sh">
 
         <header>
             <h1>Stabilize flaky timing-sensitive tests: TestSQLiteContentionStress &amp; TestIdleReaperKillsStaleChild cause spurious CI/deploy failures</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T20:47:57.043613">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T20:47:57.043613">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-43648254.html" data-relationship="part_of" data-since="2026-05-23T20:41:55.522568">trk-43648254</a></li>
+                    <li><a href="../tracks/trk-43648254.html" data-relationship="part_of" data-since="2026-05-23T20:41:55.522568">trk-43648254</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two timing-sensitive Go tests intermittently fail under CI-runner / concurrent load and produce spurious red CI and deploy failures (observed repeatedly across the 0.60.9-0.60.15 release run): (1) TestSQLiteContentionStress (cmd/wipnote) fails with first-party SQLITE_BUSY under concurrent load (e.g. parallel goreleaser snapshot or two go test runs); passes isolated with -count=3. (2) TestIdleReaperKillsStaleChild (internal/childproc) fails 'child was not reaped after idle; children=1' under runner load (idle-reaper timeout race); passes on re-run. Neither is a real regression. Goal: make them deterministic/robust under load — e.g. inject/relax timeouts via a test clock or generous CI-tunable deadlines, reduce shared-resource contention, or gate the stress test behind a serial/-tagged lane so it never races other packages. Acceptance: 3 consecutive full 'go test ./...' runs under load with zero first-party flakes.
+            <p>Two timing-sensitive Go tests intermittently fail under CI-runner / concurrent load and produce spurious red CI and deploy failures (observed repeatedly across the 0.60.9-0.60.15 release run): (1) TestSQLiteContentionStress (cmd/wipnote) fails with first-party SQLITE_BUSY under concurrent load (e.g. parallel goreleaser snapshot or two go test runs); passes isolated with -count=3. (2) TestIdleReaperKillsStaleChild (internal/childproc) fails &#39;child was not reaped after idle; children=1&#39; under runner load (idle-reaper timeout race); passes on re-run. Neither is a real regression. Goal: make them deterministic/robust under load — e.g. inject/relax timeouts via a test clock or generous CI-tunable deadlines, reduce shared-resource contention, or gate the stress test behind a serial/-tagged lane so it never races other packages. Acceptance: 3 consecutive full &#39;go test ./...&#39; runs under load with zero first-party flakes.
 [2026-05-23 20:53 claude-code] accepted-advisory (provenance override): Changes verified and tested; user will commit separately per task instructions</p>
         </section>
     </article>

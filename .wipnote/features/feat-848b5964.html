@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.658376"
-             data-updated="2026-05-27T00:36:56.184703" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-08-09T20:43:21.77905" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e" data-affected_files=".wipnote/features/feat-848b5964.html,cmd/wipnote/check.go,cmd/wipnote/check_gate_profile_test.go,cmd/wipnote/check_gate_support.go,cmd/wipnote/check_gate_test.go,cmd/wipnote/provenance_gate_test.go,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/workitem.go,internal/db/gate_records.go,internal/db/gate_records_profile_test.go,internal/db/migrations.go,internal/db/migrations_test.go,internal/db/schema.go,internal/guardprofile/resolve.go,internal/guardprofile/resolve_test.go,internal/hooks/task_completion_gate.go,internal/hooks/task_completion_gate_profile_test.go">
 
         <header>
             <h1>Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)</h1>
@@ -27,25 +27,25 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.661749">plan-1187cb00</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.671588">trk-fb4a1d6e</a></li>
+                    <li><a href="../features/feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:26:51.749487">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                    <li><a href="../sessions/e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:26:51.749487">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.671588">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.661749">plan-1187cb00</a></li>
                 </ul>
             </section>
         </nav>
@@ -57,11 +57,11 @@ EVERY gate-running site so they load the profile before manifest
 autodetection. The three sites (feasibility-verified): (a)
 cmd/wipnote/check_gate_support.go detectManifest/runSessionGate
 (check --gate + completion), (b) internal/hooks/task_completion_gate.go
-runTaskCompletionGate (the yolo PostToolUse hook gate — this IS "yolo
-gating", not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
+runTaskCompletionGate (the yolo PostToolUse hook gate — this IS &#34;yolo
+gating&#34;, not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
 When an APPROVED profile exists, run its phase guards (honoring cwd +
 applies_when) instead of autodetected commands; when absent or unapproved,
-keep today's autodetection and emit a one-line hint pointing at guard setup
+keep today&#39;s autodetection and emit a one-line hint pointing at guard setup
 (`wipnote guard init`, also offered at launch — slice-3). Persist the profile
 signature + guards_run on the gate record via NEW columns (see decisions)
 and report a completion as stale when its recorded profile_signature !=

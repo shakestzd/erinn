@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-20T05:48:06.148516"
-             data-updated="2026-05-20T05:50:33.47959" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293">
+             data-updated="2026-08-09T20:41:55.848494" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293" data-affected_files=".wipnote/bugs/bug-4de3b640.html,README.md,docs/index.md,scripts/install.sh">
 
         <header>
             <h1>install.sh and install docs use &#39;wipnote --version&#39; but CLI exposes &#39;wipnote version&#39; (subcommand) — final verify step errors with &#39;unknown flag: --version&#39;</h1>
@@ -27,27 +27,27 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-f09ad75a.html" data-relationship="caused_by" data-since="2026-05-20T05:48:06.167018">feat-f09ad75a</a></li>
-                    <li><a href="feat-62dc5aae.html" data-relationship="caused_by" data-since="2026-05-20T05:48:07.716345">Ship hosted install.sh and reduce documented install to one-liner</a></li>
+                    <li><a href="../features/feat-f09ad75a.html" data-relationship="caused_by" data-since="2026-05-20T05:48:06.167018">feat-f09ad75a</a></li>
+                    <li><a href="../features/feat-62dc5aae.html" data-relationship="caused_by" data-since="2026-05-20T05:48:07.716345">Ship hosted install.sh and reduce documented install to one-liner</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e3f9fa76-276f-4e93-9a80-203697bd6aa4.html" data-relationship="implemented_in" data-since="2026-05-20T05:48:07.022158">session e3f9fa76-276f-4e93-9a80-203697bd6aa4</a></li>
+                    <li><a href="../sessions/e3f9fa76-276f-4e93-9a80-203697bd6aa4.html" data-relationship="implemented_in" data-since="2026-05-20T05:48:07.022158">session e3f9fa76-276f-4e93-9a80-203697bd6aa4</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T05:48:06.175088">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T05:48:06.175088">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Found during founder cold-verify of the documented one-liner on macOS Apple Silicon. Install succeeded end-to-end (platform detect, latest fetch, checksum verify, extract, install) but the final 'unknown flag: --version' line makes the install LOOK like it failed at the last step. Same wrong command form is in README.md and docs/index.md Verify sections. CLI exposes 'wipnote version' as a subcommand (not a Cobra --version flag). Fix: replace 'wipnote --version' with 'wipnote version' in scripts/install.sh, README.md, and docs/index.md.</p>
+            <p>Found during founder cold-verify of the documented one-liner on macOS Apple Silicon. Install succeeded end-to-end (platform detect, latest fetch, checksum verify, extract, install) but the final &#39;unknown flag: --version&#39; line makes the install LOOK like it failed at the last step. Same wrong command form is in README.md and docs/index.md Verify sections. CLI exposes &#39;wipnote version&#39; as a subcommand (not a Cobra --version flag). Fix: replace &#39;wipnote --version&#39; with &#39;wipnote version&#39; in scripts/install.sh, README.md, and docs/index.md.</p>
         </section>
     </article>
 </body>

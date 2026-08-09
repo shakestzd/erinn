@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph cleanup ghost-sessions subcommand</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-10T21:37:35.823116"
-             data-updated="2026-04-10T21:43:50.639654" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+             data-updated="2026-08-09T20:43:07.030805" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b" data-affected_files="cmd/htmlgraph/cleanup.go,cmd/htmlgraph/cleanup_test.go,cmd/htmlgraph/main.go">
 
         <header>
             <h1>htmlgraph cleanup ghost-sessions subcommand</h1>
@@ -24,26 +24,26 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-10T21:37:35.824471">trk-97f85b3b</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T21:38:38.774463">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                    <li><a href="../sessions/8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T21:38:38.774463">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-10T21:37:35.824471">trk-97f85b3b</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Add 'htmlgraph cleanup ghost-sessions [--project-dir
-] [--dry-run]' CLI subcommand that safely removes session rows which have NO canonical HTML file AND no messages, tool_calls, or agent_events. Must respect the HTML-canonical invariant: if a session has an HTML file on disk, it stays regardless of whether the DB shows zero events.
+            <p>Add &#39;htmlgraph cleanup ghost-sessions [--project-dir
+] [--dry-run]&#39; CLI subcommand that safely removes session rows which have NO canonical HTML file AND no messages, tool_calls, or agent_events. Must respect the HTML-canonical invariant: if a session has an HTML file on disk, it stays regardless of whether the DB shows zero events.
 
-Context: during v0.54.0 verification, I ran a raw SQL DELETE to clean up 'ghost' session rows in shakestzd and accidentally deleted 7 sessions that had HTML files but no events. The HTML-canonical reindex recovered them, but the incident surfaced a gap: there's no CLI-level safe cleanup path that joins filesystem state with SQLite state. This feature fills that gap.
+Context: during v0.54.0 verification, I ran a raw SQL DELETE to clean up &#39;ghost&#39; session rows in shakestzd and accidentally deleted 7 sessions that had HTML files but no events. The HTML-canonical reindex recovered them, but the incident surfaced a gap: there&#39;s no CLI-level safe cleanup path that joins filesystem state with SQLite state. This feature fills that gap.
 
 Logic:
 1. Walk .htmlgraph/sessions/*.html to build the set of session_ids that have canonical HTML files

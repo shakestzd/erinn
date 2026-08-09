@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-10T02:34:24.558257"
-             data-updated="2026-05-10T08:19:56.420735" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:45.30884" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".wipnote/plans/plan-3a6f9865.html,.wipnote/plans/plan-3a6f9865.yaml,internal/hooks/harness.go,internal/hooks/harness_registry_test.go,internal/otel/adapter/claude.go,internal/otel/adapter/codex.go,internal/otel/adapter/gemini.go,internal/otel/adapter/registry_test.go">
 
         <header>
             <h1>Detection and adapter Identify() from registry — data-driven, no hardcoded event names</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.569572">feat-7295fd01</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:52:08.832023">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
+                    <li><a href="../sessions/a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:52:08.832023">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.561436">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.561436">trk-c4615ad2</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.567327">plan-3a6f9865</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
-                <ul>
-                    <li><a href="feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.569572">feat-7295fd01</a></li>
+                    <li><a href="../plans/plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.567327">plan-3a6f9865</a></li>
                 </ul>
             </section>
         </nav>
@@ -68,7 +68,7 @@ func harnessFromConfig(cfg *harness.HarnessConfig) Harness {
 
 The detection loop becomes:
 ```go
-if name, _ := top["hook_event_name"].(string); name != "" {
+if name, _ := top[&#34;hook_event_name&#34;].(string); name != &#34;&#34; {
     for _, cfg := range harness.All() {
         for _, n := range cfg.HookEventNames {
             if n == name {
@@ -79,13 +79,13 @@ if name, _ := top["hook_event_name"].(string); name != "" {
 }
 ```
 
-In each OTel adapter's Identify() method, replace the hardcoded service
+In each OTel adapter&#39;s Identify() method, replace the hardcoded service
 name string with the registry value:
 ```go
 func (g *GeminiAdapter) Identify(res OTLPResource) bool {
     cfg := harness.Get(string(otel.HarnessGemini)) // imports internal/harness (OK — adapters are higher level)
     if cfg == nil { return false }
-    svc := AttrString(res.Attrs, "service.name")
+    svc := AttrString(res.Attrs, &#34;service.name&#34;)
     for _, name := range cfg.ServiceNames {
         if name == svc { return true }
     }
@@ -97,8 +97,8 @@ Note: internal/otel/adapter may import internal/harness (adapters are
 higher-level than signal.go and do not create a cycle). Only internal/otel
 (the signal/writer core) must NOT import internal/harness.
 
-In each adapter's baseSignal() / sessionID resolution, replace the hardcoded
-attribute key string ("session.id" or "conversation.id") with
+In each adapter&#39;s baseSignal() / sessionID resolution, replace the hardcoded
+attribute key string (&#34;session.id&#34; or &#34;conversation.id&#34;) with
 harness.Get(string(h.Name())).SessionAttr.</p>
         </section>
     </article>

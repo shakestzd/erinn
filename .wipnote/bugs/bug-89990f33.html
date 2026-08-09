@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>agent_events: silent FK constraint failure on parent_event_id drops Read/Bash events, breaking PreToolUse research-first guard</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-01T19:08:18.191506"
-             data-updated="2026-05-01T20:46:26.181669" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:42:14.902475" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".htmlgraph/bugs/bug-546cda63.html,.htmlgraph/bugs/bug-680d0ee4.html,.htmlgraph/bugs/bug-792a8319.html,.htmlgraph/bugs/bug-89990f33.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a7d17cd2.html,.htmlgraph/bugs/bug-c4e3551d.html,.htmlgraph/features/feat-55d39535.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-08dcbb33.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-be293476.html,internal/db/event_repo.go,internal/db/event_repo_test.go,internal/db/schema.go">
 
         <header>
             <h1>agent_events: silent FK constraint failure on parent_event_id drops Read/Bash events, breaking PreToolUse research-first guard</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T19:08:18.201015">bug-92690d5b</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T19:08:18.265623">trk-08dcbb33</a></li>
+                    <li><a href="../bugs/bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T19:08:18.201015">bug-92690d5b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:05:04.070894">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:05:04.070894">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T19:08:18.265623">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,17 +48,17 @@
             <h3>Description</h3>
             <p>## Symptom
 
-In a yolo session attempting to fix bug-92690d5b, the agent ran multiple Read and Bash tool calls (verified by transcript). But `SELECT count(*), tool_name FROM agent_events WHERE session_id = '8e463928-...'` returned only 2 Bash entries and ZERO Read entries. The PreToolUse research-first guard then misfired — blocking Edit with 'Research is required before writing code' even after substantial reads.
+In a yolo session attempting to fix bug-92690d5b, the agent ran multiple Read and Bash tool calls (verified by transcript). But `SELECT count(*), tool_name FROM agent_events WHERE session_id = &#39;8e463928-...&#39;` returned only 2 Bash entries and ZERO Read entries. The PreToolUse research-first guard then misfired — blocking Edit with &#39;Research is required before writing code&#39; even after substantial reads.
 
-## Root cause (per agent's own diagnosis)
+## Root cause (per agent&#39;s own diagnosis)
 
-The agent_events table has a FK constraint on parent_event_id. When events arrive whose parent_event_id references a row that doesn't exist (yet, or at all), the INSERT fails silently. Read events appear to be the most affected because their parent linkage is timing-sensitive.
+The agent_events table has a FK constraint on parent_event_id. When events arrive whose parent_event_id references a row that doesn&#39;t exist (yet, or at all), the INSERT fails silently. Read events appear to be the most affected because their parent linkage is timing-sensitive.
 
 ## Reproducer
 
 1. Run yolo dispatch on bug-92690d5b (or any new yolo session).
 2. Have the agent perform several Read calls.
-3. Query: `sqlite3 $DB "SELECT count(*), tool_name FROM agent_events WHERE session_id = '' GROUP BY tool_name"`.
+3. Query: `sqlite3 $DB &#34;SELECT count(*), tool_name FROM agent_events WHERE session_id = &#39;&#39; GROUP BY tool_name&#34;`.
 4. Observe: Read count is far below actual Read invocations (likely zero).
 
 ## Why it matters
@@ -71,7 +71,7 @@ The agent_events table has a FK constraint on parent_event_id. When events arriv
 
 - Audit internal/db where agent_events INSERTs happen. Check whether FK errors are logged or swallowed.
 - Likely fix: either (a) make parent_event_id nullable / constraint-free, (b) defer FK checks to end of transaction, (c) write events in two passes (parents first, then children), (d) log+continue on FK failure with a metric.
-- Add a metric / loud warning when an event INSERT fails so this doesn't reoccur silently.
+- Add a metric / loud warning when an event INSERT fails so this doesn&#39;t reoccur silently.
 
 ## Acceptance
 

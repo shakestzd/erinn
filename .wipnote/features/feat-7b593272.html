@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-16T04:16:51.035979"
-             data-updated="2026-05-16T05:32:29.647842" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:18.242665" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".wipnote/features/feat-7b593272.html,.wipnote/plans/plan-83f909bc.html,.wipnote/plans/plan-83f909bc.yaml,cmd/wipnote/check.go,cmd/wipnote/provenance_gate_test.go,cmd/wipnote/workitem.go,internal/db/lineage_repo.go">
 
         <header>
             <h1>Provenance-required completion (zero-commit block &#43; advisory override)</h1>
@@ -27,25 +27,25 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:51.061015">feat-2bfd67e9</a></li>
+                    <li><a href="../features/feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:51.061015">feat-2bfd67e9</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T05:25:16.022967">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
+                    <li><a href="../sessions/ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T05:25:16.022967">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:51.049995">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:51.049995">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:51.056615">plan-83f909bc</a></li>
+                    <li><a href="../plans/plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:51.056615">plan-83f909bc</a></li>
                 </ul>
             </section>
         </nav>
@@ -58,9 +58,9 @@ error) at internal/db/lineage_repo.go:192 (there is NO Commits()
 primitive). The *sql.DB is available via p.DB (opened at
 cmd/wipnote/workitem.go:225) and must be threaded into the gate. If
 len(result)==0 (zero linked source commits), block completion unless
---accepted-advisory "" is passed (new flag on wiCompleteCmd in
+--accepted-advisory &#34;&#34; is passed (new flag on wiCompleteCmd in
 cmd/wipnote/workitem.go). The existing checkFeatureCompleteSpecGate
-(workitem.go:236) only applies to typeName=="feature"; this provenance
+(workitem.go:236) only applies to typeName==&#34;feature&#34;; this provenance
 gate MUST be type-agnostic and also cover bug and spike code-bearing
 items. Record the reason on the .wipnote artifact and surface it in
 wipnote snapshot and wipnote check / compliance output.

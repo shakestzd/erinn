@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>UserPromptSubmit hook and OTel user_prompt log both stop firing mid-session</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-20T23:10:18.375911"
-             data-updated="2026-04-21T08:07:38.52666" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+             data-updated="2026-08-09T20:42:04.270041" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b" data-affected_files="cmd/htmlgraph/api_otel.go,cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/serve.go,internal/hooks/missing_events.go,internal/hooks/session_end.go,internal/hooks/transcript_user_prompt.go,internal/hooks/transcript_user_prompt_test.go">
 
         <header>
             <h1>UserPromptSubmit hook and OTel user_prompt log both stop firing mid-session</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4.html" data-relationship="implemented_in" data-since="2026-04-20T23:10:23.514947">session b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-82e11bbb.html" data-relationship="caused_by" data-since="2026-04-20T23:10:18.376787">feat-82e11bbb</a></li>
+                    <li><a href="../features/feat-82e11bbb.html" data-relationship="caused_by" data-since="2026-04-20T23:10:18.376787">feat-82e11bbb</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4.html" data-relationship="implemented_in" data-since="2026-04-20T23:10:23.514947">session b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-20T23:10:18.377529">trk-97f85b3b</a></li>
+                    <li><a href="../tracks/trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-20T23:10:18.377529">trk-97f85b3b</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Both Claude Code's OTel user_prompt log event and the UserPromptSubmit plugin hook stop firing at the same moment mid-session while every other signal (tool_result, api_request, tool_execution, tool_decision) continues emitting normally. Observed multiple times in one session; Claude restart clears it but the drop recurs.
+            <p>Both Claude Code&#39;s OTel user_prompt log event and the UserPromptSubmit plugin hook stop firing at the same moment mid-session while every other signal (tool_result, api_request, tool_execution, tool_decision) continues emitting normally. Observed multiple times in one session; Claude restart clears it but the drop recurs.
 
 ## Evidence (session b6b51c56, 2026-04-20)
 
@@ -63,34 +63,34 @@ After restart:
 
 ## Why both paths matter
 
-OTel user_prompt is Claude Code's OWN log event (code.claude.com/docs/en/monitoring-usage). Our plugin's UserPromptSubmit hook is a separate channel. They normally fire independently. Both stopping in lockstep rules out plugin-side causes — the upstream dispatcher has to be the common trigger.
+OTel user_prompt is Claude Code&#39;s OWN log event (code.claude.com/docs/en/monitoring-usage). Our plugin&#39;s UserPromptSubmit hook is a separate channel. They normally fire independently. Both stopping in lockstep rules out plugin-side causes — the upstream dispatcher has to be the common trigger.
 
 ## Impact
 
 - Activity feed misses every turn after the drop
-- OTel spans after the drop fall inside the last captured turn's 15-min forward-window cap, so they visually attribute to the wrong user query
+- OTel spans after the drop fall inside the last captured turn&#39;s 15-min forward-window cap, so they visually attribute to the wrong user query
 - Cost/token per-turn rollups become inaccurate
 - /api/otel/prompts returns no entry for dropped turns
 
 ## Suspicious co-incidences
 
-PreCompact hook errored at 18:41:04 with a FOREIGN KEY constraint failure (parent_event_id not found). If compaction left Claude Code's internal dispatcher in a half-state, that could explain why a specific event class (user_prompt) silently stops while others continue.
+PreCompact hook errored at 18:41:04 with a FOREIGN KEY constraint failure (parent_event_id not found). If compaction left Claude Code&#39;s internal dispatcher in a half-state, that could explain why a specific event class (user_prompt) silently stops while others continue.
 
 ## Investigation starting points
 
-1. internal/hooks/precompact.go — investigate the FK constraint error. parent_event_id refers to an event we haven't inserted yet? Wrong column mapping?
+1. internal/hooks/precompact.go — investigate the FK constraint error. parent_event_id refers to an event we haven&#39;t inserted yet? Wrong column mapping?
 2. internal/hooks/user_prompt.go — does the handler itself silently error on re-invocation? Check for a guard that might flip after first fire.
 3. Run CLAUDE_CODE_DEBUG=1 claude ... and save stderr to capture dispatcher-side diagnostics
 4. Test hypothesis: in a fresh claude --dev session, manually run /compact mid-conversation. Does UserPromptSubmit stop firing for the next prompt? If yes, root cause is confirmed as PreCompact-triggered.
 5. Is Claude Code suppressing UserPromptSubmit after N consecutive fires (rate limit)? Check code.claude.com docs for any mention.
-6. Inspect the OTLP exporter buffer: after the drop, is user_prompt missing from Claude's internal log queue, or is it being queued but not flushed?
+6. Inspect the OTLP exporter buffer: after the drop, is user_prompt missing from Claude&#39;s internal log queue, or is it being queued but not flushed?
 
 ## Proposed fix scope
 
 Depends on root cause:
 - If PreCompact FK error is the trigger: fix the FK (ensure parent_event_id exists before insert, or relax to SET NULL)
 - If Claude Code dispatcher state: file upstream issue at https://github.com/anthropics/claude-code
-- Independent-of-root-cause mitigation: synthesize turn rows from OTel user_prompt events whenever they DO arrive, so the UI doesn't depend on the agent_events path. Tracked separately.
+- Independent-of-root-cause mitigation: synthesize turn rows from OTel user_prompt events whenever they DO arrive, so the UI doesn&#39;t depend on the agent_events path. Tracked separately.
 
 ## Repro
 

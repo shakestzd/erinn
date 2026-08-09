@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-13T00:55:55.866111"
-             data-updated="2026-05-13T03:24:27.08415" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1440-ga2fa3e672">
+             data-updated="2026-08-09T20:43:35.86488" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1440-ga2fa3e672" data-affected_files=".wipnote/features/feat-bd410702.html,agents/architect-coder.md,agents/feature-coder.md,agents/patch-coder.md,agents/researcher.md,agents/test-runner.md,cmd/wipnote/prompts/system-prompt.md,cmd/wipnote/prompts/yolo-prompt.md,cmd/wipnote/workitem.go,internal/hooks/task_tracking.go,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-architect-coder.toml,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-feature-coder.toml,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-patch-coder.toml,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-researcher.toml,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-test-runner.toml,packages/codex-marketplace/.agents/plugins/wipnote/skills/execute/SKILL.codex.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/execute/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md,packages/gemini-extension/agents/architect-coder.md,packages/gemini-extension/agents/feature-coder.md,packages/gemini-extension/agents/patch-coder.md,packages/gemini-extension/agents/researcher.md,packages/gemini-extension/agents/test-runner.md,packages/gemini-extension/skills/execute/SKILL.codex.md,packages/gemini-extension/skills/orchestrator-directives-skill/SKILL.md,plugin/agents/architect-coder.md,plugin/agents/feature-coder.md,plugin/agents/patch-coder.md,plugin/agents/researcher.md,plugin/agents/test-runner.md,plugin/skills/orchestrator-directives-skill/SKILL.md,skills/execute/SKILL.codex.md,skills/orchestrator-directives-skill/SKILL.md">
 
         <header>
             <h1>Tighten subagent definitions: strip skills, anti-narration, calibrated maxTurns</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T01:32:44.464551">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
+                    <li><a href="../sessions/e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T01:32:44.464551">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T00:55:55.957351">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T00:55:55.957351">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -62,7 +62,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Address the delegation breakdown observed on 2026-05-12 where 5 subagent dispatches truncated mid-stride (durations 4m-128m, ending in colons mid-sentence). Researcher audit (a128ce023) verified against Claude Code, Codex, and Gemini official subagent docs identified three compounding causes: (1) skills: frontmatter injects 3-6KB of full skill content at startup before the agent reads its first user message — most of it irrelevant orchestration noise; (2) zero anti-narration directives across all 5 agent bodies — the 'Let me check X:' truncation is the model narrating intended actions rather than executing them; (3) maxTurns wildly out of proportion to stated scope (patch-coder allows 40 turns for 1-2 file tasks; architect-coder allows 120 turns with no Gemini timeout_mins, will be SIGKILL'd at 10 min). Start with the researcher's calibration but expect to relax maxTurns upward if real-world tasks hit the limit — current values are likely too low for some legitimate work. Plan-build-ports regeneration required after edits to propagate to Codex and Gemini trees.</p>
+            <p>Address the delegation breakdown observed on 2026-05-12 where 5 subagent dispatches truncated mid-stride (durations 4m-128m, ending in colons mid-sentence). Researcher audit (a128ce023) verified against Claude Code, Codex, and Gemini official subagent docs identified three compounding causes: (1) skills: frontmatter injects 3-6KB of full skill content at startup before the agent reads its first user message — most of it irrelevant orchestration noise; (2) zero anti-narration directives across all 5 agent bodies — the &#39;Let me check X:&#39; truncation is the model narrating intended actions rather than executing them; (3) maxTurns wildly out of proportion to stated scope (patch-coder allows 40 turns for 1-2 file tasks; architect-coder allows 120 turns with no Gemini timeout_mins, will be SIGKILL&#39;d at 10 min). Start with the researcher&#39;s calibration but expect to relax maxTurns upward if real-world tasks hit the limit — current values are likely too low for some legitimate work. Plan-build-ports regeneration required after edits to propagate to Codex and Gemini trees.</p>
         </section>
     </article>
 </body>

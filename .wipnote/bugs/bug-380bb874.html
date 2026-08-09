@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-03T04:33:06.841652"
-             data-updated="2026-06-03T04:42:17.060647" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+             data-updated="2026-08-09T20:41:49.297347" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e" data-affected_files=".wipnote/bugs/bug-380bb874.html,cmd/wipnote/dashboard/components/event-tree.js">
 
         <header>
             <h1>Activity feed flickers — load() clears DOM to &#39;Loading…&#39; on every SSE-triggered reload</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="bug-cbdb06ca.html" data-relationship="relates_to" data-since="2026-06-03T04:33:26.916055">Dashboard Activity Feed renders 0 events despite API returning data</a></li>
+                    <li><a href="../sessions/3e494367-8068-4984-9d56-6bf658805afd.html" data-relationship="implemented_in" data-since="2026-06-03T04:33:18.707747">session 3e494367-8068-4984-9d56-6bf658805afd</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-03T04:33:10.654397">trk-d8aef97a</a></li>
+                    <li><a href="../tracks/trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-03T04:33:10.654397">trk-d8aef97a</a></li>
                 </ul>
             </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="3e494367-8068-4984-9d56-6bf658805afd.html" data-relationship="implemented_in" data-since="2026-06-03T04:33:18.707747">session 3e494367-8068-4984-9d56-6bf658805afd</a></li>
+                    <li><a href="../bugs/bug-cbdb06ca.html" data-relationship="relates_to" data-since="2026-06-03T04:33:26.916055">Dashboard Activity Feed renders 0 events despite API returning data</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Distinct from bug-cbdb06ca (URL guard). The  activity feed visibly disappears/reappears: handleSSE debounces a full this.load() on every SSE message (event-tree.js:781-783, 500ms), and load() sets innerHTML to the 'Loading activity…' empty-state at event-tree.js:92 BEFORE the fetch resolves — a clear-then-refetch flash on every live event. With an active session emitting steady events the feed blanks ~every 500ms. Not caused by commit 9e4add2ee (the _loaded guard prevents re-entry). Fix: only render the loading placeholder on first load (when this.turns is empty); keep existing content visible during SSE re-fetches, replacing the DOM only when new data arrives in render().</p>
+            <p>Distinct from bug-cbdb06ca (URL guard). The  activity feed visibly disappears/reappears: handleSSE debounces a full this.load() on every SSE message (event-tree.js:781-783, 500ms), and load() sets innerHTML to the &#39;Loading activity…&#39; empty-state at event-tree.js:92 BEFORE the fetch resolves — a clear-then-refetch flash on every live event. With an active session emitting steady events the feed blanks ~every 500ms. Not caused by commit 9e4add2ee (the _loaded guard prevents re-entry). Fix: only render the loading placeholder on first load (when this.turns is empty); keep existing content visible during SSE re-fetches, replacing the DOM only when new data arrives in render().</p>
         </section>
     </article>
 </body>

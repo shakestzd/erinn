@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-10T02:34:24.81137"
-             data-updated="2026-05-10T08:19:56.449007" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:48.15373" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".wipnote/plans/plan-3a6f9865.html,.wipnote/plans/plan-3a6f9865.yaml,cmd/wipnote/harness_cmd.go,cmd/wipnote/harness_cmd_test.go,cmd/wipnote/help_test.go,cmd/wipnote/main.go,packages/plugin-core/README.md">
 
         <header>
             <h1>Complete add-a-harness recipe — README &#43; wipnote harness list command</h1>
@@ -24,37 +24,37 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.82904">feat-7295fd01</a></li>
+                    <li><a href="../features/feat-e7920796.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.833158">feat-e7920796</a></li>
+                    <li><a href="../features/feat-ea949327.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.837232">feat-ea949327</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:58:21.689727">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
+                    <li><a href="../sessions/a165b891-e9c7-48c9-a228-f4374aa8d325.html" data-relationship="implemented_in" data-since="2026-05-10T02:58:21.689727">session a165b891-e9c7-48c9-a228-f4374aa8d325</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.81632">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-10T02:34:24.81632">trk-c4615ad2</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.824901">plan-3a6f9865</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
-                <ul>
-                    <li><a href="feat-7295fd01.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.82904">feat-7295fd01</a></li>
-                    <li><a href="feat-e7920796.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.833158">feat-e7920796</a></li>
-                    <li><a href="feat-ea949327.html" data-relationship="blocked_by" data-since="2026-05-10T02:34:24.837232">feat-ea949327</a></li>
+                    <li><a href="../plans/plan-3a6f9865.html" data-relationship="planned_in" data-since="2026-05-10T02:34:24.824901">plan-3a6f9865</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Update packages/plugin-core/README.md "Add a new target" section to include
+            <p>Update packages/plugin-core/README.md &#34;Add a new target&#34; section to include
 the complete Go-layer checklist alongside the existing plugin build steps:
 
   1. Add targets. to manifest.json
@@ -66,7 +66,7 @@ the complete Go-layer checklist alongside the existing plugin build steps:
      import internal/harness to read ServiceNames and SessionAttr
   6. Add cmd/wipnote/_launch.go; call harness.Get().OtelEnv()
      and BuildAgentEnv() instead of hardcoding env vars
-  7. Run: wipnote plugin build-ports && go build ./... && go test ./...
+  7. Run: wipnote plugin build-ports &amp;&amp; go build ./... &amp;&amp; go test ./...
 
 Add cmd/wipnote/harness_cmd.go implementing `wipnote harness list` that
 prints a table: ID | AgentID | ServiceNames | SessionAttr | HookEventNames.

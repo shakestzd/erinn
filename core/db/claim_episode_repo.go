@@ -71,7 +71,7 @@ func PurgeClaimEpisodes(db *sql.DB) error {
 //
 // The end bound is EXCLUSIVE so two back-to-back episodes — one ending exactly
 // when the next begins — do not both match the boundary instant. An open
-// episode (ended_at = '') matches any instant at or after its start: correct
+// episode (ended_at = ”) matches any instant at or after its start: correct
 // while its session lives, and closed to "expired" by claimledger.Reconcile
 // once it does not.
 const intervalPredicate = `started_at <= ? AND (ended_at = '' OR ended_at > ?)`

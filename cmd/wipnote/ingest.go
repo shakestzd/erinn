@@ -431,7 +431,6 @@ func sessionActiveFeature(database *sql.DB, sessionID string) string {
 	return featureID
 }
 
-
 // ingestFileOp maps tool names to feature_files operation labels for ingest.
 // Returns "" for tools that don't operate on a specific file path.
 func ingestFileOp(toolName string) string {

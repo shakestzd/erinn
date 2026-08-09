@@ -21,8 +21,8 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Name:   "name",
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
-			"claude": "name",
-			"codex":  "name",
+			"claude":      "name",
+			"codex":       "name",
 			"antigravity": "name",
 		},
 	},
@@ -30,8 +30,8 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Name:   "description",
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
-			"claude": "description",
-			"codex":  "description",
+			"claude":      "description",
+			"codex":       "description",
 			"antigravity": "description",
 		},
 	},
@@ -39,8 +39,8 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Name:   "model",
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
-			"claude": "model",
-			"codex":  "model",
+			"claude":      "model",
+			"codex":       "model",
 			"antigravity": "model",
 		},
 	},
@@ -55,7 +55,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Name:   "maxTurns",
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
-			"claude": "maxTurns",
+			"claude":      "maxTurns",
 			"antigravity": "max_turns",
 		},
 	},
@@ -63,8 +63,8 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Name:   "tools",
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
-			"claude": "tools",
-			"codex":  "tools",
+			"claude":      "tools",
+			"codex":       "tools",
 			"antigravity": "tools",
 		},
 	},

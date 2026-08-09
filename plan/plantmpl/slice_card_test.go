@@ -1174,8 +1174,8 @@ func TestSliceCard_IssueCount_ExcludesSuccessAndInfo(t *testing.T) {
 		CriticRevisions: []planyaml.CriticRevision{
 			{Source: "a", Severity: "SUCCESS", Summary: "Looks good"},
 			{Source: "b", Severity: "success", Summary: "Also fine"},
-			{Source: "c", Severity: "INFO",    Summary: "FYI note"},
-			{Source: "d", Severity: "info",    Summary: "Another note"},
+			{Source: "c", Severity: "INFO", Summary: "FYI note"},
+			{Source: "d", Severity: "info", Summary: "Another note"},
 		},
 	}
 	if got := sc.IssueCount(); got != 0 {
@@ -1188,10 +1188,10 @@ func TestSliceCard_IssueCount_CountsWarnAndDanger(t *testing.T) {
 		Num: 1,
 		ID:  "feat-ic2",
 		CriticRevisions: []planyaml.CriticRevision{
-			{Source: "a", Severity: "WARN",    Summary: "Fix this"},
-			{Source: "b", Severity: "DANGER",  Summary: "Critical issue"},
+			{Source: "a", Severity: "WARN", Summary: "Fix this"},
+			{Source: "b", Severity: "DANGER", Summary: "Critical issue"},
 			{Source: "c", Severity: "SUCCESS", Summary: "Looks good"},
-			{Source: "d", Severity: "INFO",    Summary: "FYI"},
+			{Source: "d", Severity: "INFO", Summary: "FYI"},
 		},
 	}
 	// Only WARN and DANGER count; SUCCESS and INFO do not.
@@ -1205,9 +1205,9 @@ func TestSliceCard_IssueCount_CountsHighAndMed(t *testing.T) {
 		Num: 1,
 		ID:  "feat-ic3",
 		CriticRevisions: []planyaml.CriticRevision{
-			{Source: "a", Severity: "High",   Summary: "Big issue"},
-			{Source: "b", Severity: "Med",    Summary: "Medium issue"},
-			{Source: "c", Severity: "Low",    Summary: "Minor issue"},
+			{Source: "a", Severity: "High", Summary: "Big issue"},
+			{Source: "b", Severity: "Med", Summary: "Medium issue"},
+			{Source: "c", Severity: "Low", Summary: "Minor issue"},
 			{Source: "d", Severity: "SUCCESS", Summary: "All good"},
 		},
 	}
@@ -1223,7 +1223,7 @@ func TestSliceCard_IssueCount_BadgeSuppressedWhenZero(t *testing.T) {
 		ID:  "feat-ic4",
 		CriticRevisions: []planyaml.CriticRevision{
 			{Source: "a", Severity: "SUCCESS", Summary: "All passed"},
-			{Source: "b", Severity: "INFO",    Summary: "Note"},
+			{Source: "b", Severity: "INFO", Summary: "Note"},
 		},
 	}
 

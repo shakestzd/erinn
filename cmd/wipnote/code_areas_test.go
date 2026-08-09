@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/blame"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/internal/blame"
 )
 
 // gitInitWithFiles makes root a git repo with the given files committed, so

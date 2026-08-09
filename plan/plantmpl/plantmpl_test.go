@@ -149,8 +149,8 @@ func TestPlanPageSidebarNavLinks(t *testing.T) {
 
 func TestPlanPageSidebarNavLinks_WithCritique(t *testing.T) {
 	page := &plantmpl.PlanPage{
-		PlanID:  "plan-nav-crit",
-		Title:   "Nav Critique Test",
+		PlanID:   "plan-nav-crit",
+		Title:    "Nav Critique Test",
 		Critique: &plantmpl.CritiqueZone{},
 	}
 

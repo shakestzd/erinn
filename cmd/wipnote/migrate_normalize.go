@@ -7,8 +7,8 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/spf13/cobra"
 )
 

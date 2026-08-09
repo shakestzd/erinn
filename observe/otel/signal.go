@@ -26,9 +26,9 @@ const (
 type Harness string
 
 const (
-	HarnessClaude Harness = "claude_code"
-	HarnessCodex  Harness = "codex"
-	HarnessGemini Harness = "gemini_cli"
+	HarnessClaude      Harness = "claude_code"
+	HarnessCodex       Harness = "codex"
+	HarnessGemini      Harness = "gemini_cli"
 	HarnessAntigravity Harness = "antigravity_cli"
 )
 

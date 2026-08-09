@@ -45,12 +45,12 @@ func archCmd() *cobra.Command {
 // archAddCmd creates a new arch card.
 func archAddCmd() *cobra.Command {
 	var (
-		kind        string
-		paths       []string
-		verifiedAt  string
-		links       []string
-		createdBy   string
-		body        string
+		kind       string
+		paths      []string
+		verifiedAt string
+		links      []string
+		createdBy  string
+		body       string
 	)
 	cmd := &cobra.Command{
 		Use:   "add <slug>",
@@ -1121,4 +1121,3 @@ func saveDriftNudgeCache(wipnoteDir string, cache map[string]string) {
 	}
 	_ = atomicWriteFile(path, data, 0o644)
 }
-

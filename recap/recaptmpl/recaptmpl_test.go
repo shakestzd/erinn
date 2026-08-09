@@ -90,9 +90,9 @@ func TestRecapPage_Render(t *testing.T) {
 		"abc1234",                                      // produced commit
 		"plan/blocks/blocks.go",                        // produced file (station)
 		"internal/recap/types.go",
-		`class="lin-file"`,                  // file station is collapsible
-		`annotated-diff embedded`,           // diff embedded inside the file station
-		"package blocks",                    // embedded diff content (added line)
+		`class="lin-file"`,        // file station is collapsible
+		`annotated-diff embedded`, // diff embedded inside the file station
+		"package blocks",          // embedded diff content (added line)
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("recap page missing %q", want)

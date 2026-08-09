@@ -211,11 +211,11 @@ func TestSQLiteContentionStress(t *testing.T) {
 	// own slot so we can show the workload was non-trivial. These
 	// are NOT pass/fail signals; the pass signal is FirstPartyBusyTotal().
 	var (
-		hookOps          atomic.Int64
-		indexerOps       atomic.Int64
-		readerOps        atomic.Int64
-		cliOps           atomic.Int64
-		serveIndexerOps  atomic.Int64
+		hookOps         atomic.Int64
+		indexerOps      atomic.Int64
+		readerOps       atomic.Int64
+		cliOps          atomic.Int64
+		serveIndexerOps atomic.Int64
 	)
 
 	// serve_indexer needs a writable handle (mirrors serve_child's writeDB)

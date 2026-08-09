@@ -38,11 +38,11 @@ const spawnDialInterval = 25 * time.Millisecond
 // Flow:
 //  1. Try a plain Submit. If it succeeds (writer already up) → done.
 //  2. On ErrWriterUnavailable, try to acquire the O_EXCL writer lease.
-//       - Lease acquired → we are the spawner: fork the headless writer,
-//         release our lease so the child can claim it, then dial-wait for
-//         readiness and submit.
-//       - ErrLeaseHeld → another racer already owns/started the writer:
-//         just dial-wait for its socket and submit.
+//     - Lease acquired → we are the spawner: fork the headless writer,
+//     release our lease so the child can claim it, then dial-wait for
+//     readiness and submit.
+//     - ErrLeaseHeld → another racer already owns/started the writer:
+//     just dial-wait for its socket and submit.
 //  3. Any error/timeout within the caller's ctx deadline → ErrWriterUnavailable.
 //
 // SubmitOrSpawn NEVER blocks indefinitely: every wait is bounded by ctx and

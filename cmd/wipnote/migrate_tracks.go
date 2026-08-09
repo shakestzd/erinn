@@ -11,8 +11,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/spf13/cobra"
 )
 

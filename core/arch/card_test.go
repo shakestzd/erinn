@@ -881,4 +881,3 @@ func TestStore_Create_StampsNowWhenTimestampsUnset(t *testing.T) {
 		t.Errorf("UpdatedAt %v is before test-start %v", got.UpdatedAt, before)
 	}
 }
-

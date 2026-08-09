@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	searchDefaultLimit   = 50
-	searchMaxSnippetLen  = 200
-	searchMissingBinMsg  = "ast-grep not found on PATH — install from https://ast-grep.github.io/ or run: brew install ast-grep / cargo install ast-grep"
+	searchDefaultLimit  = 50
+	searchMaxSnippetLen = 200
+	searchMissingBinMsg = "ast-grep not found on PATH — install from https://ast-grep.github.io/ or run: brew install ast-grep / cargo install ast-grep"
 )
 
 // astGrepMatch is the JSON structure emitted by ast-grep run --json.

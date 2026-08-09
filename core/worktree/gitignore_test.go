@@ -122,16 +122,16 @@ func TestEnsureWipnoteGitignore_GitHonorsPolicy(t *testing.T) {
 
 	// Create runtime artifacts that should be ignored.
 	runtimeFiles := map[string]string{
-		".wipnote/sessions/":                  "",
-		".wipnote/.active-session":            `{"session_id":"x"}`,
-		".wipnote/session-families.json":      `{}`,
-		".wipnote/.session-families.lock":     "",
-		".wipnote/drift-queue.json":           `[]`,
-		".wipnote/.serve.lock":                "pid:123",
-		".wipnote/events/":                    "",
-		".wipnote/logs/":                      "",
-		".wipnote/migrations/":                "",
-		".wipnote/migrations/001_init.done":   "",
+		".wipnote/sessions/":                "",
+		".wipnote/.active-session":          `{"session_id":"x"}`,
+		".wipnote/session-families.json":    `{}`,
+		".wipnote/.session-families.lock":   "",
+		".wipnote/drift-queue.json":         `[]`,
+		".wipnote/.serve.lock":              "pid:123",
+		".wipnote/events/":                  "",
+		".wipnote/logs/":                    "",
+		".wipnote/migrations/":              "",
+		".wipnote/migrations/001_init.done": "",
 	}
 	for path, content := range runtimeFiles {
 		full := filepath.Join(dir, path)

@@ -93,10 +93,10 @@ func TestSessionStart_RecordsExecWorktree(t *testing.T) {
 
 func TestSessionStart_HarnessPersisted(t *testing.T) {
 	cases := []struct {
-		name              string
-		env               string
-		claudeEntrypoint  string
-		want              string
+		name             string
+		env              string
+		claudeEntrypoint string
+		want             string
 	}{
 		{"claude accepted", "claude", "", "claude"},
 		{"codex accepted", "codex", "", "codex"},

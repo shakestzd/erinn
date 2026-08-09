@@ -194,4 +194,3 @@ func resetOtelCheckpoints(sessionsDir string) ([]string, map[string]int64, error
 	}
 	return sids, snapshot, nil
 }
-

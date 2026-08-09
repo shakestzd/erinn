@@ -15,6 +15,7 @@ import (
 // It dispatches to the appropriate sub-handler based on the URL suffix:
 //   - /ingest  → existing ingest logic (POST)
 //   - /preview → new preview handler (GET)
+//
 // sessionIngestHandler routes /api/sessions/{id}/preview (read-only) and
 // POST /api/sessions/{id}/ingest (writes via ingestSession). bug-74a7bda7:
 // the preview sub-route runs on the read-only mux handle; the ingest write

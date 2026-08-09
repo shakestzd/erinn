@@ -132,11 +132,11 @@ func rewriteAgentEventsToolInput(tx *sql.Tx, opts NormalizeOptions, summary *Nor
 		return err
 	}
 	type update struct {
-		EventID   string
-		NewValue  string
-		OldValue  string
-		Changed   int
-		Unresolv  int
+		EventID  string
+		NewValue string
+		OldValue string
+		Changed  int
+		Unresolv int
 	}
 	var updates []update
 	for rows.Next() {

@@ -251,7 +251,7 @@ func TestIsEligibleForDeletion_RespectsRetention(t *testing.T) {
 func TestIsEligibleForDeletion_RejectsRecentWrites(t *testing.T) {
 	recentWrite := OrphanInfo{
 		SessionID:   "old-but-active-orphan",
-		Age:         30 * 24 * time.Hour,       // 30 days old
+		Age:         30 * 24 * time.Hour,            // 30 days old
 		LastWriteAt: time.Now().Add(-1 * time.Hour), // written 1h ago
 	}
 	if IsEligibleForDeletion(recentWrite) {

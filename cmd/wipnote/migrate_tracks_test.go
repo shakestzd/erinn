@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/internal/migrate"
 )
 
 // migrateTracksTestEnv builds a temp project directory and seeds:

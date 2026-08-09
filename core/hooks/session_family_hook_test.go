@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/agent"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // TestEventTree_SessionFamilyGrouping verifies that root + subagent sessions

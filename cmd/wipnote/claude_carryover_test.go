@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/worktree"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 )
 
 // TestClaudeWorktreeCarryover_DirtyMain verifies that when a NEW worktree is

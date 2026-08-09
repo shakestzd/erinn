@@ -131,10 +131,10 @@ func TestRecord_Concurrent(t *testing.T) {
 	ResetBusyCounters()
 
 	const (
-		workers     = 32
-		perWorker   = 1000
-		wantTotal   = int64(workers * perWorker)
-		subsystem   = SubsystemHookWriter
+		workers   = 32
+		perWorker = 1000
+		wantTotal = int64(workers * perWorker)
+		subsystem = SubsystemHookWriter
 	)
 	var wg sync.WaitGroup
 	wg.Add(workers)

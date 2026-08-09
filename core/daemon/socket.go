@@ -52,9 +52,9 @@ func RejectingApplier(env Envelope) (writequeue.WriteOp, error) {
 // serialize through one Queue consumer goroutine owned by one process
 // (the lease holder), regardless of how many clients dial the socket.
 type Listener struct {
-	ln      net.Listener
-	queue   *writequeue.Queue
-	applier Applier
+	ln       net.Listener
+	queue    *writequeue.Queue
+	applier  Applier
 	sockPath string
 
 	seq atomic.Int64
@@ -399,6 +399,7 @@ func (l *Listener) submitAndAwaitApply(ctx context.Context, env Envelope, op wri
 //   - on apply SUCCESS the op_id is PROMOTED pending→applied, so a post-success
 //     duplicate durably dedups (no needless re-apply);
 //   - on apply FAILURE the op_id is DROPPED from pending, so a resubmit re-runs.
+//
 // Recording in pending BEFORE Submit means the worker's success-promotion /
 // failure-drop can never lose its race against the record. If Submit itself
 // fails we roll the pending entry back below.

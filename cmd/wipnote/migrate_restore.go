@@ -99,4 +99,3 @@ func runMigrateRestore(fromDir string, force bool) error {
 	fmt.Printf("Restored %d files from %s\n", count, fromDir)
 	return nil
 }
-

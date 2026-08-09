@@ -18,8 +18,8 @@ func TestValidate_BlocksOptional(t *testing.T) {
 	// A slice carrying a well-formed block should also validate clean.
 	plan.Slices[0].Blocks = []SliceBlock{
 		{
-			Type:  "data-model",
-			Title: "User",
+			Type:   "data-model",
+			Title:  "User",
 			Fields: map[string]string{"name": "User"},
 			Rows: []map[string]string{
 				{"name": "id", "type": "uuid"},

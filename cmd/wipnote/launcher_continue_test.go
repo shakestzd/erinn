@@ -267,11 +267,11 @@ func containsWarning(warnings []string, want string) bool {
 // (28-char unhyphenated hex) and other non-UUID strings return false.
 func TestIsClaudeCodeSessionID(t *testing.T) {
 	valid := []string{
-		"019ee378-abcd-7000-8000-000000000001",  // real-looking Claude UUID
-		"00000000-0000-0000-0000-000000000000",  // all-zero UUID still valid format
-		"ffffffff-ffff-ffff-ffff-ffffffffffff",  // all-f UUID (lowercase)
-		"FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",  // all-f UUID (uppercase — tolerated)
-		"d4cc0257-acb4-4c7d-a1c6-9d9ef42668b7",  // observed real session ID
+		"019ee378-abcd-7000-8000-000000000001", // real-looking Claude UUID
+		"00000000-0000-0000-0000-000000000000", // all-zero UUID still valid format
+		"ffffffff-ffff-ffff-ffff-ffffffffffff", // all-f UUID (lowercase)
+		"FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", // all-f UUID (uppercase — tolerated)
+		"d4cc0257-acb4-4c7d-a1c6-9d9ef42668b7", // observed real session ID
 	}
 	for _, s := range valid {
 		if !isClaudeCodeSessionID(s) {
@@ -281,7 +281,7 @@ func TestIsClaudeCodeSessionID(t *testing.T) {
 
 	invalid := []string{
 		"",
-		"019ee144e0d5f26e46d6cc07fed9",         // 28-char wipnote OTel hex (no hyphens)
+		"019ee144e0d5f26e46d6cc07fed9",          // 28-char wipnote OTel hex (no hyphens)
 		"sess-abc123",                           // wipnote internal session slug
 		"019ee378abcd70008000000000000001",      // UUID without hyphens (32 chars)
 		"019ee378-abcd-7000-8000-00000000000",   // too short (35 chars)

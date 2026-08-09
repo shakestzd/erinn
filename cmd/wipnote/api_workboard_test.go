@@ -23,18 +23,18 @@ func TestRenderKanban_DataContractAndOverflowSafety(t *testing.T) {
 	}
 	app := string(js)
 	for _, needle := range []string{
-		"kanban-badge-conflict",         // conflict badge (who ⚠ semantics)
-		"f.file_conflict",               // conflict signal consumed
-		"f.active_session",              // owner badge
-		"f.active_owner_harness",        // owner CLI/harness
-		"kanban-badge-steps",            // step progress
-		"f.steps_completed",             // step counters
+		"kanban-badge-conflict",               // conflict badge (who ⚠ semantics)
+		"f.file_conflict",                     // conflict signal consumed
+		"f.active_session",                    // owner badge
+		"f.active_owner_harness",              // owner CLI/harness
+		"kanban-badge-steps",                  // step progress
+		"f.steps_completed",                   // step counters
 		"f.step_tracking_supported === false", // honest unsupported state
-		"steps (not live)",              // no false live-steps wording
-		"f.last_activity_age_seconds",   // last-activity age
-		"f.last_touched_file",           // last touched file
-		"track-stat-active",             // track-group header counts
-		"step-provenance",               // work-detail step provenance
+		"steps (not live)",                    // no false live-steps wording
+		"f.last_activity_age_seconds",         // last-activity age
+		"f.last_touched_file",                 // last touched file
+		"track-stat-active",                   // track-group header counts
+		"step-provenance",                     // work-detail step provenance
 	} {
 		if !strings.Contains(app, needle) {
 			t.Errorf("app.js missing required Kanban contract token %q", needle)
@@ -66,9 +66,9 @@ func TestRenderKanban_DataContractAndOverflowSafety(t *testing.T) {
 	// (guarded), not a replacement of the existing step rendering.
 	for _, needle := range []string{
 		"node.steps.forEach(function(step) {", // full step list loop intact
-		"step.description || step.step_id",     // step text still rendered
-		"if (provBits.length > 0) {",           // provenance is additive/guarded
-		"function renderWorkDetail(",           // detail renderer intact
+		"step.description || step.step_id",    // step text still rendered
+		"if (provBits.length > 0) {",          // provenance is additive/guarded
+		"function renderWorkDetail(",          // detail renderer intact
 	} {
 		if !strings.Contains(app, needle) {
 			t.Errorf("app.js work-detail regression: missing %q", needle)
@@ -257,4 +257,3 @@ func TestFeaturesHandler_NoFalseLiveSteps_CodexHarness(t *testing.T) {
 		t.Fatalf("step_tracking_detail must document the unsupported state, got empty")
 	}
 }
-

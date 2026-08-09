@@ -531,4 +531,3 @@ func seedWipnoteCommit(t *testing.T, repoRoot string) {
 		}
 	}
 }
-

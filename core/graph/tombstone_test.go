@@ -51,9 +51,9 @@ func TestIsSessionShapedID(t *testing.T) {
 		// abbreviated commit SHA, so admitting it would readmit the
 		// dangling-reference class the gate exists to refuse.
 		{"c4efb206", false},
-		{"019f424e188c60f444c8eaca668", false},   // 27
-		{"019f424e188c60f444c8eaca668bb", false}, // 29
-		{"019f424e188c60f444c8eaca668g", false},  // 28 chars, non-hex
+		{"019f424e188c60f444c8eaca668", false},      // 27
+		{"019f424e188c60f444c8eaca668bb", false},    // 29
+		{"019f424e188c60f444c8eaca668g", false},     // 28 chars, non-hex
 		{"0123456789abcdef0123456789abcdef", false}, // 32 — not a shape we emit
 	} {
 		if got := IsSessionShapedID(tc.id); got != tc.want {

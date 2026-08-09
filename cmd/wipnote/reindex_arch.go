@@ -203,4 +203,3 @@ func loadLedgerCardsForReindex(wipnoteDir string, verbose bool) (map[string]*arc
 	}
 	return cards, nil
 }
-

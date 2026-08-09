@@ -209,21 +209,21 @@ func sessionsHandler(database *sql.DB, projectDir, wipnoteDir string) http.Handl
 			live := dbpkg.SessionLivenessByHeartbeat(
 				database, sid, dbpkg.LivenessStalenessThreshold(projectDir))
 			sessions = append(sessions, map[string]any{
-				"session_id":           sid,
-				"agent":                agent,
-				"harness":              agent,
-				"status":               status,
-				"created_at":           created,
-				"completed_at":         completed,
-				"total_events":         totalEvents,
-				"feature_id":           featureID,
-				"model":                model,
-				"title":                title,
-				"first_message":        firstMsg,
-				"message_count":        msgCount,
-				"launch_mode":          sessionLaunchMode,
-				"plan_id":              sessionPlanID,
-				"adherence":            adherence,
+				"session_id":    sid,
+				"agent":         agent,
+				"harness":       agent,
+				"status":        status,
+				"created_at":    created,
+				"completed_at":  completed,
+				"total_events":  totalEvents,
+				"feature_id":    featureID,
+				"model":         model,
+				"title":         title,
+				"first_message": firstMsg,
+				"message_count": msgCount,
+				"launch_mode":   sessionLaunchMode,
+				"plan_id":       sessionPlanID,
+				"adherence":     adherence,
 				// Isolation-visibility fields (slice-7). Stable plan-c3bbb1ed contract.
 				"session_family_id":    familyID,
 				"canonical_project":    canonicalProject,
@@ -232,9 +232,9 @@ func sessionsHandler(database *sql.DB, projectDir, wipnoteDir string) http.Handl
 				"claim_status":         claimStatus,
 				"claim_session_family": claimSessionFamily,
 				// Files this session touched (feat-f1c6f92e Tier 0).
-				"files":                sessionFiles,
+				"files": sessionFiles,
 				// Honest liveness from heartbeat recency (feat-793844bd).
-				"live":                 live,
+				"live": live,
 			})
 		}
 
@@ -440,21 +440,21 @@ func featuresFromHTML(projectDir string) []map[string]any {
 			}
 			trackTitle := trackTitles[node.TrackID]
 			features = append(features, map[string]any{
-				"id":                  node.ID,
-				"type":                node.Type,
-				"title":               node.Title,
-				"status":              string(node.Status),
-				"priority":            string(node.Priority),
-				"track_id":            node.TrackID,
-				"track_title":         trackTitle,
-				"created_at":          node.CreatedAt.Format(time.RFC3339),
-				"steps_total":         len(node.Steps),
-				"steps_completed":     completed,
-				"edges":               edges,
-				"created_by_agent":    node.CreatedByAgent,
-				"created_by_model":    node.CreatedByModel,
-				"created_by_role":     node.CreatedByRole,
-				"created_by_cli_ver":  node.CreatedByCLIVersion,
+				"id":                 node.ID,
+				"type":               node.Type,
+				"title":              node.Title,
+				"status":             string(node.Status),
+				"priority":           string(node.Priority),
+				"track_id":           node.TrackID,
+				"track_title":        trackTitle,
+				"created_at":         node.CreatedAt.Format(time.RFC3339),
+				"steps_total":        len(node.Steps),
+				"steps_completed":    completed,
+				"edges":              edges,
+				"created_by_agent":   node.CreatedByAgent,
+				"created_by_model":   node.CreatedByModel,
+				"created_by_role":    node.CreatedByRole,
+				"created_by_cli_ver": node.CreatedByCLIVersion,
 			})
 		}
 	}

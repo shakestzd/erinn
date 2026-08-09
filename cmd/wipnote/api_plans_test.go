@@ -468,12 +468,12 @@ func TestValidSectionRe_AcceptsBlockAnchorAndExistingKeys(t *testing.T) {
 	// Malformed / unbounded anchors must be rejected — the pattern is tightly
 	// bounded and must not degrade into an arbitrary-string matcher.
 	reject := []string{
-		"slice-3-block-",                  // empty block name + missing index
-		"slice-3-block-data-model",        // missing trailing index
-		"slice-block-data-model-1",        // missing slice number
-		"slice-3-block-Data_Model-1",      // uppercase / underscore not allowed
-		"slice-3-block-data model-1",      // space not allowed
-		"arbitrary-string",                // not a recognized key at all
+		"slice-3-block-",                   // empty block name + missing index
+		"slice-3-block-data-model",         // missing trailing index
+		"slice-block-data-model-1",         // missing slice number
+		"slice-3-block-Data_Model-1",       // uppercase / underscore not allowed
+		"slice-3-block-data model-1",       // space not allowed
+		"arbitrary-string",                 // not a recognized key at all
 		"slice-3-block-data-model-1; DROP", // injection-ish suffix
 	}
 	for _, s := range reject {

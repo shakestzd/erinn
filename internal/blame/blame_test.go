@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/blame"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/internal/blame"
 )
 
 // openTestDB creates an in-memory SQLite database with the full wipnote schema.

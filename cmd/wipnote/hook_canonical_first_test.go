@@ -376,4 +376,3 @@ func TestSubmitDerivedOp_QueueDeliversWhenAvailable(t *testing.T) {
 		t.Errorf("no fallback expected for happy path; got writer=%d queue=%d timeout=%d", wu, qf, to)
 	}
 }
-

@@ -56,11 +56,11 @@ func TestReadLaunchIsolationMode_NoConfigFile(t *testing.T) {
 
 func TestResolveIsolationFlags(t *testing.T) {
 	cases := []struct {
-		name         string
-		body         string // empty => no config file written
-		env          string // value for WIPNOTE_ENFORCE_ISOLATION ("" => unset)
-		wantEnforce  bool
-		wantAuto     bool
+		name        string
+		body        string // empty => no config file written
+		env         string // value for WIPNOTE_ENFORCE_ISOLATION ("" => unset)
+		wantEnforce bool
+		wantAuto    bool
 	}{
 		{"no-config-no-env", "", "", false, false},
 		{"warn-only-no-env", `{"launch_isolation":"warn-only"}`, "", false, false},

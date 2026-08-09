@@ -35,9 +35,9 @@ func TestEnsureAntigravityStatusLine_NullSettings(t *testing.T) {
 
 func TestIsWipnoteStatusLineCommand(t *testing.T) {
 	cases := map[string]bool{
-		"/home/u/.local/bin/wipnote statusline --cache": true,
+		"/home/u/.local/bin/wipnote statusline --cache":   true,
 		"'/home/u/with space/wipnote' statusline --cache": true,
-		"wipnote statusline --cache":                       true,
+		"wipnote statusline --cache":                      true,
 		// --session is the Claude-managed command shape; the agy launcher only
 		// ever writes --cache, so a --session command is not ours to refresh.
 		"wipnote statusline --session abc": false,

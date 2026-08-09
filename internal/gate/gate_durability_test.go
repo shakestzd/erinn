@@ -121,8 +121,8 @@ func TestRealRepoProfile_GatesDurabilityFixture(t *testing.T) {
 			"to ship an approved profile", root)
 	}
 	if !guardprofile.IsApproved(prof) {
-		t.Fatalf("the repo guard profile is NOT approved (signature mismatch). After editing "+
-			".wipnote/guard-profile.yaml you must re-sign it (guardprofile.Signature) or the gate "+
+		t.Fatalf("the repo guard profile is NOT approved (signature mismatch). After editing " +
+			".wipnote/guard-profile.yaml you must re-sign it (guardprofile.Signature) or the gate " +
 			"falls back to autodetection and this finding-4 assertion is meaningless")
 	}
 
@@ -131,8 +131,8 @@ func TestRealRepoProfile_GatesDurabilityFixture(t *testing.T) {
 		t.Fatalf("DetectPlan against real repo profile: %v", err)
 	}
 	if !plan.UsedProfile {
-		t.Fatalf("DetectPlan did not use the approved profile for the quality phase "+
-			"(UsedProfile=false) — it fell back to autodetection, so the real gate this repo "+
+		t.Fatalf("DetectPlan did not use the approved profile for the quality phase " +
+			"(UsedProfile=false) — it fell back to autodetection, so the real gate this repo " +
 			"runs is NOT what this test validates. Re-sign .wipnote/guard-profile.yaml.")
 	}
 	if !GoGateRunsDurabilityFixtureUnderShort(plan.Commands) {

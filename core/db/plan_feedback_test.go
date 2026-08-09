@@ -724,7 +724,7 @@ func TestIsPlanFullyApproved_CanonicalFallback_PendingSliceBlocks(t *testing.T) 
 	// No plan_feedback rows.
 	yamlSlices := []db.PlanSliceApproval{
 		{Num: 1, ApprovalStatus: "approved"},
-		{Num: 2, ApprovalStatus: ""},    // pending / unset
+		{Num: 2, ApprovalStatus: ""}, // pending / unset
 		{Num: 3, ApprovalStatus: "rejected"},
 	}
 

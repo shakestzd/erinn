@@ -54,9 +54,9 @@ func TestCommitMessageHasResearchWaiver(t *testing.T) {
 		`git commit -m "bump" && echo -m "RESEARCH-WAIVER: fake"`,   // -m in a later segment must NOT bypass (roborev #572)
 		`git commit -m "bump" ; echo -m "RESEARCH-WAIVER: fake"`,    // ; separator variant
 		`echo -m "RESEARCH-WAIVER: fake" && git commit -m "bump"`,   // waiver before the commit segment
-		`git commit -m "bump" # -m "RESEARCH-WAIVER: fake"`,            // -m inside a shell comment must NOT bypass (roborev #581)
-		`git commit -m "bump" #-m "RESEARCH-WAIVER: fake"`,             // comment with no space
-		`git commit -m "bump" -- go.mod -m "RESEARCH-WAIVER: fake"`,    // -m after -- is a pathspec, not a message (roborev #582)
+		`git commit -m "bump" # -m "RESEARCH-WAIVER: fake"`,         // -m inside a shell comment must NOT bypass (roborev #581)
+		`git commit -m "bump" #-m "RESEARCH-WAIVER: fake"`,          // comment with no space
+		`git commit -m "bump" -- go.mod -m "RESEARCH-WAIVER: fake"`, // -m after -- is a pathspec, not a message (roborev #582)
 	}
 	for _, m := range nonMatches {
 		if commitMessageHasResearchWaiver(m) {

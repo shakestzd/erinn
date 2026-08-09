@@ -111,7 +111,7 @@ never removed even with --force.`,
 			}
 
 			// Apply: structural first, then tempdir, then TTL.
-			reg.Prune()              // removes missing .wipnote
+			reg.Prune()                       // removes missing .wipnote
 			registry.PruneTempdirEntries(reg) // removes test temp dirs
 			if ttl > 0 {
 				registry.PruneStale(reg, ttl)

@@ -21,18 +21,18 @@ func TestResolveSessionName(t *testing.T) {
 		wantPrefix string
 	}{
 		{
-			name:       "continue=true suppresses synthesis (the bug we fixed)",
+			name:        "continue=true suppresses synthesis (the bug we fixed)",
 			sessionName: "",
-			resumeID:   "",
-			continue_:  true,
-			wantEmpty:  true,
+			resumeID:    "",
+			continue_:   true,
+			wantEmpty:   true,
 		},
 		{
-			name:       "explicit resumeID suppresses synthesis",
+			name:        "explicit resumeID suppresses synthesis",
 			sessionName: "",
-			resumeID:   "sess-abc123",
-			continue_:  false,
-			wantEmpty:  true,
+			resumeID:    "sess-abc123",
+			continue_:   false,
+			wantEmpty:   true,
 		},
 		{
 			name:        "explicit sessionName kept as-is, not overwritten",
@@ -42,10 +42,10 @@ func TestResolveSessionName(t *testing.T) {
 			wantPrefix:  "my-custom-name",
 		},
 		{
-			name:       "fresh launch synthesizes a name",
+			name:        "fresh launch synthesizes a name",
 			sessionName: "",
-			resumeID:   "",
-			continue_:  false,
+			resumeID:    "",
+			continue_:   false,
 			// defaultSessionName(fakeRoot) = "project-<timestamp>"; slug of "project" is "project"
 			wantPrefix: "project-",
 		},

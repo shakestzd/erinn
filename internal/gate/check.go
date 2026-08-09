@@ -148,9 +148,9 @@ type AllowlistHit struct {
 }
 
 type RunResult struct {
-	Plan          Plan
-	Commands      []string
-	Passed        bool
+	Plan     Plan
+	Commands []string
+	Passed   bool
 	// Skipped reports that no gate commands were run because no supported
 	// project manifest (or approved guard profile) was detected. A skipped
 	// run is NEVER recorded as a passing gate (bug-1b2b1529, #153): Passed is

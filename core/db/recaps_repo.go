@@ -114,10 +114,10 @@ type rowScanner interface {
 // scanRecap reads one recaps row into a RecapRow.
 func scanRecap(s rowScanner) (*RecapRow, error) {
 	var (
-		rec        RecapRow
-		grounded   int
-		created    sql.NullTime
-		updated    sql.NullTime
+		rec      RecapRow
+		grounded int
+		created  sql.NullTime
+		updated  sql.NullTime
 	)
 	if err := s.Scan(
 		&rec.ID, &rec.Kind, &rec.Input, &rec.GitRange, &grounded,

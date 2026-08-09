@@ -175,7 +175,7 @@ func writeExistingDocs(sb *strings.Builder, repoRoot string) {
 
 // hotspotEntry holds a file path and its touch count from git log.
 type hotspotEntry struct {
-	path   string
+	path    string
 	touches int
 }
 

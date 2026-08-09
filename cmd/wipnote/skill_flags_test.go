@@ -116,8 +116,8 @@ func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
 	checks := map[string][]string{
 		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"): {
 			"Mandatory Research",
-			"research gate",       // the schema-enforced gate is documented
-			"research_waiver",     // the structured escape hatch is documented
+			"research gate",   // the schema-enforced gate is documented
+			"research_waiver", // the structured escape hatch is documented
 			"no reinventing the wheel",
 		},
 		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"): {

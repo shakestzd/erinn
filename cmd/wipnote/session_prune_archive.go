@@ -1,9 +1,12 @@
 // session_prune_archive.go — `wipnote session prune` and `wipnote session archive`.
 //
 // prune: reclaim disk from old session logs, with --older-than / --keep-last /
-//        --dry-run / --yes flags and mandatory confirmation before deletion.
+//
+//	--dry-run / --yes flags and mandatory confirmation before deletion.
+//
 // archive: move a single session's events.ndjson into a compressed archive in
-//          .wipnote/archive/<yyyy-mm>/, leaving it restorable via session restore.
+//
+//	.wipnote/archive/<yyyy-mm>/, leaving it restorable via session restore.
 package main
 
 import (
@@ -98,11 +101,11 @@ un-ingested data is lost.`,
 
 // pruneCandidate holds the session metadata needed for the prune decision.
 type pruneCandidate struct {
-	sessionID string
-	sessDir   string
+	sessionID  string
+	sessDir    string
 	eventsFile string
-	mtime     time.Time
-	size      int64
+	mtime      time.Time
+	size       int64
 }
 
 // runSessionPrune implements `wipnote session prune`.

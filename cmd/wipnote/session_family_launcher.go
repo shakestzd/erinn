@@ -14,12 +14,12 @@ import (
 //     injected), reuse it — this keeps all sub-invocations in one family.
 //  2. If this is a resume/continue launch:
 //     a. When the concrete resumed session ID is known (resumeID != ""), look
-//        up THAT session's family directly. Resuming session X must join
-//        family X — never an arbitrary parallel root's family.
+//     up THAT session's family directly. Resuming session X must join
+//     family X — never an arbitrary parallel root's family.
 //     b. When no concrete ID is known ("resume last"), inherit the family of
-//        the most-recently-registered session by timestamp order, not by Go
-//        map iteration (which is randomized and, with parallel roots, would
-//        attach the resumed session to an arbitrary unrelated family).
+//     the most-recently-registered session by timestamp order, not by Go
+//     map iteration (which is randomized and, with parallel roots, would
+//     attach the resumed session to an arbitrary unrelated family).
 //  3. Otherwise create a new family ID equal to the new session ID (each fresh
 //     start is its own family of one until a resume joins it).
 //

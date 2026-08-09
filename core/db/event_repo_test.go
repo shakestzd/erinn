@@ -818,8 +818,8 @@ func TestFindStaleProjectOrphans(t *testing.T) {
 		}
 	}
 
-	mkSession("sess-live", "active")    // non-terminal: protected until hard cutoff
-	mkSession("sess-done", "completed") // terminal (completed_at set): swept at normal threshold
+	mkSession("sess-live", "active")                        // non-terminal: protected until hard cutoff
+	mkSession("sess-done", "completed")                     // terminal (completed_at set): swept at normal threshold
 	mkEvent("evt-live-recent", "sess-live", 10*time.Minute) // protected (no heartbeat, but < hard cutoff)
 	mkEvent("evt-live-ancient", "sess-live", 25*time.Hour)  // past hard cutoff → swept anyway
 	mkEvent("evt-done-recent", "sess-done", 10*time.Minute) // terminal → swept

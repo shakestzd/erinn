@@ -91,15 +91,15 @@ func (r *codexToolResult) UnmarshalJSON(data []byte) error {
 // assumption for another.
 //
 // REMOVED fields (bug-e95cfc49):
-// - TaskID and TaskSubject were removed because they belong to Codex Cloud's
-//   RawRecord task-tracking schema (alongside encrypted_task_id,
-//   max_concurrent_threads_per_session, job_max_runtime_seconds), not to the
-//   local hook dispatch vocabulary. Live payload captures (SessionStart,
-//   PreToolUse, PostToolUse) never populated them across codex-cli 0.147.0,
-//   and Codex-native TaskStarted/TaskComplete lifecycle events (distinct from
-//   Claude-style task boards) do not exist in hook payloads. Binary analysis of
-//   codex-cli 0.147.0 confirmed task_subject appears zero times in the binary.
-//   TaskCreated/TaskCompleted are Claude-only hooks with no Codex equivalent.
+//   - TaskID and TaskSubject were removed because they belong to Codex Cloud's
+//     RawRecord task-tracking schema (alongside encrypted_task_id,
+//     max_concurrent_threads_per_session, job_max_runtime_seconds), not to the
+//     local hook dispatch vocabulary. Live payload captures (SessionStart,
+//     PreToolUse, PostToolUse) never populated them across codex-cli 0.147.0,
+//     and Codex-native TaskStarted/TaskComplete lifecycle events (distinct from
+//     Claude-style task boards) do not exist in hook payloads. Binary analysis of
+//     codex-cli 0.147.0 confirmed task_subject appears zero times in the binary.
+//     TaskCreated/TaskCompleted are Claude-only hooks with no Codex equivalent.
 type codexPayload struct {
 	// AgentID/AgentType: declared as optional string properties on
 	// PreToolUse, PostToolUse, and PermissionRequest, and as REQUIRED

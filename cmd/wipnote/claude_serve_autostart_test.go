@@ -91,67 +91,67 @@ func withDevcontainer(t *testing.T, isContainer bool) {
 // The devcontainer state is controlled via withDevcontainer() helper.
 func TestResolveDashboardAddress(t *testing.T) {
 	cases := []struct {
-		name      string
+		name           string
 		isDevcontainer bool
-		envBind   string
-		envPort   string
-		wantHost  string
-		wantPort  int
+		envBind        string
+		envPort        string
+		wantHost       string
+		wantPort       int
 	}{
 		{
-			name:      "default no env no devcontainer",
+			name:           "default no env no devcontainer",
 			isDevcontainer: false,
-			wantHost: "127.0.0.1",
-			wantPort: 8080,
+			wantHost:       "127.0.0.1",
+			wantPort:       8080,
 		},
 		{
-			name:      "devcontainer triggers defaults",
+			name:           "devcontainer triggers defaults",
 			isDevcontainer: true,
-			wantHost:  "0.0.0.0",
-			wantPort:   8088,
+			wantHost:       "0.0.0.0",
+			wantPort:       8088,
 		},
 		{
-			name:      "WIPNOTE_SERVE_BIND overrides host",
+			name:           "WIPNOTE_SERVE_BIND overrides host",
 			isDevcontainer: false,
-			envBind:   "1.2.3.4",
-			wantHost:  "1.2.3.4",
-			wantPort:  8080,
+			envBind:        "1.2.3.4",
+			wantHost:       "1.2.3.4",
+			wantPort:       8080,
 		},
 		{
-			name:      "WIPNOTE_SERVE_PORT overrides port",
+			name:           "WIPNOTE_SERVE_PORT overrides port",
 			isDevcontainer: false,
-			envPort:   "9999",
-			wantHost:  "127.0.0.1",
-			wantPort:  9999,
+			envPort:        "9999",
+			wantHost:       "127.0.0.1",
+			wantPort:       9999,
 		},
 		{
-			name:      "env vars override devcontainer defaults",
+			name:           "env vars override devcontainer defaults",
 			isDevcontainer: true,
-			envBind:    "1.2.3.4",
-			envPort:    "9999",
-			wantHost:   "1.2.3.4",
-			wantPort:   9999,
+			envBind:        "1.2.3.4",
+			envPort:        "9999",
+			wantHost:       "1.2.3.4",
+			wantPort:       9999,
 		},
 		{
-			name:      "WIPNOTE_SERVE_PORT invalid string falls back gracefully",
+			name:           "WIPNOTE_SERVE_PORT invalid string falls back gracefully",
 			isDevcontainer: false,
-			envPort:   "notanumber",
-			wantHost:  "127.0.0.1",
-			wantPort:  8080,
+			envPort:        "notanumber",
+			wantHost:       "127.0.0.1",
+			wantPort:       8080,
 		},
 		{
-			name:      "WIPNOTE_SERVE_PORT zero falls back gracefully",
+			name:           "WIPNOTE_SERVE_PORT zero falls back gracefully",
 			isDevcontainer: false,
-			envPort:   "0",
-			wantHost:  "127.0.0.1",
-			wantPort:  8080,
+			envPort:        "0",
+			wantHost:       "127.0.0.1",
+			wantPort:       8080,
 		},
 		{
-			name:      "WIPNOTE_SERVE_PORT negative falls back gracefully",
+			name:           "WIPNOTE_SERVE_PORT negative falls back gracefully",
 			isDevcontainer: false,
-			envPort:   "-1",
-			wantHost:  "127.0.0.1",
-			wantPort:  8080,
+			envPort:        "-1",
+			wantHost:       "127.0.0.1",
+			wantPort:       8080,
 		},
 	}
 

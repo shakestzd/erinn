@@ -52,13 +52,13 @@ const (
 // window so the dashboard sees fresh activity rather than a session-wide
 // running average that smooths over bursts.
 type Stats struct {
-	State          State   `json:"state"`
-	Depth          int     `json:"depth"`
-	Capacity       int     `json:"capacity"`
-	Enqueued       int64   `json:"enqueued"`
-	Dequeued       int64   `json:"dequeued"`
-	Rejected       int64   `json:"rejected"`
-	Errors         int64   `json:"errors"`
+	State             State   `json:"state"`
+	Depth             int     `json:"depth"`
+	Capacity          int     `json:"capacity"`
+	Enqueued          int64   `json:"enqueued"`
+	Dequeued          int64   `json:"dequeued"`
+	Rejected          int64   `json:"rejected"`
+	Errors            int64   `json:"errors"`
 	EnqueueRatePerSec float64 `json:"enqueue_rate_per_sec"`
 	DequeueRatePerSec float64 `json:"dequeue_rate_per_sec"`
 }
@@ -122,10 +122,10 @@ type Queue struct {
 	done chan struct{}
 
 	// rate tracking — protected by rateMu.
-	rateMu          sync.Mutex
-	rateWindow      time.Duration
-	enqueueHistory  []int64 // unix-nano timestamps of recent enqueues
-	dequeueHistory  []int64 // unix-nano timestamps of recent dequeues
+	rateMu         sync.Mutex
+	rateWindow     time.Duration
+	enqueueHistory []int64 // unix-nano timestamps of recent enqueues
+	dequeueHistory []int64 // unix-nano timestamps of recent dequeues
 
 	// monotonic counters.
 	enqueued atomic.Int64

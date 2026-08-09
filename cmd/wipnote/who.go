@@ -54,23 +54,23 @@ Step/task event support per harness:
 
 // whoOutput is the stable JSON schema for `wipnote who --json`.
 type whoOutput struct {
-	SessionID       string           `json:"session_id"`
-	SessionFamilyID string           `json:"session_family_id"`
-	Harness         string           `json:"harness"`
-	WorkItem        string           `json:"work_item,omitempty"`
-	ClaimID         string           `json:"claim_id,omitempty"`
-	ClaimStatus     string           `json:"claim_status,omitempty"`
-	ClaimedAt       string           `json:"claimed_at,omitempty"`
-	ExecutionRoot   string           `json:"execution_root,omitempty"`
-	IsSubagent      bool             `json:"is_subagent"`
+	SessionID       string `json:"session_id"`
+	SessionFamilyID string `json:"session_family_id"`
+	Harness         string `json:"harness"`
+	WorkItem        string `json:"work_item,omitempty"`
+	ClaimID         string `json:"claim_id,omitempty"`
+	ClaimStatus     string `json:"claim_status,omitempty"`
+	ClaimedAt       string `json:"claimed_at,omitempty"`
+	ExecutionRoot   string `json:"execution_root,omitempty"`
+	IsSubagent      bool   `json:"is_subagent"`
 	// Live is derived from claim-heartbeat recency (NOT sessions.status). It is
 	// the honest cross-harness liveness signal — true only when this session's
 	// newest claim heartbeat is within the staleness threshold. A stale
 	// status='active' ghost row reports Live=false (folds bug-6c3e8252).
-	Live            bool             `json:"live"`
-	Collaboration   *collabOutput    `json:"collaboration,omitempty"`
-	TaskTracking    taskTrackingInfo `json:"task_tracking"`
-	Files           []whoFileEntry   `json:"files"`
+	Live          bool             `json:"live"`
+	Collaboration *collabOutput    `json:"collaboration,omitempty"`
+	TaskTracking  taskTrackingInfo `json:"task_tracking"`
+	Files         []whoFileEntry   `json:"files"`
 }
 
 // whoFileEntry is a single file touched by this session.

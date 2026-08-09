@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Prefer CLAUDE_PROJECT_DIR env var over CWD in SessionStart</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-11T01:08:35.922387"
-             data-updated="2026-04-11T01:13:53.153559" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+             data-updated="2026-08-09T20:43:41.493232" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b" data-affected_files="internal/hooks/session_start_test.go,internal/paths/resolve.go,internal/paths/resolve_test.go">
 
         <header>
             <h1>Prefer CLAUDE_PROJECT_DIR env var over CWD in SessionStart</h1>
@@ -24,25 +24,25 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-11T01:08:35.923722">trk-97f85b3b</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T01:09:37.174379">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                    <li><a href="../sessions/8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T01:09:37.174379">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-11T01:08:35.923722">trk-97f85b3b</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Fixes bug-71fc095f. In internal/hooks/session_start.go SessionStart path, the current resolution prefers ResolveProjectDir's CWD walk-up. This causes a split-brain when the user cd's between projects during a single Claude Code session: each cd writes the session HTML to a different project's .htmlgraph/sessions/, and each project's reindex then pulls those events into its own SQLite, creating phantom session rows in the wrong project's DB.
+            <p>Fixes bug-71fc095f. In internal/hooks/session_start.go SessionStart path, the current resolution prefers ResolveProjectDir&#39;s CWD walk-up. This causes a split-brain when the user cd&#39;s between projects during a single Claude Code session: each cd writes the session HTML to a different project&#39;s .htmlgraph/sessions/, and each project&#39;s reindex then pulls those events into its own SQLite, creating phantom session rows in the wrong project&#39;s DB.
 
-Fix: after computing projectDir via paths.ResolveProjectDir, check if CLAUDE_PROJECT_DIR env var is set AND points at a directory containing .htmlgraph/. If yes, use CLAUDE_PROJECT_DIR instead — it's set by Claude Code at session launch and stays stable across cd inside the session. CWD-based walk-up becomes the fallback only when CLAUDE_PROJECT_DIR is unset (e.g., direct htmlgraph CLI invocation outside a Claude Code session).
+Fix: after computing projectDir via paths.ResolveProjectDir, check if CLAUDE_PROJECT_DIR env var is set AND points at a directory containing .htmlgraph/. If yes, use CLAUDE_PROJECT_DIR instead — it&#39;s set by Claude Code at session launch and stays stable across cd inside the session. CWD-based walk-up becomes the fallback only when CLAUDE_PROJECT_DIR is unset (e.g., direct htmlgraph CLI invocation outside a Claude Code session).
 
 Guardrail: only prefer CLAUDE_PROJECT_DIR when HTMLGRAPH_SESSION_ID is also set in the same env, which indicates the env was populated by a current Claude Code process rather than inherited from a parent shell (could be stale across sessions).
 

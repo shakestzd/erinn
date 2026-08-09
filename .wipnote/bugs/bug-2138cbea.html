@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Activity Feed: TOOL_USE badge re-uses the old heavy-pill pattern — apply the same demote-to-quiet-label treatment as the ASSISTANT fix</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T02:13:53.86309"
-             data-updated="2026-04-24T02:26:35.442881" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:43.266403" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files="cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/dashboard/css/components.css">
 
         <header>
             <h1>Activity Feed: TOOL_USE badge re-uses the old heavy-pill pattern — apply the same demote-to-quiet-label treatment as the ASSISTANT fix</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T02:13:53.871117">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T02:17:01.476186">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T02:17:01.476186">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T02:13:53.871117">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Commit 93d77cbc demoted the saturated ASSISTANT pill to a quiet monospace label. The TOOL_USE badge (visible in user screenshot) still uses the old heavy amber/orange pill treatment and the same text-transform:uppercase pattern. Root cause: badge class is built from event status/type + CSS uppercase, not from an explicit 'ASSISTANT' string, so the demote fix didn't cover siblings. Apply the same treatment (assistant-label style or equivalent) to TOOL_USE and any peer content-type badges rendered in the same context. Files: cmd/htmlgraph/dashboard/components/event-tree.js, cmd/htmlgraph/dashboard/css/components.css.</p>
+            <p>Commit 93d77cbc demoted the saturated ASSISTANT pill to a quiet monospace label. The TOOL_USE badge (visible in user screenshot) still uses the old heavy amber/orange pill treatment and the same text-transform:uppercase pattern. Root cause: badge class is built from event status/type + CSS uppercase, not from an explicit &#39;ASSISTANT&#39; string, so the demote fix didn&#39;t cover siblings. Apply the same treatment (assistant-label style or equivalent) to TOOL_USE and any peer content-type badges rendered in the same context. Files: cmd/htmlgraph/dashboard/components/event-tree.js, cmd/htmlgraph/dashboard/css/components.css.</p>
         </section>
     </article>
 </body>

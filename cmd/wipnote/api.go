@@ -282,8 +282,13 @@ func featuresFromDB(database *sql.DB) []map[string]any {
 		       COALESCE(f.track_id, ''), f.created_at,
 		       f.steps_total, f.steps_completed,
 		       COALESCE(t.title, '') AS track_title
+		-- Tracks live in their own table. This join used to target features,
+		-- matching a trk- id against the work-item primary key, so it never
+		-- produced a row and track_title was empty for every feature in
+		-- production — invisibly, because an empty title renders as nothing
+		-- rather than erroring (bug-0fe9485f).
 		FROM features f
-		LEFT JOIN features t ON t.id = f.track_id
+		LEFT JOIN tracks t ON t.id = f.track_id
 		ORDER BY
 		    CASE f.status WHEN 'in-progress' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END,
 		    f.created_at DESC`)

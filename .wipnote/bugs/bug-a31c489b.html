@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-17T07:14:04.57714"
-             data-updated="2026-05-18T23:31:30.300974" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.59.1-398-g883056121">
+             data-updated="2026-08-09T20:42:22.071476" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.59.1-398-g883056121" data-affected_files=".wipnote/bugs/bug-a31c489b.html">
 
         <header>
             <h1>GitHub #111: Internal system messages displayed as user queries</h1>
@@ -24,17 +24,17 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-17T07:14:04.600721">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="019e34bf-a6c6-7af3-a930-8f6b3245bf86.html" data-relationship="implemented_in" data-since="2026-05-17T07:14:07.406041">session 019e34bf-a6c6-7af3-a930-8f6b3245bf86</a></li>
-                    <li><a href="d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T22:03:37.533246">session d2101130-3162-4850-8793-414841978b28</a></li>
+                    <li><a href="../sessions/019e34bf-a6c6-7af3-a930-8f6b3245bf86.html" data-relationship="implemented_in" data-since="2026-05-17T07:14:07.406041">session 019e34bf-a6c6-7af3-a930-8f6b3245bf86</a></li>
+                    <li><a href="../sessions/d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T22:03:37.533246">session d2101130-3162-4850-8793-414841978b28</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-17T07:14:04.600721">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
@@ -49,7 +49,7 @@
         <section data-content>
             <h3>Description</h3>
             <p>GitHub issue #111: dashboard activity/events feed records roborev reviewer prompts and harness background-task resume notifications as user queries. Fix ingestion/classification so only genuine end-user prompts appear as user-query turns and metrics.
-[2026-05-18 23:30 claude-code] accepted-advisory (provenance override): Validated FIXED via API + source inspection (Playwright browser uninstallable in this restricted ARM container; API/source validation is strictly more rigorous for a classification bug). Fix is implemented and committed: internal/ingest/system_message.go IsSystemMessage() (introduced commit 059db0560) classifies BOTH bug classes — (a) roborev reviewer prompts via the 'you are a code reviewer.' + review/findings detector, (b) harness background-task resume notifications via prefixes , [Session resumed, [Request interrupted, 'resumed: background task', 'This session is being continued' — wired into the feed handler at cmd/wipnote/api_feed.go:158 (commits 973e09f27, 059db0560) to exclude such events from user-query turns/metrics, plus deduplicateUserPromptLogs. Live dashboard (serve 0.59.1-625, running under concurrent load) showed zero user_prompt/user_query leaks and zero internal-message contamination across feed/recent windows — confirming both classes are correctly excluded. codex implemented this before its session ended. Bonus: this same validation live-confirmed bug-272c5e34 (serve no longer livelocks; full data layer 200). Residual transient /api/timeline SQLITE_BUSY + /api/transcript 500 under load filed as follow-up bug-0d50102a (relates_to bug-272c5e34). Orchestrator session gate passed (first attempt). Advisory accepted per bug-3718b630 (commits not session-linked here).</p>
+[2026-05-18 23:30 claude-code] accepted-advisory (provenance override): Validated FIXED via API + source inspection (Playwright browser uninstallable in this restricted ARM container; API/source validation is strictly more rigorous for a classification bug). Fix is implemented and committed: internal/ingest/system_message.go IsSystemMessage() (introduced commit 059db0560) classifies BOTH bug classes — (a) roborev reviewer prompts via the &#39;you are a code reviewer.&#39; + review/findings detector, (b) harness background-task resume notifications via prefixes , [Session resumed, [Request interrupted, &#39;resumed: background task&#39;, &#39;This session is being continued&#39; — wired into the feed handler at cmd/wipnote/api_feed.go:158 (commits 973e09f27, 059db0560) to exclude such events from user-query turns/metrics, plus deduplicateUserPromptLogs. Live dashboard (serve 0.59.1-625, running under concurrent load) showed zero user_prompt/user_query leaks and zero internal-message contamination across feed/recent windows — confirming both classes are correctly excluded. codex implemented this before its session ended. Bonus: this same validation live-confirmed bug-272c5e34 (serve no longer livelocks; full data layer 200). Residual transient /api/timeline SQLITE_BUSY + /api/transcript 500 under load filed as follow-up bug-0d50102a (relates_to bug-272c5e34). Orchestrator session gate passed (first attempt). Advisory accepted per bug-3718b630 (commits not session-linked here).</p>
         </section>
     </article>
 </body>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Legacy SQLite warning fires in production projects; should be dev-only</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-04T16:46:05.913204"
-             data-updated="2026-05-05T15:54:08.325858" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:01.325299" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-07a41751.html,.htmlgraph/bugs/bug-4b399212.html,.htmlgraph/bugs/bug-55ee53a9.html,.htmlgraph/bugs/bug-5b5611c2.html,.htmlgraph/bugs/bug-68dff527.html,.htmlgraph/bugs/bug-7899a7ee.html,.htmlgraph/bugs/bug-acaa1fa4.html,.htmlgraph/bugs/bug-d842d5e6.html,.htmlgraph/features/feat-0fd7c8bc.html,.htmlgraph/features/feat-1f0f27de.html,.htmlgraph/features/feat-79f41c6d.html,.htmlgraph/tracks/trk-13e39042.html,.htmlgraph/tracks/trk-8f9bc323.html,internal/storage/dbpath.go,internal/storage/dbpath_test.go">
 
         <header>
             <h1>Legacy SQLite warning fires in production projects; should be dev-only</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-04T16:46:05.918018">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T15:51:12.512785">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
+                    <li><a href="../sessions/5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T15:51:12.512785">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-04T16:46:05.918018">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Production users see this INFO log on every command: 'legacy SQLite file at .htmlgraph/htmlgraph.db (...) is unused — DB now lives in the user cache dir. You can delete: '. The message is a one-time deprecation/migration nudge intended for dogfooding/devcontainer use during the SQLite-cache-relocation migration — it should not fire repeatedly in production where users have nothing to do about it. Fix candidates: (a) gate the warning behind a 'dev' build tag or env var; (b) make it a one-shot stamp (write a marker once shown, suppress thereafter); (c) drop the message entirely in production builds. Investigation: find the print site (likely internal/db/ or internal/paths/) and the gate that should have suppressed it.</p>
+            <p>Production users see this INFO log on every command: &#39;legacy SQLite file at .htmlgraph/htmlgraph.db (...) is unused — DB now lives in the user cache dir. You can delete: &#39;. The message is a one-time deprecation/migration nudge intended for dogfooding/devcontainer use during the SQLite-cache-relocation migration — it should not fire repeatedly in production where users have nothing to do about it. Fix candidates: (a) gate the warning behind a &#39;dev&#39; build tag or env var; (b) make it a one-shot stamp (write a marker once shown, suppress thereafter); (c) drop the message entirely in production builds. Investigation: find the print site (likely internal/db/ or internal/paths/) and the gate that should have suppressed it.</p>
         </section>
     </article>
 </body>

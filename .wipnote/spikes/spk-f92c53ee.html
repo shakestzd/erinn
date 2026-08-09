@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Find a Go-friendly engine for SQL over NDJSON without ingestion</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-f92c53ee"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-08-09T00:53:14.702861"
+             data-updated="2026-08-09T01:08:25.884341" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Find a Go-friendly engine for SQL over NDJSON without ingestion</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T00:53:55.116179">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T00:53:14.718447">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Telemetry lands as NDJSON sharded per session and is then ingested into SQLite, costing 377 seconds of every rebuild, 55MB of index, and an entire schema-drift surface that failed silently for months. Nothing behavioural reads the ingested table — only dashboard aggregation does, and the guards that matter read a different table scoped to a single session, where the filename already serves as the index. The question is whether an engine can provide SQL aggregation over the canonical files in place, removing the ingestion step and the second copy together. DuckDB is the obvious candidate and fits the shape exactly, but its Go driver wraps a C++ engine and requires cgo, while wipnote deliberately uses a pure-Go SQLite driver so the binary cross-compiles without a C toolchain. Establish whether a Go-friendly alternative exists, or whether the cgo cost is the real price of this capability.</p>
+        </section>
+    </article>
+</body>
+</html>

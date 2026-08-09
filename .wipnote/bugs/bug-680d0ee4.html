@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>context-pack: queries features.track_id column, misses features attributed to track via graph edges</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T18:55:54.21329"
-             data-updated="2026-05-01T20:46:26.269793" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2">
+             data-updated="2026-08-09T20:42:05.150463" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2" data-affected_files=".htmlgraph/bugs/bug-546cda63.html,.htmlgraph/bugs/bug-680d0ee4.html,.htmlgraph/bugs/bug-792a8319.html,.htmlgraph/bugs/bug-89990f33.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a7d17cd2.html,.htmlgraph/bugs/bug-c4e3551d.html,.htmlgraph/features/feat-55d39535.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-08dcbb33.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-be293476.html,cmd/htmlgraph/context_pack.go,cmd/htmlgraph/context_pack_test.go,internal/db/track_repo.go,internal/db/track_repo_test.go">
 
         <header>
             <h1>context-pack: queries features.track_id column, misses features attributed to track via graph edges</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T18:55:54.242534">bug-92690d5b</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T18:55:54.246574">trk-2c83a1e2</a></li>
+                    <li><a href="../bugs/bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T18:55:54.242534">bug-92690d5b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:05:04.388698">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:05:04.388698">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T18:55:54.246574">trk-2c83a1e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,30 +48,30 @@
             <h3>Description</h3>
             <p>## Symptom
 
-`htmlgraph context-pack ` for a work item on a track that was populated via `htmlgraph migrate-tracks` (edge-based) shows '(no track attribution)' under sections 5 and 6, even when the track has multiple member features.
+`htmlgraph context-pack ` for a work item on a track that was populated via `htmlgraph migrate-tracks` (edge-based) shows &#39;(no track attribution)&#39; under sections 5 and 6, even when the track has multiple member features.
 
 ## Reproducer
 
 1. `htmlgraph context-pack bug-92690d5b` (currently on trk-be293476 Yolo Mode).
-2. Section 5: '(no track attribution)'.
-3. Section 6: '(no commits yet)'.
+2. Section 5: &#39;(no track attribution)&#39;.
+3. Section 6: &#39;(no commits yet)&#39;.
 
 But `htmlgraph track show trk-be293476` lists feat-4d3a2b5d and feat-e69b4c92 as members.
 
 ## Root cause
 
-Direct SQLite query confirms: feat-4d3a2b5d.track_id = 'trk-c4615ad2' and feat-e69b4c92.track_id = 'trk-cd61bbae' — those are the ORIGINAL tracks. Their membership in trk-be293476 lives in graph_edges (set up by migrate-tracks), not in the features.track_id column.
+Direct SQLite query confirms: feat-4d3a2b5d.track_id = &#39;trk-c4615ad2&#39; and feat-e69b4c92.track_id = &#39;trk-cd61bbae&#39; — those are the ORIGINAL tracks. Their membership in trk-be293476 lives in graph_edges (set up by migrate-tracks), not in the features.track_id column.
 
-context-pack's helpers (commitsByTrack and the blame.WalkAreas filter) query the column. They should either:
+context-pack&#39;s helpers (commitsByTrack and the blame.WalkAreas filter) query the column. They should either:
 
 - a) Resolve track membership via graph_edges (preferred, matches track show semantics), or
-- b) Query both: (track_id = T) UNION (id IN (SELECT from_id FROM graph_edges WHERE to_id = T AND type IN ('part_of','member_of'))).
+- b) Query both: (track_id = T) UNION (id IN (SELECT from_id FROM graph_edges WHERE to_id = T AND type IN (&#39;part_of&#39;,&#39;member_of&#39;))).
 
 ## Acceptance
 
 1. `htmlgraph context-pack bug-92690d5b` shows non-empty section 5 and section 6 listing files / commits from feat-4d3a2b5d and feat-e69b4c92.
 2. Tests cover edge-based attribution (synthetic track + edge-only members).
-3. Doesn't regress column-based attribution for tracks that DO use the column.</p>
+3. Doesn&#39;t regress column-based attribution for tracks that DO use the column.</p>
         </section>
     </article>
 </body>

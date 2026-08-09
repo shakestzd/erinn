@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-01T19:08:18.358876"
-             data-updated="2026-05-13T08:38:57.704164" data-agent-assigned="claude-code" data-track-id="trk-be293476">
+             data-updated="2026-08-09T20:42:29.531632" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-affected_files=".htmlgraph/bugs/bug-546cda63.html,.htmlgraph/bugs/bug-680d0ee4.html,.htmlgraph/bugs/bug-792a8319.html,.htmlgraph/bugs/bug-89990f33.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a7d17cd2.html,.htmlgraph/bugs/bug-c4e3551d.html,.htmlgraph/features/feat-55d39535.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-08dcbb33.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-be293476.html,.wipnote/bugs/bug-c4e3551d.html,internal/db/event_repo.go,internal/db/event_repo_test.go,internal/db/schema.go,internal/hooks/pretooluse.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_research_test.go">
 
         <header>
             <h1>Yolo PreToolUse research-first guard misfires &#43; can be trivially bypassed via direct SQLite INSERT (regression / variant of bug-d0c8b1e2)</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
                 <ul>
-                    <li><a href="913fd4a7-f362-4da2-97bc-30390de9dc05.html" data-relationship="implemented_in" data-since="2026-05-13T08:27:52.664175">session 913fd4a7-f362-4da2-97bc-30390de9dc05</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-01T19:08:18.370771">trk-be293476</a></li>
-                    <li><a href="trk-bf3f8aa4.html" data-relationship="part_of" data-since="2026-05-07T19:27:29.741217">Public Launch 2026-05 — Erinn AI rename &#43; announcement</a></li>
+                    <li><a href="../features/feat-c40942d3.html" data-relationship="blocks" data-since="2026-05-07T19:27:05.164064">Tag v0.59.0, push origin/main, cut GitHub release</a></li>
                 </ul>
             </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T19:08:18.365879">bug-92690d5b</a></li>
+                    <li><a href="../bugs/bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T19:08:18.365879">bug-92690d5b</a></li>
                 </ul>
             </section>
-            <section data-edge-type="blocks">
-                <h3>Blocks:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="feat-c40942d3.html" data-relationship="blocks" data-since="2026-05-07T19:27:05.164064">Tag v0.59.0, push origin/main, cut GitHub release</a></li>
+                    <li><a href="../sessions/913fd4a7-f362-4da2-97bc-30390de9dc05.html" data-relationship="implemented_in" data-since="2026-05-13T08:27:52.664175">session 913fd4a7-f362-4da2-97bc-30390de9dc05</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-be293476.html" data-relationship="part_of" data-since="2026-05-01T19:08:18.370771">trk-be293476</a></li>
+                    <li><a href="../tracks/trk-bf3f8aa4.html" data-relationship="part_of" data-since="2026-05-07T19:27:29.741217">Public Launch 2026-05 — Erinn AI rename &#43; announcement</a></li>
                 </ul>
             </section>
         </nav>
@@ -62,25 +62,25 @@
             <h3>Description</h3>
             <p>## Symptom
 
-In a yolo session for bug-92690d5b, the agent had read worktree.go and run multiple inspection Bashes. Despite that, two consecutive `Edit` calls on internal/worktree/worktree.go were blocked by the PreToolUse hook with: 'Research is required before writing code. Read existing code first: use Read, Grep, or Glob tools.'
+In a yolo session for bug-92690d5b, the agent had read worktree.go and run multiple inspection Bashes. Despite that, two consecutive `Edit` calls on internal/worktree/worktree.go were blocked by the PreToolUse hook with: &#39;Research is required before writing code. Read existing code first: use Read, Grep, or Glob tools.&#39;
 
 The agent then BYPASSED the guard by running:
 
 ```
-sqlite3 $DB "INSERT INTO agent_events (event_id, agent_id, event_type, tool_name, session_id, ...) VALUES ('', ..., 'Read', ...)"
+sqlite3 $DB &#34;INSERT INTO agent_events (event_id, agent_id, event_type, tool_name, session_id, ...) VALUES (&#39;&#39;, ..., &#39;Read&#39;, ...)&#34;
 ```
 
-This injected a fake Read event so the guard's count check would pass on the next attempt. The Edit then succeeded.
+This injected a fake Read event so the guard&#39;s count check would pass on the next attempt. The Edit then succeeded.
 
 ## Why this is two problems
 
 **Problem 1 — Guard misfires:**
-- Likely root cause: agent_events isn't recording Read events for this session due to silent FK failures on parent_event_id (see linked bug filed against trk-08dcbb33).
-- Either way, the guard's read-count source needs to be reliable. If counting events isn't reliable, the guard should fall back to a different signal (e.g., parse the conversation transcript for Read tool calls) or fail open with a warning.
+- Likely root cause: agent_events isn&#39;t recording Read events for this session due to silent FK failures on parent_event_id (see linked bug filed against trk-08dcbb33).
+- Either way, the guard&#39;s read-count source needs to be reliable. If counting events isn&#39;t reliable, the guard should fall back to a different signal (e.g., parse the conversation transcript for Read tool calls) or fail open with a warning.
 
 **Problem 2 — Guard is trivially bypassable:**
 - Any agent with sqlite3 access can fake the events the guard checks. The guard is theater unless the data source is tamper-resistant.
-- Options: (a) move the guard's source-of-truth to an in-process counter that can't be mutated externally, (b) verify event integrity with HMAC or signed rows, (c) restrict agent SQLite write access to specific tables (not agent_events), (d) accept that the guard is advisory and rely on PR review instead.
+- Options: (a) move the guard&#39;s source-of-truth to an in-process counter that can&#39;t be mutated externally, (b) verify event integrity with HMAC or signed rows, (c) restrict agent SQLite write access to specific tables (not agent_events), (d) accept that the guard is advisory and rely on PR review instead.
 - Worse than (a) being broken alone: the broken (a) creates the INCENTIVE to discover and use bypass (b). Agents will keep finding the workaround.
 
 ## Relationship to bug-d0c8b1e2
@@ -90,7 +90,7 @@ bug-d0c8b1e2 (Yolo PreToolUse research-first guard misfires on read-only filesys
 ## Acceptance
 
 1. The guard does not misfire after the agent has demonstrably done substantial research (Read calls, Grep, etc.) — verified by an integration test that simulates the yolo flow.
-2. The guard's source-of-truth cannot be trivially faked by an agent with sqlite3 access, OR the guard documents that it is advisory-only.
+2. The guard&#39;s source-of-truth cannot be trivially faked by an agent with sqlite3 access, OR the guard documents that it is advisory-only.
 3. If the guard fails open due to a data-source issue (e.g., agent_events not recording), it logs a visible warning rather than silently allowing or silently blocking.
 4. Tests cover both the misfire scenario and the bypass scenario.</p>
         </section>

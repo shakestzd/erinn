@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Wire up dashboard slice-level review endpoints</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T05:18:53.047724"
-             data-updated="2026-05-01T05:49:58.865549" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:42:55.544393" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files="cmd/htmlgraph/api_plans.go,cmd/htmlgraph/api_plans_slice_test.go,cmd/htmlgraph/api_tree.go,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/worktree_helpers_test.go,internal/db/plan_feedback.go,internal/storage/dbpath.go,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/plan/SKILL.md,packages/gemini-extension/skills/plan/SKILL.md,plugin/skills/plan/SKILL.md">
 
         <header>
             <h1>Wire up dashboard slice-level review endpoints</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-01T05:18:53.075721">trk-a30e8df4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="1ec53080-cea4-44b0-9942-e29ded1f5ee3.html" data-relationship="implemented_in" data-since="2026-05-01T05:21:55.708819">session 1ec53080-cea4-44b0-9942-e29ded1f5ee3</a></li>
+                    <li><a href="../sessions/1ec53080-cea4-44b0-9942-e29ded1f5ee3.html" data-relationship="implemented_in" data-since="2026-05-01T05:21:55.708819">session 1ec53080-cea4-44b0-9942-e29ded1f5ee3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-01T05:18:53.075721">trk-a30e8df4</a></li>
                 </ul>
             </section>
         </nav>
@@ -41,20 +41,20 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-289752a6-0" data-agent="claude-code">✅ Audit cmd/htmlgraph/api_plans.go planRouter — document the current /api/plans/ subpath dispatch in a short comment block; identify what handlers (if any) exist for slice paths today</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-1" data-agent="claude-code">✅ Fix GET /api/plans/&lt;id&gt; JSON serialization — currently returns invalid/empty body. Should return the full plan including slices, design, questions, and per-slice approval state pulled from plan_feedback</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-2" data-agent="claude-code">✅ Add GET /api/plans/&lt;id&gt;/slices — returns array of {num, title, approval_status, execution_status, deps, has_unanswered_questions} for fast dashboard rendering</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-3" data-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/approve — must call the same internal function that &#39;htmlgraph plan approve-slice&#39; uses; do not duplicate the data-model writes</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-4" data-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/reject — accept optional JSON body {changes_requested: bool, comment: string}; reuse &#39;htmlgraph plan reject-slice&#39; code path</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-5" data-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/promote — accept optional {waive_deps: bool} body; reuse &#39;htmlgraph plan promote-slice&#39; code path; return the created feature ID in the response</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-6" data-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/status — accept {execution_status: not_started|promoted|in_progress|done|blocked|superseded}; reuse &#39;htmlgraph plan set-slice-status&#39; code path</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-7" data-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/answer — accept {question_id, answer_key} body; reuse &#39;htmlgraph plan answer-slice-question&#39; code path</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-8" data-agent="claude-code">✅ Add tests in cmd/htmlgraph/api_plans_slice_test.go covering each new endpoint: success path, 404 on bad slice number, dependency-blocked promote, idempotent re-approval</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-9" data-agent="claude-code">✅ Update plugin/static/components.js (or the actual dashboard JS entry — locate first; only components.js and has-styles.css exist in plugin/static/) to render per-slice review UI: approve / reject / promote buttons, execution-status badge, question-answer dropdowns, deps indicator. Buttons POST to the new endpoints and refresh slice state on 200</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-10" data-agent="claude-code">✅ Manual end-to-end verification against plan-3bbc313f at http://localhost:8088 (devcontainer port): navigate to the plan view, approve slice 1 (Phase 0a OTEL ingestion fix) from the dashboard, refresh the page, confirm approval_status persists; reject slice 5 with changes_requested, confirm state visible; answer one of the open questions from the dashboard</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-11" data-agent="claude-code">✅ Wave 1: Backend slice review endpoints [task:1]</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-12" data-agent="claude-code">✅ Wave 2: Dashboard slice review UI [task:2]</li>
-                <li data-completed="true" data-step-id="step-feat-289752a6-13" data-agent="claude-code">✅ Wave 3: Manual end-to-end verification [task:3]</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Audit cmd/htmlgraph/api_plans.go planRouter — document the current /api/plans/ subpath dispatch in a short comment block; identify what handlers (if any) exist for slice paths today</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Fix GET /api/plans/&lt;id&gt; JSON serialization — currently returns invalid/empty body. Should return the full plan including slices, design, questions, and per-slice approval state pulled from plan_feedback</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add GET /api/plans/&lt;id&gt;/slices — returns array of {num, title, approval_status, execution_status, deps, has_unanswered_questions} for fast dashboard rendering</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/approve — must call the same internal function that &#39;htmlgraph plan approve-slice&#39; uses; do not duplicate the data-model writes</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/reject — accept optional JSON body {changes_requested: bool, comment: string}; reuse &#39;htmlgraph plan reject-slice&#39; code path</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/promote — accept optional {waive_deps: bool} body; reuse &#39;htmlgraph plan promote-slice&#39; code path; return the created feature ID in the response</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/status — accept {execution_status: not_started|promoted|in_progress|done|blocked|superseded}; reuse &#39;htmlgraph plan set-slice-status&#39; code path</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-7" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add POST /api/plans/&lt;id&gt;/slice/&lt;n&gt;/answer — accept {question_id, answer_key} body; reuse &#39;htmlgraph plan answer-slice-question&#39; code path</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-8" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add tests in cmd/htmlgraph/api_plans_slice_test.go covering each new endpoint: success path, 404 on bad slice number, dependency-blocked promote, idempotent re-approval</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-9" data-agent="claude-code" data-created-by-agent="claude-code">✅ Update plugin/static/components.js (or the actual dashboard JS entry — locate first; only components.js and has-styles.css exist in plugin/static/) to render per-slice review UI: approve / reject / promote buttons, execution-status badge, question-answer dropdowns, deps indicator. Buttons POST to the new endpoints and refresh slice state on 200</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-10" data-agent="claude-code" data-created-by-agent="claude-code">✅ Manual end-to-end verification against plan-3bbc313f at http://localhost:8088 (devcontainer port): navigate to the plan view, approve slice 1 (Phase 0a OTEL ingestion fix) from the dashboard, refresh the page, confirm approval_status persists; reject slice 5 with changes_requested, confirm state visible; answer one of the open questions from the dashboard</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-11" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wave 1: Backend slice review endpoints [task:1]</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-12" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wave 2: Dashboard slice review UI [task:2]</li>
+                <li data-completed="true" data-step-id="step-feat-289752a6-13" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wave 3: Manual end-to-end verification [task:3]</li>
             </ol>
         </section>
 

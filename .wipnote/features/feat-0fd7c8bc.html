@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Cross-harness `htmlgraph plan elicit-decisions` &#43; Claude skill &#43; promote/complete gates</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-04T16:44:12.806723"
-             data-updated="2026-05-04T19:12:53.807357" data-agent-assigned="claude-code" data-track-id="trk-13e39042">
+             data-updated="2026-08-09T20:42:49.635691" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-affected_files=".htmlgraph/plans/plan-cc24034c.html,.htmlgraph/plans/plan-cc24034c.yaml,THIRD-PARTY-NOTICES.md,cmd/htmlgraph/compliance.go,cmd/htmlgraph/plan_cmds.go,cmd/htmlgraph/plan_elicit_decisions.go,cmd/htmlgraph/plan_elicit_decisions_test.go,cmd/htmlgraph/plan_promote_slice.go,cmd/htmlgraph/plan_promote_slice_test.go,cmd/htmlgraph/spec.go,cmd/htmlgraph/spec_test.go,cmd/htmlgraph/tdd.go,cmd/htmlgraph/tdd_test.go,cmd/htmlgraph/workitem.go,cmd/htmlgraph/workitem_test.go,internal/hooks/task_completion_gate.go,internal/planyaml/io.go,internal/planyaml/schema.go,internal/workitem/htmlwriter.go,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/spec-from-slice/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/templates/spec-template.md,packages/gemini-extension/skills/spec-from-slice/SKILL.md,packages/gemini-extension/templates/spec-template.md,plugin/skills/spec-from-slice/SKILL.md,plugin/templates/spec-template.md,skills/spec-from-slice/SKILL.md,templates/spec-template.md">
 
         <header>
             <h1>Cross-harness `htmlgraph plan elicit-decisions` &#43; Claude skill &#43; promote/complete gates</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:12.818718">plan-cc24034c</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-79f41c6d.html" data-relationship="blocked_by" data-since="2026-05-04T16:44:12.821881">feat-79f41c6d</a></li>
-                    <li><a href="feat-1f0f27de.html" data-relationship="blocked_by" data-since="2026-05-04T16:44:12.824654">feat-1f0f27de</a></li>
+                    <li><a href="../features/feat-79f41c6d.html" data-relationship="blocked_by" data-since="2026-05-04T16:44:12.821881">feat-79f41c6d</a></li>
+                    <li><a href="../features/feat-1f0f27de.html" data-relationship="blocked_by" data-since="2026-05-04T16:44:12.824654">feat-1f0f27de</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:12.811086">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:12.811086">trk-13e39042</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:12.818718">plan-cc24034c</a></li>
                 </ul>
             </section>
         </nav>
@@ -63,21 +63,21 @@
 3. **Claude convenience skill.** New `plugin/skills/spec-from-slice/SKILL.md` with frontmatter `name: htmlgraph:spec-from-slice`, `user_invocable: true`. Body instructs Claude to:
    a. Read the slice card from the plan YAML
    b. Use `AskUserQuestion` to elicit Scope / Decisions / Context (3 grouped questions)
-   c. Run `htmlgraph plan elicit-decisions   --scope "..." --decisions "..." --context "..."` to write the notes
-   d. Run `htmlgraph spec generate  --insert` (slice 1's command) to materialise the spec
+   c. Run `htmlgraph plan elicit-decisions   --scope &#34;...&#34; --decisions &#34;...&#34; --context &#34;...&#34;` to write the notes
+   d. Run `htmlgraph spec generate  --insert` (slice 1&#39;s command) to materialise the spec
    e. Handle re-elicitation: if `slice.DecisionsNotes` already populated, ask whether to re-elicit, edit-in-place, or skip
 
-4. **`promote-slice` gate.** In `cmd/htmlgraph/plan_promote_slice.go` after the approval check (~line 87) and before the dep check (~line 97): if `config.spec_enforcement.promote_slice` is true and `slice.DecisionsNotes == ""`: refuse with error message `"slice  has no decisions; run htmlgraph plan elicit-decisions   first (or invoke /htmlgraph:spec-from-slice on Claude). Override with --allow-spec-skip if intentional."`. Add `--allow-spec-skip` flag for audited override (logs the override into the slice's `Comment` field). Default behavior unchanged when config false.
+4. **`promote-slice` gate.** In `cmd/htmlgraph/plan_promote_slice.go` after the approval check (~line 87) and before the dep check (~line 97): if `config.spec_enforcement.promote_slice` is true and `slice.DecisionsNotes == &#34;&#34;`: refuse with error message `&#34;slice  has no decisions; run htmlgraph plan elicit-decisions   first (or invoke /htmlgraph:spec-from-slice on Claude). Override with --allow-spec-skip if intentional.&#34;`. Add `--allow-spec-skip` flag for audited override (logs the override into the slice&#39;s `Comment` field). Default behavior unchanged when config false.
 
-   Note: this gates on the SLICE having decisions, NOT on the feature having a spec — opus HIGH flagged the original "feature spec" framing as a temporal mismatch (the feature doesn't exist yet at gate time). The slice's `DecisionsNotes` is the right gate target since slice 1's spec generator reads it.
+   Note: this gates on the SLICE having decisions, NOT on the feature having a spec — opus HIGH flagged the original &#34;feature spec&#34; framing as a temporal mismatch (the feature doesn&#39;t exist yet at gate time). The slice&#39;s `DecisionsNotes` is the right gate target since slice 1&#39;s spec generator reads it.
 
-5. **`feature complete` gate.** In `cmd/htmlgraph/workitem.go` `wiSetStatusWithAgent`, when `typeName == "feature"` and `status == "done"`: if `config.spec_enforcement.feature_complete` is true, read the feature HTML, call `extractSpecSection`, parse via slice 2's extended `parseCriteria`. Refuse if (a) section absent, OR (b) section contains 0 `### Requirement:` headings AND 0 legacy `[ ]/[x]/[F]` lines. Threshold: spec section must have ≥1 `### Requirement:` heading with non-empty SHALL line, OR ≥1 legacy line with non-empty criterion text. Add same `--allow-spec-skip` flag for override.
+5. **`feature complete` gate.** In `cmd/htmlgraph/workitem.go` `wiSetStatusWithAgent`, when `typeName == &#34;feature&#34;` and `status == &#34;done&#34;`: if `config.spec_enforcement.feature_complete` is true, read the feature HTML, call `extractSpecSection`, parse via slice 2&#39;s extended `parseCriteria`. Refuse if (a) section absent, OR (b) section contains 0 `### Requirement:` headings AND 0 legacy `[ ]/[x]/[F]` lines. Threshold: spec section must have ≥1 `### Requirement:` heading with non-empty SHALL line, OR ≥1 legacy line with non-empty criterion text. Add same `--allow-spec-skip` flag for override.
 
 6. **Config fields.** Extend `internal/hooks/task_completion_gate.go` (or wherever `block_task_completion_on_quality_failure` lives) with the new fields:
    ```json
-   "spec_enforcement": {
-     "promote_slice": false,
-     "feature_complete": false
+   &#34;spec_enforcement&#34;: {
+     &#34;promote_slice&#34;: false,
+     &#34;feature_complete&#34;: false
    }
    ```
    Both default to false (opt-in).</p>

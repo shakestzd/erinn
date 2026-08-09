@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-29T13:45:17.077053"
-             data-updated="2026-05-29T13:52:23.214959" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-63-g2df392c78">
+             data-updated="2026-08-09T20:42:13.209292" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-63-g2df392c78" data-affected_files=".wipnote/bugs/bug-80b27913.html,internal/pluginbuild/hook_event_contracts.go,internal/pluginbuild/hook_event_contracts_test.go,packages/plugin-core/manifest.json,plugin/hooks/hooks.json">
 
         <header>
             <h1>WorktreeCreate observe-only registration breaks Agent(isolation=worktree); remove registration so CC creates worktrees natively</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T13:45:17.106409">trk-93178cf4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T13:46:18.649286">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                    <li><a href="../sessions/c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T13:46:18.649286">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T13:45:17.106409">trk-93178cf4</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Claude Code WorktreeCreate is a replacement-on-registration hook: registering it replaces CC native git worktree creation; the hook must create the dir and print ONLY the absolute path to stdout. wipnote's handler (internal/hooks/missing_events.go WorktreeCreate) is observe-only — records a checkpoint and returns {continue:true} JSON, so CC stats the JSON as a path and worktree creation fails (live error: 'returned a path that is not a directory: {continue:true}'). Since CC creates worktrees natively when NO WorktreeCreate hook is registered, the durable fix is to REMOVE the WorktreeCreate registration from packages/plugin-core/manifest.json and regenerate ports. Leave WorktreeRemove (documented observational). Verified against code.claude.com/docs/en/worktrees + hooks docs. Takes effect next Claude session (hooks load at startup).</p>
+            <p>Claude Code WorktreeCreate is a replacement-on-registration hook: registering it replaces CC native git worktree creation; the hook must create the dir and print ONLY the absolute path to stdout. wipnote&#39;s handler (internal/hooks/missing_events.go WorktreeCreate) is observe-only — records a checkpoint and returns {continue:true} JSON, so CC stats the JSON as a path and worktree creation fails (live error: &#39;returned a path that is not a directory: {continue:true}&#39;). Since CC creates worktrees natively when NO WorktreeCreate hook is registered, the durable fix is to REMOVE the WorktreeCreate registration from packages/plugin-core/manifest.json and regenerate ports. Leave WorktreeRemove (documented observational). Verified against code.claude.com/docs/en/worktrees + hooks docs. Takes effect next Claude session (hooks load at startup).</p>
         </section>
     </article>
 </body>

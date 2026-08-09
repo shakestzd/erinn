@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Named volume for .htmlgraph creates root-owned mount point in codespace</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-11T17:59:49.796023"
-             data-updated="2026-04-11T18:00:19.637559" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:44.348106" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".devcontainer/post-create.sh">
 
         <header>
             <h1>Named volume for .htmlgraph creates root-owned mount point in codespace</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T17:59:49.799499">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c9817bff-5e33-4137-b542-f5130d079f3c.html" data-relationship="implemented_in" data-since="2026-04-11T18:00:07.66297">session c9817bff-5e33-4137-b542-f5130d079f3c</a></li>
+                    <li><a href="../sessions/c9817bff-5e33-4137-b542-f5130d079f3c.html" data-relationship="implemented_in" data-since="2026-04-11T18:00:07.66297">session c9817bff-5e33-4137-b542-f5130d079f3c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T17:59:49.799499">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>devcontainer.json declares a Docker named volume for .htmlgraph/. When Docker creates the volume mount point it uses root:root, so vscode can't write. Need defensive sudo chown in post-create.sh.</p>
+            <p>devcontainer.json declares a Docker named volume for .htmlgraph/. When Docker creates the volume mount point it uses root:root, so vscode can&#39;t write. Need defensive sudo chown in post-create.sh.</p>
         </section>
     </article>
 </body>

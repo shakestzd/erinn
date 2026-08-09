@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-06-10T05:54:15.032222"
-             data-updated="2026-06-10T07:47:41.529131" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-08-09T20:42:41.098598" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4" data-affected_files=".wipnote/bugs/bug-eca8141d.html,cmd/wipnote/api_plans.go,cmd/wipnote/reindex.go,cmd/wipnote/reindex_plan_approvals.go,cmd/wipnote/reindex_plan_approvals_test.go,core/db/plan_feedback.go,core/db/plan_feedback_test.go">
 
         <header>
             <h1>Plan finalize stranded after cache rebuild: plan_feedback approvals not replayed by reindex</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T05:54:15.095001">trk-13e39042</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T06:25:36.85397">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T06:25:36.85397">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T05:54:15.095001">trk-13e39042</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>User-hit on v0.61.0 (Nipesa desktop plan): UI shows 8/8 slices approved but Finalize rejects 'not all sections approved'. Root cause: IsPlanFullyApproved/GetSliceApprovals gate on plan_feedback rows in the derived per-user SQLite cache, while the review rail + slice APPROVED chips read canonical plan YAML. Reindex/first-run rebuild does NOT replay plan_feedback (no reindex code references the table), so any cache rebuild (e.g. after upgrade) wipes approvals and strands every reviewed-but-unfinalized plan: GetSliceApprovals returns empty, legacy design/outline fallback also finds nothing, finalize blocked. FIX: make finalize gating canonical-first — if plan YAML slices carry approved status, accept that when plan_feedback has no rows (or better: replay slice approvals into plan_feedback during reindex from the canonical store, mirroring the dual-write fix from bug-3e524d0f). Workaround: re-approve each slice in the dashboard to repopulate rows. Related: bug-9f753d25 (slices-only unification, shipped in v0.61.0), bug-3e524d0f, bug-4b399212. Key sites: core/db/plan_feedback.go GetSliceApprovals ~198 + IsPlanFullyApproved ~106, cmd/wipnote/api_plans.go planFinalizeHandler ~395.</p>
+            <p>User-hit on v0.61.0 (Nipesa desktop plan): UI shows 8/8 slices approved but Finalize rejects &#39;not all sections approved&#39;. Root cause: IsPlanFullyApproved/GetSliceApprovals gate on plan_feedback rows in the derived per-user SQLite cache, while the review rail + slice APPROVED chips read canonical plan YAML. Reindex/first-run rebuild does NOT replay plan_feedback (no reindex code references the table), so any cache rebuild (e.g. after upgrade) wipes approvals and strands every reviewed-but-unfinalized plan: GetSliceApprovals returns empty, legacy design/outline fallback also finds nothing, finalize blocked. FIX: make finalize gating canonical-first — if plan YAML slices carry approved status, accept that when plan_feedback has no rows (or better: replay slice approvals into plan_feedback during reindex from the canonical store, mirroring the dual-write fix from bug-3e524d0f). Workaround: re-approve each slice in the dashboard to repopulate rows. Related: bug-9f753d25 (slices-only unification, shipped in v0.61.0), bug-3e524d0f, bug-4b399212. Key sites: core/db/plan_feedback.go GetSliceApprovals ~198 + IsPlanFullyApproved ~106, cmd/wipnote/api_plans.go planFinalizeHandler ~395.</p>
         </section>
     </article>
 </body>

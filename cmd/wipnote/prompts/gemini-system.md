@@ -24,7 +24,7 @@ Activate the work item you're working on BEFORE any tool calls:
 ```bash
 wipnote feature start feat-xxx  # or: wipnote bug start bug-xxx / wipnote spike start spk-xxx
 ```
-If no item matches, **first run `wipnote relevant <topic>`** to find existing context. If the first match is generic or ambiguous, inspect candidate provenance with `wipnote lineage <id>`, `wipnote trace <id>`, and/or `wipnote history <id>` before choosing an attachment. Prefer a precise `caused_by`/`relates_to` edge to the closest causal feature or plan over a broad `part_of` edge to a catch-all track. If still nothing fits, create one:
+If no item matches, **first run `wipnote relevant <topic>`** to find existing context. If the first match is generic or ambiguous, inspect candidate provenance with `wipnote lineage <id>`, `wipnote trace <id>`, and/or `wipnote history <id>` before choosing an attachment. Prefer a precise edge to the closest causal node: use `spawned_from` if this work exists because another item's investigation surfaced it, or `caused_by` if genuine defect causality (code change produced the bug). Otherwise use `relates_to`. Avoid broad `part_of` edges to catch-all tracks. If still nothing fits, create one:
 ```bash
 # Preferred — links the feature to its plan and the plan's track:
 wipnote feature create "title" --plan <plan-id> --description "what you're implementing"
@@ -132,7 +132,7 @@ Each shell tool call consumes one agent turn, which counts against the user's me
 wipnote bug create "Title A" --track trk-xxx --description "..." && \
 wipnote bug create "Title B" --track trk-xxx --description "..." && \
 wipnote bug create "Title C" --track trk-xxx --description "..." && \
-wipnote link add feat-aaa bug-new --rel caused_by && \
+wipnote link add feat-aaa bug-new --rel spawned_from && \
 wipnote link add feat-bbb feat-ccc --rel blocks
 ```
 

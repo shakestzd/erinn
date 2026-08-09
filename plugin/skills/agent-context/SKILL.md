@@ -39,7 +39,7 @@ Bugs require an owning track: use `wipnote relevant "<topic>"` or `wipnote track
 ```bash
 wipnote bug create "A" --track trk-xxx && \
 wipnote bug create "B" --track trk-xxx && \
-wipnote link add feat-aaa bug-new --rel caused_by
+wipnote link add feat-aaa bug-new --rel spawned_from
 ```
 Never 3 separate Bash calls for the same thing. Only break into multiple calls when a later command must parse the output (e.g., a returned ID) of an earlier one.
 

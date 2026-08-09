@@ -295,7 +295,7 @@ Only these can be executed directly by orchestrator:
 
 Before creating ANY feature, bug, or spike:
 1. Run `wipnote relevant <topic>` — it searches ALL items including completed tracks, plans, and features (`wipnote find` also returns all statuses without `--status`). The CIGS roster shows only open items; an empty roster does NOT mean no lineage exists.
-2. If the first result is generic, ambiguous, or only loosely related, inspect provenance before creating/attaching anything: run `wipnote lineage <candidate>`, `wipnote trace <candidate>`, and/or `wipnote history <candidate>` on the best plan/feature/track candidates until you can name the closest causal parent. Prefer a precise `caused_by`/`relates_to` edge to that feature or plan over a broad `part_of` edge to a catch-all track.
+2. If the first result is generic, ambiguous, or only loosely related, inspect provenance before creating/attaching anything: run `wipnote lineage <candidate>`, `wipnote trace <candidate>`, and/or `wipnote history <candidate>` on the best plan/feature/track candidates until you can name the closest causal parent. Prefer a precise edge to that feature or plan: use `spawned_from` if this work exists because another item's investigation surfaced it, or `caused_by` if genuine defect causality. Avoid broad `part_of` edges to catch-all tracks.
 3. Match the new work against existing tracks, plans, and completed features — attach to the best fitting existing lineage rather than creating a new standalone item.
 4. Only create a new track if NO existing track covers the scope; run `wipnote track list` to enumerate all tracks.
 5. When in doubt, ask the user which track or plan to use.

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-22T03:17:54.561707"
-             data-updated="2026-05-23T07:02:15.919524" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:42:41.372535" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".goreleaser.yml,.wipnote/bugs/bug-ee77c482.html,cmd/wipnote/codex.go,cmd/wipnote/codex_test.go">
 
         <header>
             <h1>wipnote codex: marketplace registration fails — &#39;local marketplace source must be a directory, not a file&#39; (v0.60.9)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T03:17:54.570695">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-22T03:18:19.821124">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-22T03:18:19.821124">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T03:17:54.570695">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>After 'wipnote upgrade' to v0.60.9 on darwin/arm64, 'wipnote codex' fails to register the wipnote marketplace with Codex CLI: exit status 1, Output: 'Error: local marketplace source must be a directory, not a file'. Result: Codex session runs WITHOUT wipnote agents. wipnote is passing a file path as the Codex marketplace source where Codex expects a directory. Hint in error mentions stale [plugins."wipnote@wipnote"] entry in ~/.codex/config.toml and 'wipnote codex --init'.</p>
+            <p>After &#39;wipnote upgrade&#39; to v0.60.9 on darwin/arm64, &#39;wipnote codex&#39; fails to register the wipnote marketplace with Codex CLI: exit status 1, Output: &#39;Error: local marketplace source must be a directory, not a file&#39;. Result: Codex session runs WITHOUT wipnote agents. wipnote is passing a file path as the Codex marketplace source where Codex expects a directory. Hint in error mentions stale [plugins.&#34;wipnote@wipnote&#34;] entry in ~/.codex/config.toml and &#39;wipnote codex --init&#39;.</p>
         </section>
     </article>
 </body>

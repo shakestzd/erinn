@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Teach the instruction surfaces the spawned_from versus caused_by distinction</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-ecd0d858"
+             data-type="feature"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-09T12:31:55.294137"
+             data-updated="2026-08-09T12:36:13.35256" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Teach the instruction surfaces the spawned_from versus caused_by distinction</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T12:33:53.416608">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-09T12:31:55.306657">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-df1ba14f.html" data-relationship="spawned_from" data-since="2026-08-09T12:32:04.891591">Edge taxonomy, behaviour nodes, tests as first-class citizens — and whether HTML is actually the edge source of truth</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The orchestrator system prompt, two skills, and the retained Gemini prompt all instruct agents to prefer a caused_by edge when attaching new work to the item whose investigation surfaced it, and one carries a worked example doing exactly that. The enum&#39;s spawned_from edge — the correct relation for provenance of discovery and derivation — appears in zero instruction surfaces. The measurable result: one session produced dozens of discovery edges filed under the causality name, by instruction rather than by error. Update all four surfaces to use spawned_from for work-item provenance and reserve caused_by for genuine defect causality, per the work-items-are-not-causal-nodes decision. Check the link command&#39;s help text for the same gap while there. Plugin skill edits require regenerating the port trees, and the embedded prompts reach running sessions only on rebuild.</p>
+        </section>
+    </article>
+</body>
+</html>

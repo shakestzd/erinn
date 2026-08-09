@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Implement htmlgraph cache eviction &#43; cache subcommands</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-27T10:50:56.82481"
-             data-updated="2026-05-01T17:50:12.595797" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:26.765305" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-0403e704.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-c5a34bc3.html,.htmlgraph/bugs/bug-f22b6349.html,.htmlgraph/bugs/bug-f92bedff.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-500da04c.html,.htmlgraph/features/feat-57d35c02.html,.htmlgraph/features/feat-725953d3.html,.htmlgraph/features/feat-7af2dda7.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-af47836b.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/plans/plan-3bbc313f.html,.htmlgraph/plans/plan-3bbc313f.yaml,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-2c83a1e2.html,cmd/htmlgraph/blame.go,cmd/htmlgraph/blame_test.go,cmd/htmlgraph/cache.go,cmd/htmlgraph/cache_pollution_test.go,cmd/htmlgraph/code_areas.go,cmd/htmlgraph/code_areas_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/multiharness_test.go,cmd/htmlgraph/otel_collect.go,cmd/htmlgraph/worktree_helpers_test.go,docs/cli/blame.md,docs/code-areas.md,internal/blame/areas.go,internal/blame/areas_test.go,internal/blame/blame.go,internal/blame/blame_test.go,internal/otel/sink/ndjson/ndjson.go,internal/otel/sink/ndjson/ndjson_test.go,internal/otel/sink/sink_test.go,internal/storage/dbpath.go,internal/storage/evict.go,internal/storage/evict_test.go">
 
         <header>
             <h1>Implement htmlgraph cache eviction &#43; cache subcommands</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-dfb051a3.html" data-relationship="caused_by" data-since="2026-04-27T10:50:57.613266">Investigate ~/.cache/htmlgraph layout &#43; design eviction policy</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="412cdeef-bc20-424f-9b11-e6e716d579a6.html" data-relationship="implemented_in" data-since="2026-04-27T10:52:53.179248">session 412cdeef-bc20-424f-9b11-e6e716d579a6</a></li>
-                    <li><a href="c9523f7b-3484-4e6a-8b23-11d36d057246.html" data-relationship="implemented_in" data-since="2026-05-01T01:43:47.019884">session c9523f7b-3484-4e6a-8b23-11d36d057246</a></li>
+                    <li><a href="../sessions/412cdeef-bc20-424f-9b11-e6e716d579a6.html" data-relationship="implemented_in" data-since="2026-04-27T10:52:53.179248">session 412cdeef-bc20-424f-9b11-e6e716d579a6</a></li>
+                    <li><a href="../sessions/c9523f7b-3484-4e6a-8b23-11d36d057246.html" data-relationship="implemented_in" data-since="2026-05-01T01:43:47.019884">session c9523f7b-3484-4e6a-8b23-11d36d057246</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-27T10:50:56.828513">trk-0677c709</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
-                <ul>
-                    <li><a href="spk-dfb051a3.html" data-relationship="caused_by" data-since="2026-04-27T10:50:57.613266">Investigate ~/.cache/htmlgraph layout &#43; design eviction policy</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-27T10:50:56.828513">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,16 +48,16 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-9b767422-0" data-agent="claude-code">✅ Add internal/storage/evict.go with max-age and max-size eviction logic</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-1" data-agent="claude-code">✅ Add cmd/htmlgraph/cache.go with prune (with --dry-run) and stats subcommands</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-2" data-agent="claude-code">✅ Wire opportunistic prune into cmd/htmlgraph/root.go PersistentPreRun (only acts if last-prune marker is older than 7 days)</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-3" data-agent="claude-code">✅ Add unit tests for evict.go covering max-age max-size both-trigger empty-cache missing-cache</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-4" data-agent="claude-code">✅ Run quality gates: go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-5" data-agent="claude-code">✅ Write failing tests for storage.Evict [task:1]</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-6" data-agent="claude-code">✅ Implement internal/storage/evict.go [task:2]</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-7" data-agent="claude-code">✅ Add cmd/htmlgraph/cache.go with prune&#43;stats subcommands [task:3]</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-8" data-agent="claude-code">✅ Wire opportunistic prune into PersistentPreRunE [task:4]</li>
-                <li data-completed="true" data-step-id="step-feat-9b767422-9" data-agent="claude-code">✅ Quality gates &#43; commit [task:5]</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add internal/storage/evict.go with max-age and max-size eviction logic</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/cache.go with prune (with --dry-run) and stats subcommands</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire opportunistic prune into cmd/htmlgraph/root.go PersistentPreRun (only acts if last-prune marker is older than 7 days)</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add unit tests for evict.go covering max-age max-size both-trigger empty-cache missing-cache</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Run quality gates: go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Write failing tests for storage.Evict [task:1]</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement internal/storage/evict.go [task:2]</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-7" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/cache.go with prune&#43;stats subcommands [task:3]</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-8" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire opportunistic prune into PersistentPreRunE [task:4]</li>
+                <li data-completed="true" data-step-id="step-feat-9b767422-9" data-agent="claude-code" data-created-by-agent="claude-code">✅ Quality gates &#43; commit [task:5]</li>
             </ol>
         </section>
 

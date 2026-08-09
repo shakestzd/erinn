@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>yolo-guard SQL misses screenshots taken via mcp__claude-in-chrome__browser_batch</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-05T15:02:22.101896"
-             data-updated="2026-05-05T15:06:24.623156" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:41:41.508817" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-19276d4b.html,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go">
 
         <header>
             <h1>yolo-guard SQL misses screenshots taken via mcp__claude-in-chrome__browser_batch</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:02:22.135082">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-05T15:03:57.264973">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-05T15:03:57.264973">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:02:22.135082">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
@@ -42,17 +42,17 @@
             <h3>Description</h3>
             <p>Mirror of GitHub issue #89 (https://github.com/shakestzd/htmlgraph/issues/89).
 
-The YOLO-mode pre-commit visual-validation gate (yolo_guard.go's checkYoloUIValidationGuard) blocks commits with 'UI files were modified but no visual validation was performed' even when screenshots were taken inside mcp__claude-in-chrome__browser_batch calls.
+The YOLO-mode pre-commit visual-validation gate (yolo_guard.go&#39;s checkYoloUIValidationGuard) blocks commits with &#39;UI files were modified but no visual validation was performed&#39; even when screenshots were taken inside mcp__claude-in-chrome__browser_batch calls.
 
-Root cause: the SQL predicate requires tool_name='mcp__claude-in-chrome__computer' AND tool_input LIKE '%"action":"screenshot"%' (with screenshot LIKE catch-alls). When a screenshot is taken via mcp__claude-in-chrome__browser_batch with actions:[{name:'computer',input:{action:'screenshot',tabId:N}}], the recorded tool_name is browser_batch, NOT computer. tool_input still contains 'action:screenshot' but the AND-predicate on tool_name excludes the row.
+Root cause: the SQL predicate requires tool_name=&#39;mcp__claude-in-chrome__computer&#39; AND tool_input LIKE &#39;%&#34;action&#34;:&#34;screenshot&#34;%&#39; (with screenshot LIKE catch-alls). When a screenshot is taken via mcp__claude-in-chrome__browser_batch with actions:[{name:&#39;computer&#39;,input:{action:&#39;screenshot&#39;,tabId:N}}], the recorded tool_name is browser_batch, NOT computer. tool_input still contains &#39;action:screenshot&#39; but the AND-predicate on tool_name excludes the row.
 
 Result: the gate fights the recommended Claude Code workflow (system reminders explicitly recommend browser_batch for MCP call batching).
 
-Fix (one-line SQL change in yolo_guard.go's checkYoloUIValidationGuard):
+Fix (one-line SQL change in yolo_guard.go&#39;s checkYoloUIValidationGuard):
 - Drop the tool_name AND-filter, match on tool_input alone (any tool whose input contains action:screenshot)
 - Plus existing tool_name LIKE catch-alls for screenshot/take_screenshot
 
-Or more conservative: add OR (tool_name='mcp__claude-in-chrome__browser_batch' AND tool_input LIKE '%action:screenshot%').
+Or more conservative: add OR (tool_name=&#39;mcp__claude-in-chrome__browser_batch&#39; AND tool_input LIKE &#39;%action:screenshot%&#39;).
 
 Workaround until fixed: call mcp__claude-in-chrome__computer with action:screenshot directly, bypassing browser_batch.</p>
         </section>

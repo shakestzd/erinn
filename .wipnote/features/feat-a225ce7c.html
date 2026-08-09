@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-17T09:01:38.431592"
-             data-updated="2026-05-17T17:29:40.295463" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:43:28.03691" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files=".wipnote/features/feat-a225ce7c.html,.wipnote/plans/plan-1670cacd.html,.wipnote/plans/plan-1670cacd.yaml,cmd/wipnote/api_session_family.go,cmd/wipnote/codex.go,cmd/wipnote/gemini_launch.go,cmd/wipnote/serve.go,cmd/wipnote/session_family_launcher.go,cmd/wipnote/session_family_launcher_test.go,internal/agent/session_family.go,internal/agent/session_family_test.go,internal/db/migrations.go,internal/db/schema.go,internal/db/session_family_migration_test.go,internal/db/session_family_repo_test.go,internal/db/session_repo.go,internal/hooks/session_family_hook_test.go,internal/hooks/session_start.go,internal/models/session.go">
 
         <header>
             <h1>Session-family continuity and per-session fallback state</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T09:02:31.496564">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-6164aa2d.html" data-relationship="blocked_by" data-since="2026-05-17T09:01:38.444506">feat-6164aa2d</a></li>
+                    <li><a href="../features/feat-6164aa2d.html" data-relationship="blocked_by" data-since="2026-05-17T09:01:38.444506">feat-6164aa2d</a></li>
                 </ul>
             </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T09:01:38.441854">plan-1670cacd</a></li>
+                    <li><a href="../sessions/82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T09:02:31.496564">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T09:01:38.435113">trk-a30e8df4</a></li>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T09:01:38.435113">trk-a30e8df4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T09:01:38.441854">plan-1670cacd</a></li>
                 </ul>
             </section>
         </nav>
@@ -63,7 +63,7 @@ Add or wire:
   `.active-session` last-writer-wins file
 - harness-neutral resume correlation for Claude, Codex, and Gemini
 - persisted launcher-session to harness-session bridges for all three
-  launchers, not just Claude's Rosetta event path
+  launchers, not just Claude&#39;s Rosetta event path
 
 Keep backward compatibility for old `.active-session` reads during a
 migration window, but prefer per-session state when present.

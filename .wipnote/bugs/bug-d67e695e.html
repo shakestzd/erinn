@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-15T05:36:36.756958"
-             data-updated="2026-05-15T18:31:37.619526" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-2-g200e14116">
+             data-updated="2026-08-09T20:42:35.143463" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-2-g200e14116" data-affected_files=".wipnote/bugs/bug-266f3aa0.html,.wipnote/bugs/bug-44ee9dd8.html,.wipnote/bugs/bug-55a17fc2.html,.wipnote/bugs/bug-7b5339cc.html,.wipnote/bugs/bug-d67e695e.html,.wipnote/features/feat-a0c0025e.html,.wipnote/features/feat-e78221c7.html,.wipnote/tracks/trk-0677c709.html">
 
         <header>
             <h1>Activity feed shows duplicate user-prompt rows from OtelLog fallback</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T05:36:39.343142">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                    <li><a href="../sessions/08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T05:36:39.343142">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T05:36:36.761032">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T05:36:36.761032">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Dashboard activity feed renders each Gemini user prompt twice: one row from buildEventTreeOtel (interaction span, iconed, real tool count) and one from buildEventTreeOtelLogFallback (zero-ts log, often 0 tools). The fallback's NOT EXISTS filter compares ts_micros directly, but Gemini user_prompt logs have ts_micros=0 (real ts in attrs_json), so NOT EXISTS passes. Secondary defense at filterAnchorsAgainstInteractionSpans (api_tree.go:318-320) short-circuits zero-ts anchors as 'keep' instead of filtering them, letting the duplicate through.</p>
+            <p>Dashboard activity feed renders each Gemini user prompt twice: one row from buildEventTreeOtel (interaction span, iconed, real tool count) and one from buildEventTreeOtelLogFallback (zero-ts log, often 0 tools). The fallback&#39;s NOT EXISTS filter compares ts_micros directly, but Gemini user_prompt logs have ts_micros=0 (real ts in attrs_json), so NOT EXISTS passes. Secondary defense at filterAnchorsAgainstInteractionSpans (api_tree.go:318-320) short-circuits zero-ts anchors as &#39;keep&#39; instead of filtering them, letting the duplicate through.</p>
         </section>
     </article>
 </body>

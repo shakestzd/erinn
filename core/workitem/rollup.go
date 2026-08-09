@@ -1,15 +1,9 @@
 package workitem
 
 import (
-	"database/sql"
-	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/shakestzd/wipnote/core/models"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // Per-work-item outcome rollups (feat-7ee73444).
@@ -65,8 +59,8 @@ const (
 
 	// MarkerUnavailable is the value of the two half-markers.
 	MarkerUnavailable = "unavailable"
-	// ReasonNoReadIndex: completion ran without a SQLite handle. Both
-	// sources are derived-index reads, so neither half is computable.
+	// ReasonNoReadIndex: completion ran without a derived projection. Both
+	// sources are projection reads, so neither half is computable.
 	ReasonNoReadIndex = "no_read_index"
 	// ReasonComputeError: a query failed or panicked. The completion still
 	// succeeded — this marker is the durable, git-tracked record that it
@@ -124,26 +118,13 @@ const (
 // mid-rebuild would be one more. The failure is still loud — a stderr warning
 // for the human running the command, and RollupUnavailableKey persisted into
 // the artifact so the gap is visible long after the terminal scrolls away.
-func ApplyRollup(node *models.Node, database *sql.DB, itemID string) {
+func ApplyRollup(node *models.Node, itemID string) {
 	if node == nil {
 		return
 	}
 	clearRollupProps(node)
-
-	if database == nil {
-		setRollupProp(node, RollupUnavailableKey, ReasonNoReadIndex)
-		return
-	}
-
-	props, err := computeRollupProps(database, itemID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "wipnote: rollup for %s skipped: %v\n", itemID, err)
-		setRollupProp(node, RollupUnavailableKey, ReasonComputeError)
-		return
-	}
-	for k, v := range props {
-		setRollupProp(node, k, v)
-	}
+	_ = itemID
+	setRollupProp(node, RollupUnavailableKey, ReasonNoReadIndex)
 }
 
 // clearRollupProps drops every rollup-prefixed key. This is what makes
@@ -162,142 +143,6 @@ func setRollupProp(node *models.Node, key, value string) {
 		node.Properties = map[string]any{}
 	}
 	node.Properties[key] = value
-}
-
-// computeRollupProps builds the full key/value set for one item.
-//
-// Values are strings, not numbers, so that every key renders as its own
-// readable data-<key> attribute rather than folding into the data-node-props
-// JSON escape hatch (renderPropAttrs only gives a key the attribute form when
-// the value is a string). The artifact is meant to be greppable and
-// diff-readable; a JSON blob would defeat both.
-//
-// The deferred recover is belt-and-braces for a hot, user-facing, lock-holding
-// path: a scan panic here would otherwise take a completion down with it.
-func computeRollupProps(database *sql.DB, itemID string) (props map[string]string, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			props, err = nil, fmt.Errorf("panic: %v", r)
-		}
-	}()
-
-	w := rollupProps{out: map[string]string{}}
-
-	stats, err := dbpkg.ItemOutcomeRollup(database, itemID)
-	if err != nil {
-		return nil, err
-	}
-	if stats.Signals == 0 {
-		// The explicit unavailable marker. Every Codex and Antigravity item
-		// lands here today, as does any Claude item completed with telemetry
-		// off — all of which must read as "unknown", never as "clean".
-		w.out[RollupTelemetryKey] = MarkerUnavailable
-	} else {
-		w.partial("failure-rate",
-			fmt.Sprintf("%.4f", ratio(stats.Failures, stats.OutcomeObserved)),
-			SourceOtelSuccess, stats.OutcomeObserved, stats.OutcomeEligible)
-		w.partial("duration-ms",
-			fmt.Sprintf("%d", stats.DurationMsTotal),
-			SourceOtelDuration, stats.DurationRows, stats.Signals)
-		w.complete("elapsed-ms",
-			fmt.Sprintf("%d", stats.ElapsedMs),
-			SourceOtelElapsed, int(stats.ElapsedMs))
-		// A measured zero: attempts were recorded and none was a retry.
-		// Present-with-value-0 is a real observation; omission is not.
-		w.partial("retries",
-			fmt.Sprintf("%d", stats.Retries),
-			SourceOtelAttempt, stats.AttemptRows, stats.Signals)
-		w.partial("cost-usd",
-			fmt.Sprintf("%.4f", stats.CostUSDTotal),
-			SourceOtelCost, stats.CostRows, stats.Signals)
-	}
-
-	commits, files, churn, err := gitRollup(database, itemID)
-	if err != nil {
-		return nil, err
-	}
-	if commits == 0 && files == 0 && churn.EditEvents == 0 {
-		w.out[RollupGitKey] = MarkerUnavailable
-	} else {
-		w.complete("commits", fmt.Sprintf("%d", commits), SourceGitCommits, commits)
-		w.complete("files", fmt.Sprintf("%d", files), SourceFeatureFiles, files)
-		w.partial("churn-files",
-			fmt.Sprintf("%d", churn.ChurnedFiles),
-			SourceEditChurn, churn.FilesResolved, churn.EditEvents)
-	}
-
-	w.out[RollupComputedAtKey] = time.Now().UTC().Format(time.RFC3339)
-	return w.out, nil
-}
-
-// gitRollup reads the harness-neutral half through the existing repository
-// functions rather than new SQL: GetCommitsByFeature and ListFilesByFeature
-// are the attribution-corrected readers the rest of the codebase already
-// trusts. Both are keyed by the generic item ID column, so this works for
-// bugs and spikes as well as features. Distinct counting happens here because
-// git_commits is keyed (commit_hash, session_id, feature_id) and can hold the
-// same commit under more than one session.
-func gitRollup(database *sql.DB, itemID string) (commits, files int, churn dbpkg.ItemEditChurn, err error) {
-	rows, err := dbpkg.GetCommitsByFeature(database, itemID)
-	if err != nil {
-		return 0, 0, churn, err
-	}
-	seenCommit := map[string]struct{}{}
-	for _, c := range rows {
-		seenCommit[c.CommitHash] = struct{}{}
-	}
-
-	fileRows, err := dbpkg.ListFilesByFeature(database, itemID)
-	if err != nil {
-		return 0, 0, churn, err
-	}
-	seenFile := map[string]struct{}{}
-	for _, f := range fileRows {
-		seenFile[f.FilePath] = struct{}{}
-	}
-
-	churn, err = dbpkg.ItemEditChurnStats(database, itemID)
-	if err != nil {
-		return 0, 0, churn, err
-	}
-	return len(seenCommit), len(seenFile), churn, nil
-}
-
-// rollupProps accumulates the key/source/coverage triples, enforcing
-// omit-never-zero at the single point where a metric is written.
-type rollupProps struct {
-	out map[string]string
-}
-
-// partial writes a metric whose supporting rows are a subset of what could
-// have supplied it, tagging both the source and the observed/eligible ratio.
-// A metric with zero observations is omitted entirely — that is the "omit,
-// never zero" rule, and it lives here so no caller can bypass it.
-func (w rollupProps) partial(metric, value, source string, observed, eligible int) {
-	if observed <= 0 {
-		return
-	}
-	w.out[RollupPropPrefix+metric] = value
-	w.out[RollupPropPrefix+metric+"-source"] = source
-	w.out[RollupPropPrefix+metric+"-coverage"] = fmt.Sprintf("%d/%d", observed, eligible)
-}
-
-// complete writes a metric that is exhaustive by construction — every row that
-// exists is the measurement, so there is no coverage ratio to state. count is
-// the omission test only; it is not written.
-func (w rollupProps) complete(metric, value, source string, count int) {
-	if count <= 0 {
-		return
-	}
-	w.out[RollupPropPrefix+metric] = value
-	w.out[RollupPropPrefix+metric+"-source"] = source
-}
-
-func ratio(num, den int) float64 {
-	if den <= 0 {
-		return 0
-	}
-	return float64(num) / float64(den)
 }
 
 // RollupProps returns node's rollup keys, sorted, with the prefix stripped.

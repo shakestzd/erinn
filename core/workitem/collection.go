@@ -7,13 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/shakestzd/wipnote/core/daemon/apply"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // FilterFunc is a predicate applied to nodes during queries.
@@ -160,8 +156,8 @@ func (c *Collection) writeNodeUnlocked(node *models.Node) (string, error) {
 }
 
 // mutateNode serialises the full canonical read-modify-write window for a
-// single work item. SQLite remains a derived read index; the HTML file is read
-// and written while holding the per-item sidecar lock.
+// single work item. The HTML file is read and written while holding the
+// per-item sidecar lock.
 func (c *Collection) mutateNode(id string, mutate func(*models.Node) error, afterWrite ...func(*models.Node)) (*models.Node, error) {
 	release := LockFeatureForWrite(c.nodePath(id))
 	defer release()
@@ -182,15 +178,13 @@ func (c *Collection) mutateNode(id string, mutate func(*models.Node) error, afte
 	return node, nil
 }
 
-// Start marks a node as in-progress and dual-writes status to SQLite.
+// Start marks a node as in-progress in the canonical HTML artifact.
 func (c *Collection) Start(id string) (*models.Node, error) {
 	node, err := c.mutateNode(id, func(node *models.Node) error {
 		node.Status = models.StatusInProgress
 		node.AgentAssigned = c.base.Agent
 		node.UpdatedAt = time.Now().UTC()
 		return nil
-	}, func(*models.Node) {
-		c.routeFeatureStatus(id, "in-progress")
 	})
 	if err != nil {
 		return nil, err
@@ -199,7 +193,6 @@ func (c *Collection) Start(id string) (*models.Node, error) {
 }
 
 // Complete marks a node as done and auto-completes all steps.
-// Also releases any active SQLite claim with completed status.
 func (c *Collection) Complete(id string) (*models.Node, error) {
 	node, err := c.mutateNode(id, func(node *models.Node) error {
 		for i := range node.Steps {
@@ -217,24 +210,8 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 		// than through a second write. ApplyRollup never fails — a rollup it
 		// cannot compute degrades to a marked absence, never a blocked
 		// completion.
-		ApplyRollup(node, c.base.DB, id)
+		ApplyRollup(node, id)
 		return nil
-	}, func(*models.Node) {
-		// bug-74a7bda7: the completion status transition is THE
-		// user-visible contended write. feat-075c110d MVP-4 routes it
-		// through the per-project writer daemon first (bounded, fallback-
-		// safe); on any daemon miss it falls back to the direct write with
-		// bounded SQLITE_BUSY backoff so a transient lock resolves
-		// transparently instead of silently dropping the derived-index
-		// completion (canonical HTML is still authoritative either way).
-		c.routeFeatureStatus(id, "done")
-		if c.base.DB != nil {
-			if activeClaim, err := dbpkg.GetActiveClaim(c.base.DB, id); err == nil && activeClaim != nil {
-				completeWithBusyRetry(func() error {
-					return dbpkg.ReleaseClaim(c.base.DB, activeClaim.ClaimID, activeClaim.OwnerSessionID, models.ClaimCompleted)
-				})
-			}
-		}
 	})
 	if err != nil {
 		return nil, err
@@ -242,67 +219,13 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 	return node, nil
 }
 
-// completeWithBusyRetry runs a derived-index write for the work-item
-// status-transition path, retrying on SQLITE_BUSY with bounded exponential
-// backoff (bug-74a7bda7). It records any terminal BUSY under the
-// cli_mutation subsystem so the launch stress gate stays observable, then
-// swallows the error: the canonical HTML on disk remains the source of
-// truth and `wipnote reindex` recovers any row the derived index missed.
-// This is the universal-resilience layer — it helps WAL hosts too, it just
-// almost never has to retry there.
-func completeWithBusyRetry(fn func() error) {
-	err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, fn)
-	dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
-}
-
-// routeFeatureStatus persists a work-item status transition to the derived
-// SQLite index. feat-075c110d MVP-4: it FIRST attempts the per-project writer
-// daemon (apply.RouteFeatureStatus — bounded ~2s, auto-spawn) so concurrent
-// start/complete + dashboard reads no longer contend the writer lock. On ANY
-// daemon miss (unavailable / forbidden / timeout / error-ack) it falls back to
-// the existing direct write via completeWithBusyRetry — exactly today's
-// behaviour. The canonical HTML written upstream is authoritative either way,
-// so a missed derived write is recovered by `wipnote reindex`.
-//
-// SAFETY: this is on the feature/bug/spike start+complete path used by core
-// work tracking. It must never hang and never surface a daemon error to the
-// caller — both the daemon attempt and the fallback are strictly bounded.
-func (c *Collection) routeFeatureStatus(id, status string) {
-	// Reads stay direct; only the derived write is delegated. base.ProjectDir
-	// is the .wipnote/ dir, so the project root is its parent.
-	projectRoot := filepath.Dir(c.base.ProjectDir)
-	if apply.RouteFeatureStatus(projectRoot, id, status) {
-		return // applied (or deduped) by the writer daemon
-	}
-	if c.base.DB == nil {
-		return // no daemon and no direct handle — canonical HTML is authoritative
-	}
-	completeWithBusyRetry(func() error {
-		return dbpkg.UpdateFeatureStatus(c.base.DB, id, status)
-	})
-}
-
 // --- Edge operations ---------------------------------------------------------
 
 // AddEdge reads a node, appends an edge, and writes it back to disk.
-// It also dual-writes to graph_edges in SQLite when a DB connection is available.
-// HTML is canonical; SQLite errors are non-fatal.
 func (c *Collection) AddEdge(id string, e models.Edge) (*models.Node, error) {
 	node, err := c.mutateNode(id, func(node *models.Node) error {
 		node.AddEdge(e)
 		return nil
-	}, func(*models.Node) {
-		// Dual-write to SQLite read index.
-		if c.base.DB != nil {
-			edgeID := fmt.Sprintf("%s-%s-%s", id, string(e.Relationship), e.TargetID)
-			_ = dbpkg.InsertEdge(
-				c.base.DB,
-				edgeID, id, c.nodeType,
-				e.TargetID, inferNodeType(e.TargetID),
-				string(e.Relationship),
-				e.Properties,
-			)
-		}
 	})
 	if err != nil {
 		return nil, fmt.Errorf("add edge %s: %w", id, err)
@@ -313,17 +236,11 @@ func (c *Collection) AddEdge(id string, e models.Edge) (*models.Node, error) {
 
 // RemoveEdge reads a node, removes the matching edge, and writes it back.
 // Returns the updated node and whether an edge was actually removed.
-// It also removes the corresponding row from graph_edges in SQLite.
 func (c *Collection) RemoveEdge(id, targetID string, relType models.RelationshipType) (*models.Node, bool, error) {
 	removed := false
 	node, err := c.mutateNode(id, func(node *models.Node) error {
 		removed = node.RemoveEdge(targetID, relType)
 		return nil
-	}, func(*models.Node) {
-		// Dual-write: remove from SQLite read index.
-		if removed && c.base.DB != nil {
-			_ = dbpkg.DeleteEdge(c.base.DB, id, targetID, string(relType))
-		}
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("remove edge %s: %w", id, err)
@@ -378,7 +295,7 @@ func (c *Collection) Claim(id, sessionID string) error {
 }
 
 // Release clears the claim on a work item, removing agent assignment
-// and claim metadata. Also releases the SQLite claim if DB is available.
+// and claim metadata.
 func (c *Collection) Release(id string) error {
 	_, err := c.mutateNode(id, func(node *models.Node) error {
 		node.AgentAssigned = ""
@@ -386,13 +303,6 @@ func (c *Collection) Release(id string) error {
 		node.ClaimedBySession = ""
 		node.UpdatedAt = time.Now().UTC()
 		return nil
-	}, func(*models.Node) {
-		// Release SQLite claim if DB is available.
-		if c.base.DB != nil {
-			if activeClaim, err := dbpkg.GetActiveClaim(c.base.DB, id); err == nil && activeClaim != nil {
-				_ = dbpkg.ReleaseClaim(c.base.DB, activeClaim.ClaimID, activeClaim.OwnerSessionID, models.ClaimAbandoned)
-			}
-		}
 	})
 	if err != nil {
 		return fmt.Errorf("release %s/%s: %w", c.collectionName, id, err)
@@ -402,8 +312,6 @@ func (c *Collection) Release(id string) error {
 
 // AtomicClaim claims a work item only if it is not already claimed
 // by another agent. Returns an error if already claimed.
-// When a DB connection is available, claiming is atomic at the SQLite level
-// (no race condition). Falls back to HTML-only check when DB is nil.
 func (c *Collection) AtomicClaim(id, sessionID string) error {
 	release := LockFeatureForWrite(c.nodePath(id))
 	defer release()
@@ -412,29 +320,13 @@ func (c *Collection) AtomicClaim(id, sessionID string) error {
 	if err != nil {
 		return fmt.Errorf("atomic claim %s/%s: %w", c.collectionName, id, err)
 	}
-	// SQLite-first: use atomic claim if DB is available.
-	if c.base.DB != nil {
-		claim := &models.Claim{
-			ClaimID:          "clm-" + uuid.NewString()[:8],
-			WorkItemID:       id,
-			OwnerSessionID:   sessionID,
-			OwnerAgent:       c.base.Agent,
-			ClaimedByAgentID: c.base.AgentID,
-			Status:           models.ClaimInProgress,
-		}
-		if err := dbpkg.ClaimItem(c.base.DB, claim, 30*time.Minute); err != nil {
-			return fmt.Errorf("atomic claim %s/%s: %w", c.collectionName, id, err)
-		}
-	} else {
-		// Fallback: HTML-only check (legacy path, race-prone).
-		if node.ClaimedBySession != "" && node.ClaimedBySession != sessionID {
-			return fmt.Errorf("atomic claim %s/%s: already claimed by session %s",
-				c.collectionName, id, node.ClaimedBySession)
-		}
-		if node.AgentAssigned != "" && node.AgentAssigned != c.base.Agent {
-			return fmt.Errorf("atomic claim %s/%s: already claimed by agent %s",
-				c.collectionName, id, node.AgentAssigned)
-		}
+	if node.ClaimedBySession != "" {
+		return fmt.Errorf("atomic claim %s/%s: already claimed by session %s",
+			c.collectionName, id, node.ClaimedBySession)
+	}
+	if node.AgentAssigned != "" && node.AgentAssigned != c.base.Agent {
+		return fmt.Errorf("atomic claim %s/%s: already claimed by agent %s",
+			c.collectionName, id, node.AgentAssigned)
 	}
 
 	// Update HTML metadata (non-authoritative, for display).
@@ -452,9 +344,7 @@ func (c *Collection) AtomicClaim(id, sessionID string) error {
 
 // AddTaskStep appends a step to the node identified by id, using taskID as the
 // step ID so CompleteTaskStep can find and mark it done later.
-// Also updates SQLite step counters (best-effort, HTML is canonical).
 func (c *Collection) AddTaskStep(id, taskID, subject string) error {
-	var total, completed int
 	_, err := c.mutateNode(id, func(node *models.Node) error {
 		stepDesc := subject
 		if stepDesc == "" {
@@ -469,12 +359,7 @@ func (c *Collection) AddTaskStep(id, taskID, subject string) error {
 			Timestamp:   time.Now().UTC(),
 		})
 		node.UpdatedAt = time.Now().UTC()
-		total, completed = countSteps(node.Steps)
 		return nil
-	}, func(*models.Node) {
-		if c.base.DB != nil {
-			_ = dbpkg.UpdateFeatureSteps(c.base.DB, id, total, completed)
-		}
 	})
 	if err != nil {
 		return fmt.Errorf("add task step %s: %w", id, err)
@@ -484,10 +369,8 @@ func (c *Collection) AddTaskStep(id, taskID, subject string) error {
 
 // CompleteTaskStep marks the step matching taskID as completed on the node.
 // No-op if the step is already complete or not found.
-// Also updates SQLite step counters (best-effort, HTML is canonical).
 func (c *Collection) CompleteTaskStep(id, taskID string) error {
 	modified := false
-	var total, completed int
 	_, err := c.mutateNode(id, func(node *models.Node) error {
 		stepID := "task-" + taskID
 		for i := range node.Steps {
@@ -502,12 +385,7 @@ func (c *Collection) CompleteTaskStep(id, taskID string) error {
 		if modified {
 			node.UpdatedAt = time.Now().UTC()
 		}
-		total, completed = countSteps(node.Steps)
 		return nil
-	}, func(*models.Node) {
-		if modified && c.base.DB != nil {
-			_ = dbpkg.UpdateFeatureSteps(c.base.DB, id, total, completed)
-		}
 	})
 	if err != nil {
 		return fmt.Errorf("complete task step %s: %w", id, err)
@@ -518,10 +396,7 @@ func (c *Collection) CompleteTaskStep(id, taskID string) error {
 // CompleteStep marks a manual step as completed by 1-based index, or completes the
 // next incomplete step if stepNum is 0. No-op if the step is already complete.
 // Returns a clean error if stepNum is out of range.
-// Also updates SQLite step counters (best-effort, HTML is canonical).
 func (c *Collection) CompleteStep(id string, stepNum int) error {
-	modified := false
-	var total, completed int
 	_, err := c.mutateNode(id, func(node *models.Node) error {
 		if len(node.Steps) == 0 {
 			return fmt.Errorf("no steps defined")
@@ -553,31 +428,14 @@ func (c *Collection) CompleteStep(id string, stepNum int) error {
 			node.Steps[idx].Completed = true
 			node.Steps[idx].Agent = c.base.Agent
 			node.Steps[idx].Timestamp = time.Now().UTC()
-			modified = true
 			node.UpdatedAt = time.Now().UTC()
 		}
-		total, completed = countSteps(node.Steps)
 		return nil
-	}, func(*models.Node) {
-		if modified && c.base.DB != nil {
-			_ = dbpkg.UpdateFeatureSteps(c.base.DB, id, total, completed)
-		}
 	})
 	if err != nil {
 		return fmt.Errorf("complete step %s: %w", id, err)
 	}
 	return nil
-}
-
-// countSteps returns the total and completed step counts for a step slice.
-func countSteps(steps []models.Step) (total, completed int) {
-	total = len(steps)
-	for _, s := range steps {
-		if s.Completed {
-			completed++
-		}
-	}
-	return total, completed
 }
 
 // Unclaim removes the claim metadata without changing the node's status.

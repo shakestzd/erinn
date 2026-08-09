@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
@@ -69,8 +68,7 @@ func NewFeatureCollection(base *Base) *FeatureCollection {
 	return &FeatureCollection{Collection: newCollection(base, "features", "feature")}
 }
 
-// Create builds a new feature, writes the HTML file, and optionally inserts
-// a row into SQLite (if a database is open).
+// Create builds a new feature and writes the canonical HTML file.
 func (fc *FeatureCollection) Create(title string, opts ...FeatureOption) (*models.Node, error) {
 	if title == "" {
 		return nil, fmt.Errorf("feature title must not be empty")
@@ -113,27 +111,6 @@ func (fc *FeatureCollection) Create(title string, opts ...FeatureOption) (*model
 
 	if _, err := fc.writeNode(node); err != nil {
 		return nil, fmt.Errorf("create feature: %w", err)
-	}
-
-	// Dual-write: insert into SQLite if DB available
-	if fc.base.DB != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "feature",
-			Title:          title,
-			Description:    cfg.content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     fc.base.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		// Best-effort; HTML is canonical. UpsertFeature overwrites any
-		// placeholder row created earlier by ensureFeatureRow (bug-7f4a1a9c).
-		_ = dbpkg.UpsertFeature(fc.base.DB, dbFeat)
 	}
 
 	return node, nil

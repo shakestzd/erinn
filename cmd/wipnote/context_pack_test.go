@@ -1,3 +1,5 @@
+//go:build sqlitelegacy
+
 package main
 
 import (

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
@@ -66,10 +65,6 @@ func executeReset(typeName, id string) (string, error) {
 
 	if err := col.Edit(id).SetStatus(string(models.StatusTodo)).SetAgent("").Save(); err != nil {
 		return "", fmt.Errorf("reset %s %s: %w", typeName, id, err)
-	}
-
-	if p.DB != nil {
-		_ = dbpkg.UpdateFeatureStatus(p.DB, id, string(models.StatusTodo))
 	}
 
 	// Auto-commit the reset HTML so the state transition is durable

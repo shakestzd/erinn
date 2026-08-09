@@ -59,7 +59,7 @@ func runContextPack(ctx context.Context, rawID string) error {
 	if err != nil {
 		return fmt.Errorf("open project: %w", err)
 	}
-	defer proj.DB.Close()
+	defer proj.Close()
 
 	node, err := resolveNode(proj, fullID)
 	if err != nil {
@@ -71,7 +71,7 @@ func runContextPack(ctx context.Context, rawID string) error {
 	if node.TrackID != "" {
 		root := filepath.Dir(dir)
 		fa := false
-		res, walkErr := blame.WalkAreas(ctx, proj.DB, root, blame.WalkOptions{
+		res, walkErr := blame.WalkAreas(ctx, nil, root, blame.WalkOptions{
 			ByFile:           false,
 			IncludeUntracked: &fa,
 		})
@@ -128,7 +128,7 @@ func commitsByTrack(proj *workitem.Project, trackID string) ([]models.GitCommit,
 	}
 
 	// Collect feature IDs from two sources: SQLite index and canonical HTML.
-	dbIDs, err := dbpkg.GetFeatureIDsByTrack(proj.DB, trackID)
+	dbIDs, err := dbpkg.GetFeatureIDsByTrack(nil, trackID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func commitsByTrack(proj *workitem.Project, trackID string) ([]models.GitCommit,
 	seen := make(map[string]bool)
 	var all []models.GitCommit
 	for fid := range idSet {
-		cs, err := dbpkg.GetCommitsByFeature(proj.DB, fid)
+		cs, err := dbpkg.GetCommitsByFeature(nil, fid)
 		if err != nil {
 			continue
 		}

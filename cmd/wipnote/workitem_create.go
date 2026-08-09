@@ -214,14 +214,6 @@ func runWiCreate(typeName, title string, o *wiCreateOpts) error {
 		if _, startErr := collectionFor(p, typeName).Start(node.ID); startErr != nil {
 			return fmt.Errorf("start %s: %w", typeName, startErr)
 		}
-		// Update per-agent attribution so the status line reflects the
-		// newly-started work item (mirrors runWiSetStatus logic).
-		if sessionID != "" && p.DB != nil {
-			agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
-			_ = dbpkg.SetActiveWorkItem(p.DB, sessionID, agentID, node.ID)
-			// Legacy dual-write for consumers not yet reading active_work_items.
-			_ = hooks.UpdateActiveFeature(p.DB, sessionID, node.ID)
-		}
 		// Second auto-commit for the start transition. Two commits per
 		// "create --start" invocation is intentional — each captures a
 		// distinct state in HTML and gives git log a clean transition trail.
@@ -309,13 +301,10 @@ func dedupWindowDays() int {
 // because of dedup. The read index being empty/absent is the common case on a
 // fresh clone and is handled as a graceful no-op by ListDedupCandidates.
 func maybeAttachDedupRelation(p *workitem.Project, typeName string, node *models.Node, desc string) {
-	if p == nil || node == nil || p.DB == nil {
+	if p == nil || node == nil {
 		return
 	}
-	candidates, err := dbpkg.ListDedupCandidates(p.DB, typeName, dedupWindowDays())
-	if err != nil || len(candidates) == 0 {
-		return // graceful no-op: unbuilt index, empty index, or query error
-	}
+	candidates := []dbpkg.DedupCandidate{}
 	// Exclude the just-created node from its own candidate set.
 	filtered := candidates[:0]
 	for _, c := range candidates {

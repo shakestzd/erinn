@@ -5,7 +5,6 @@ import (
 	"sort"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
@@ -73,11 +72,10 @@ func NewSpikeCollection(base *Base) *SpikeCollection {
 	return &SpikeCollection{Collection: newCollection(base, "spikes", "spike")}
 }
 
-// Create builds a new spike, writes the HTML file, and optionally inserts
-// a row into SQLite.
+// Create builds a new spike and writes the canonical HTML file.
 //
 // POLICY: Spikes must only be created via CLI commands or orchestrator actions.
-// Hook handlers MUST NOT create spikes — use session events (agent_events table)
+// Hook handlers MUST NOT create spikes — use session events
 // instead. Hooks do not import this package; that package-boundary constraint is
 // verified by TestHooksPackageDoesNotImportWorkitem in the hooks package.
 // See feat-84052b5e for rationale.
@@ -128,26 +126,6 @@ func (sc *SpikeCollection) Create(title string, opts ...SpikeOption) (*models.No
 
 	if _, err := sc.writeNode(node); err != nil {
 		return nil, fmt.Errorf("create spike: %w", err)
-	}
-
-	// Dual-write to SQLite
-	if sc.base.DB != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "spike",
-			Title:          title,
-			Description:    content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     sc.base.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		// UpsertFeature overwrites any placeholder row from ensureFeatureRow (bug-7f4a1a9c).
-		_ = dbpkg.UpsertFeature(sc.base.DB, dbFeat)
 	}
 
 	return node, nil

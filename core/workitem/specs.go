@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
@@ -49,7 +48,7 @@ func NewSpecCollection(base *Base) *SpecCollection {
 	return &SpecCollection{Collection: newCollection(base, "specs", "spec")}
 }
 
-// Create builds a new spec node, writes HTML, and optionally inserts into SQLite.
+// Create builds a new spec node and writes canonical HTML.
 func (sc *SpecCollection) Create(title string, opts ...SpecOption) (*models.Node, error) {
 	if title == "" {
 		return nil, fmt.Errorf("spec title must not be empty")
@@ -87,21 +86,6 @@ func (sc *SpecCollection) Create(title string, opts ...SpecOption) (*models.Node
 
 	if _, err := sc.writeNode(node); err != nil {
 		return nil, fmt.Errorf("create spec: %w", err)
-	}
-
-	if sc.base.DB != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:         id,
-			Type:       "spec",
-			Title:      title,
-			Status:     cfg.status,
-			Priority:   cfg.priority,
-			AssignedTo: sc.base.Agent,
-			TrackID:    cfg.trackID,
-			CreatedAt:  now,
-			UpdatedAt:  now,
-		}
-		_ = dbpkg.InsertFeature(sc.base.DB, dbFeat)
 	}
 
 	return node, nil

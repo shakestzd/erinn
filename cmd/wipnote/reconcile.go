@@ -53,7 +53,7 @@ func reconcileCmd() *cobra.Command {
 			}
 			defer p.Close()
 
-			rep, err := hooks.Reconcile(p.DB, projectDir, strict)
+			rep, err := hooks.Reconcile(nil, projectDir, strict)
 			if err != nil {
 				return err
 			}

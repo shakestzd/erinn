@@ -121,7 +121,7 @@ func runMigrateTracks(_ context.Context, hgDir string, opts migrateTracksOpts, o
 	}
 	defer p.Close()
 
-	decisions, err := migrate.ClassifyAll(p.DB, hgDir, rules, opts.threshold, types)
+	decisions, err := migrate.ClassifyAll(nil, hgDir, rules, opts.threshold, types)
 	if err != nil {
 		return err
 	}

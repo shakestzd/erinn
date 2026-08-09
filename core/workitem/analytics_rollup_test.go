@@ -1,3 +1,5 @@
+//go:build sqlitelegacy
+
 package workitem_test
 
 import (

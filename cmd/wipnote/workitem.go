@@ -11,9 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/shakestzd/wipnote/core/claimledger"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
@@ -345,7 +343,7 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 			// here so the operator is not double-blocked when the gate cannot
 			// produce a passing record (e.g. manifest-less or broken runner).
 			fmt.Fprintln(os.Stderr, "gate-record check bypassed via --accepted-advisory")
-		} else if err := checkCompletionGateRecord(p.DB, filepath.Dir(dir), sessionID, id); err != nil {
+		} else if err := checkCompletionGateRecord(nil, filepath.Dir(dir), sessionID, id); err != nil {
 			return err
 		}
 	}
@@ -370,20 +368,6 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	// whether another live session already holds this item. A live collision
 	// (foreign session with recent heartbeat) is a HARD REFUSAL unless --force
 	// was supplied. A stale/dead claim is NOT a refusal — the item is reclaimable.
-	if status == "in-progress" && p.DB != nil {
-		livenessWindow := dbpkg.LivenessStalenessThreshold(filepath.Dir(dir))
-		lc, lcErr := dbpkg.LiveCollision(p.DB, id, sessionID, livenessWindow)
-		if lcErr == nil && lc.HasLiveCollision {
-			if !wiForceStart {
-				return fmt.Errorf("%s", dbpkg.LiveCollisionMessage(lc))
-			}
-			// --force: emit the CollaborationSummary warning, then proceed.
-			if msg := dbpkg.CollaborationSummary(lc.CollaborationState); msg != "" {
-				fmt.Fprintln(os.Stderr, msg)
-			}
-		}
-	}
-
 	var node *models.Node
 	switch status {
 	case "in-progress":
@@ -404,45 +388,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	// with per-agent attribution, and create an implemented_in edge.
 	if status == "in-progress" {
 		if sessionID != "" {
-			if p.DB != nil {
-				currentActive := dbpkg.GetActiveWorkItem(p.DB, sessionID, agentID)
-				if currentActive != id {
-					// New per-agent attribution table (primary write path).
-					_ = dbpkg.SetActiveWorkItem(p.DB, sessionID, agentID, id)
-					// Legacy dual-write to sessions.active_feature_id is single-row
-					// shared state. When N parallel subagents each claim a different
-					// work item in the same session, they race on this one column
-					// and corrupt each other's attribution (bug-d2d3fb3f). Gate the
-					// write to the root agent only: root stays authoritative for
-					// consumers still reading the legacy column; subagents rely on
-					// per-agent claims + active_work_items for their own attribution.
-					if writesLegacyActiveFeature(agentID) {
-						_ = hooks.UpdateActiveFeature(p.DB, sessionID, id)
-					}
-				}
-				// Always write (or renew) the claim row regardless of whether
-				// active_work_items already shows this item for (session, agent).
-				// active_work_items and claims are separate tables that can diverge:
-				// an expired or never-written claim row causes ClaimedItem=="" in
-				// the PreToolUse guard, blocking all Write/Edit. ClaimItemOrRenew
-				// is idempotent — it refreshes an existing live claim's lease or
-				// inserts a new row if none exists (bug-0d55d8e4).
-				claim := &models.Claim{
-					ClaimID:          "clm-" + uuid.NewString()[:8],
-					WorkItemID:       id,
-					OwnerSessionID:   sessionID,
-					OwnerAgent:       agentForClaim(),
-					ClaimedByAgentID: agentID,
-					Status:           models.ClaimInProgress,
-				}
-				_ = dbpkg.ClaimItemOrRenew(p.DB, claim, 30*time.Minute)
-			}
 			// Durable claim history (feat-21d12cdb). This sits BESIDE the claim
 			// row, not inside it: claims/active_work_items are single-slot current
 			// state that forget the moment a claim moves, so a signal emitted at
 			// time T has nothing to join against. Open is idempotent — a re-start
 			// or lease renewal writes no row.
-			recordClaimEpisodeOpen(p.DB, dir, sessionID, agentID, id)
+			recordClaimEpisodeOpen(nil, dir, sessionID, agentID, id)
 			autoImplementedInEdge(col, id, sessionID)
 			// Non-fatal advisory: warn when this session now owns >= wipPerSessionSoftLimit
 			// in-progress items. Never blocks; yolo/orchestrator may legitimately pre-start.
@@ -459,17 +410,11 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 
 	// When completing a work item, clear active_work_items and the legacy
 	// active_feature_id on any session still pointing at it.
-	if status == "done" && p.DB != nil {
+	if status == "done" {
 		if sessionID != "" {
-			_ = dbpkg.ClearActiveWorkItem(p.DB, sessionID, agentID)
 			// Close the claim episode in place, giving the interval its end.
-			recordClaimEpisodeClose(p.DB, dir, sessionID, agentID, id, claimledger.OutcomeCompleted)
+			recordClaimEpisodeClose(nil, dir, sessionID, agentID, id, claimledger.OutcomeCompleted)
 		}
-		// Clear legacy column for any session pointing at this item.
-		_, _ = p.DB.Exec(
-			`UPDATE sessions SET active_feature_id = '' WHERE active_feature_id = ?`,
-			id,
-		)
 	}
 
 	// Commit the artifact HTML to the main git repo on every state transition
@@ -501,17 +446,8 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 				return nil
 			}
 			// Compensating re-open: use col.Start, the codebase's canonical
-			// revert transition. Unlike Edit().SetStatus(), Start dual-writes
-			// status "in-progress" to SQLite so the HTML (canonical) and the
-			// read index stay coherent — a re-open that updated only the HTML
-			// would leave the DB falsely reporting "done".
+			// revert transition.
 			_, reopenErr := col.Start(id)
-			if p.DB != nil {
-				_, _ = p.DB.Exec(
-					`UPDATE sessions SET active_feature_id = '' WHERE active_feature_id = ?`,
-					id,
-				)
-			}
 			WriteStatuslineCache(dir, id)
 			remediation := fmt.Sprintf("wipnote %s complete %s", typeName, id)
 			if reopenErr != nil {
@@ -530,12 +466,6 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	} else if deferredComplete {
 		if err := persistWorkitemArtifactTransition(dir, typeName, id, "complete"); err != nil {
 			_, reopenErr := col.Start(id)
-			if p.DB != nil {
-				_, _ = p.DB.Exec(
-					`UPDATE sessions SET active_feature_id = '' WHERE active_feature_id = ?`,
-					id,
-				)
-			}
 			WriteStatuslineCache(dir, id)
 			remediation := fmt.Sprintf("wipnote %s complete %s", typeName, id)
 			if reopenErr != nil {
@@ -1204,14 +1134,9 @@ func printRollup(n *models.Node) {
 //     persisting the rationale on the .wipnote artifact (Properties +
 //     audit note) and emitting a stderr warning.
 func checkProvenanceCompleteGate(p *workitem.Project, col *workitem.Collection, typeName, id, advisory string) error {
-	if p == nil || p.DB == nil {
-		// No read index available — cannot evaluate provenance. Do not
-		// block: the canonical store stays the source of truth and the
-		// uncommitted-source gate already covers dirty trees.
-		return nil
-	}
+	return nil
 
-	codePaths, err := dbpkg.CodeBearingPaths(p.DB, id, filepath.Dir(p.ProjectDir))
+	codePaths, err := dbpkg.CodeBearingPaths(nil, id, filepath.Dir(p.ProjectDir))
 	if err != nil {
 		return fmt.Errorf("provenance gate: inspect code-bearing paths for %s: %w", id, err)
 	}
@@ -1220,7 +1145,7 @@ func checkProvenanceCompleteGate(p *workitem.Project, col *workitem.Collection, 
 		return nil
 	}
 
-	commits, err := dbpkg.GetCommitsByFeature(p.DB, id)
+	commits, err := dbpkg.GetCommitsByFeature(nil, id)
 	if err != nil {
 		return fmt.Errorf("provenance gate: inspect linked commits for %s: %w", id, err)
 	}
@@ -1286,11 +1211,7 @@ func wiIsResearchURL(u string) bool {
 // Items that touch no dependency manifest are exempt (return nil), so ordinary
 // feature/bug completion is unaffected (feat-d1bcbf10 / spk-0a982f70).
 func checkDependencyResearchCompleteGate(p *workitem.Project, col *workitem.Collection, typeName, id string, researchURLs []string, researchWaiver string) error {
-	if p == nil || p.DB == nil {
-		// No read index — cannot inspect code paths; do not block (the canonical
-		// store stays authoritative, consistent with checkProvenanceCompleteGate).
-		return nil
-	}
+	return nil
 	// Shape-check EVERY supplied --research-url up front (mirrors the v4 plan
 	// validator, which validates the shape of every research URL regardless of
 	// enforcement). A single invalid entry is a hard error rather than being
@@ -1304,7 +1225,7 @@ func checkDependencyResearchCompleteGate(p *workitem.Project, col *workitem.Coll
 		}
 	}
 
-	codePaths, err := dbpkg.CodeBearingPaths(p.DB, id, filepath.Dir(p.ProjectDir))
+	codePaths, err := dbpkg.CodeBearingPaths(nil, id, filepath.Dir(p.ProjectDir))
 	if err != nil {
 		return fmt.Errorf("research gate: inspect code-bearing paths for %s: %w", id, err)
 	}

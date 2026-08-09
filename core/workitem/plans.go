@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
@@ -53,7 +52,7 @@ func NewPlanCollection(base *Base) *PlanCollection {
 	return &PlanCollection{Collection: newCollection(base, "plans", "plan")}
 }
 
-// Create builds a new plan node, writes HTML, and optionally inserts into SQLite.
+// Create builds a new plan node and writes canonical HTML.
 func (pc *PlanCollection) Create(title string, opts ...PlanOption) (*models.Node, error) {
 	if title == "" {
 		return nil, fmt.Errorf("plan title must not be empty")
@@ -91,22 +90,6 @@ func (pc *PlanCollection) Create(title string, opts ...PlanOption) (*models.Node
 
 	if _, err := pc.writeNode(node); err != nil {
 		return nil, fmt.Errorf("create plan: %w", err)
-	}
-
-	if pc.base.DB != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:         id,
-			Type:       "plan",
-			Title:      title,
-			Status:     cfg.status,
-			Priority:   cfg.priority,
-			AssignedTo: pc.base.Agent,
-			TrackID:    cfg.trackID,
-			CreatedAt:  now,
-			UpdatedAt:  now,
-		}
-		// UpsertFeature overwrites any placeholder row from ensureFeatureRow (bug-7f4a1a9c).
-		_ = dbpkg.UpsertFeature(pc.base.DB, dbFeat)
 	}
 
 	return node, nil
@@ -150,17 +133,6 @@ func (pc *PlanCollection) AddEdge(id string, e models.Edge) (*models.Node, error
 		return nil, fmt.Errorf("add edge %s: %w", id, err)
 	}
 
-	if pc.base.DB != nil {
-		edgeID := fmt.Sprintf("%s-%s-%s", id, string(e.Relationship), e.TargetID)
-		_ = dbpkg.InsertEdge(
-			pc.base.DB,
-			edgeID, id, "plan",
-			e.TargetID, inferNodeType(e.TargetID),
-			string(e.Relationship),
-			e.Properties,
-		)
-	}
-
 	return node, nil
 }
 
@@ -177,10 +149,6 @@ func (pc *PlanCollection) RemoveEdge(id, targetID string, relType models.Relatio
 	removed := node.RemoveEdge(targetID, relType)
 	if _, err := pc.writeNodeUnlocked(node); err != nil {
 		return nil, false, fmt.Errorf("remove edge %s: %w", id, err)
-	}
-
-	if removed && pc.base.DB != nil {
-		_ = dbpkg.DeleteEdge(pc.base.DB, id, targetID, string(relType))
 	}
 
 	return node, removed, nil
@@ -201,9 +169,6 @@ func (pc *PlanCollection) Start(id string) (*models.Node, error) {
 	node.UpdatedAt = time.Now().UTC()
 	if _, err := pc.writeNodeUnlocked(node); err != nil {
 		return nil, err
-	}
-	if pc.base.DB != nil {
-		_ = dbpkg.UpdateFeatureStatus(pc.base.DB, id, "in-progress")
 	}
 	return node, nil
 }
@@ -229,9 +194,6 @@ func (pc *PlanCollection) Complete(id string) (*models.Node, error) {
 	node.UpdatedAt = time.Now().UTC()
 	if _, err := pc.writeNodeUnlocked(node); err != nil {
 		return nil, err
-	}
-	if pc.base.DB != nil {
-		_ = dbpkg.UpdateFeatureStatus(pc.base.DB, id, "done")
 	}
 	return node, nil
 }

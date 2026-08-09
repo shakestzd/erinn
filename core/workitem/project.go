@@ -1,20 +1,14 @@
 // Package workitem provides internal work item operations for wipnote.
 //
 // It manages collections for features, bugs, spikes, tracks, and sessions
-// with functional options for creation and a dual-write strategy
-// (HTML canonical, SQLite read-index).
+// with functional options for creation. HTML files and ledgers are the
+// canonical store; there is no embedded database read-index.
 package workitem
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // --- Base types --------------------------------------------------------------
@@ -31,9 +25,6 @@ type Base struct {
 	// Empty string means orchestrator (main session). Subagents have a
 	// non-empty ID set via WIPNOTE_AGENT_ID.
 	AgentID string
-
-	// DB is the optional SQLite database (read index).
-	DB *sql.DB
 }
 
 // --- Project -----------------------------------------------------------------
@@ -52,8 +43,7 @@ type Project struct {
 	Specs    *SpecCollection
 }
 
-// Open creates a new Project instance, opens the SQLite database, and
-// initialises all collection accessors.
+// Open creates a new Project instance and initialises all collection accessors.
 //
 // projectDir must point to a .wipnote/ directory.
 // agent identifies the calling agent for work attribution.
@@ -65,46 +55,10 @@ func Open(projectDir, agent string) (*Project, error) {
 		return nil, fmt.Errorf("agent must not be empty")
 	}
 
-	// Note: ProjectDir field is the .wipnote directory (caller convention),
-	// but storage.CanonicalDBPath wants the actual project root.
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(projectDir))
-	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return nil, fmt.Errorf("create db dir: %w", err)
-	}
-	var database *sql.DB
-	const dbOpenAttempts = 3
-	for attempt := 1; attempt <= dbOpenAttempts; attempt++ {
-		database, err = dbpkg.Open(dbPath)
-		if err == nil {
-			break
-		}
-		if attempt < dbOpenAttempts && strings.Contains(err.Error(), "database is locked") {
-			// Slice-10 contention observability: classify CLI-mutation
-			// retries under the cli_mutation subsystem so the launch
-			// gate detects user-facing contention. We classify on each
-			// failing attempt — the retry loop's three-tries-with-sleep
-			// indicates exactly the kind of contention the gate cares
-			// about. Successful retries leave the counter incremented
-			// so operators see the contention happened even if the user
-			// got a working DB on attempt 2/3.
-			dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
-			time.Sleep(200 * time.Millisecond)
-			continue
-		}
-		// Reached only when err != nil and we are not retrying (final attempt
-		// or a non-lock error). Bump the counter once before returning.
-		dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-
 	base := &Base{
 		ProjectDir: projectDir,
 		Agent:      agent,
 		AgentID:    os.Getenv("WIPNOTE_AGENT_ID"), // "" for orchestrator
-		DB:         database,
 	}
 
 	p := &Project{Base: base}
@@ -120,11 +74,9 @@ func Open(projectDir, agent string) (*Project, error) {
 	return p, nil
 }
 
-// Close releases the SQLite database connection.
+// Close is retained for caller symmetry. Project no longer owns external
+// resources.
 func (p *Project) Close() error {
-	if p.DB != nil {
-		return p.DB.Close()
-	}
 	return nil
 }
 

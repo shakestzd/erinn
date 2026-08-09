@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
 
@@ -66,8 +65,7 @@ func NewBugCollection(base *Base) *BugCollection {
 	return &BugCollection{Collection: newCollection(base, "bugs", "bug")}
 }
 
-// Create builds a new bug, writes the HTML file, and optionally inserts
-// a row into SQLite.
+// Create builds a new bug and writes the canonical HTML file.
 func (bc *BugCollection) Create(title string, opts ...BugOption) (*models.Node, error) {
 	if title == "" {
 		return nil, fmt.Errorf("bug title must not be empty")
@@ -121,26 +119,6 @@ func (bc *BugCollection) Create(title string, opts ...BugOption) (*models.Node, 
 
 	if _, err := bc.writeNode(node); err != nil {
 		return nil, fmt.Errorf("create bug: %w", err)
-	}
-
-	// Dual-write to SQLite
-	if bc.base.DB != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "bug",
-			Title:          title,
-			Description:    content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     bc.base.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		// UpsertFeature overwrites any placeholder row from ensureFeatureRow (bug-7f4a1a9c).
-		_ = dbpkg.UpsertFeature(bc.base.DB, dbFeat)
 	}
 
 	return node, nil

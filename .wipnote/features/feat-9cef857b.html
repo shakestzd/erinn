@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>PreToolUse guard refuses sub-agent git commit on main (fixes #88 / bug-730c0f19)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-05T15:50:03.258094"
-             data-updated="2026-05-05T16:09:59.344718" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:43:26.966645" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/plans/plan-ff425b9f.html,.htmlgraph/plans/plan-ff425b9f.yaml">
 
         <header>
             <h1>PreToolUse guard refuses sub-agent git commit on main (fixes #88 / bug-730c0f19)</h1>
@@ -24,44 +24,44 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T16:05:57.22442">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-ff425b9f.html" data-relationship="planned_in" data-since="2026-05-05T15:50:03.271038">plan-ff425b9f</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-ecd82f68.html" data-relationship="blocked_by" data-since="2026-05-05T15:50:03.275268">feat-ecd82f68</a></li>
-                    <li><a href="feat-060b396d.html" data-relationship="blocked_by" data-since="2026-05-05T15:58:24.782426">Diagnostic spike: dispatch failure root-cause investigation (slice-0 of plan-ff425b9f)</a></li>
+                    <li><a href="../features/feat-ecd82f68.html" data-relationship="blocked_by" data-since="2026-05-05T15:50:03.275268">feat-ecd82f68</a></li>
+                    <li><a href="../features/feat-060b396d.html" data-relationship="blocked_by" data-since="2026-05-05T15:58:24.782426">Diagnostic spike: dispatch failure root-cause investigation (slice-0 of plan-ff425b9f)</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T16:05:57.22442">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:50:03.263443">trk-cb36e595</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:50:03.263443">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-ff425b9f.html" data-relationship="planned_in" data-since="2026-05-05T15:50:03.271038">plan-ff425b9f</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Add a new PreToolUse guard at `internal/hooks/worktree_commit_guard.go` that intercepts Bash tool calls matching `git commit` from sub-agent sessions and refuses if the working directory's branch is `main` or `master`, unless an explicit per-agent branch convention is in effect.
+            <p>Add a new PreToolUse guard at `internal/hooks/worktree_commit_guard.go` that intercepts Bash tool calls matching `git commit` from sub-agent sessions and refuses if the working directory&#39;s branch is `main` or `master`, unless an explicit per-agent branch convention is in effect.
 
 **Implementation:**
-1. **Detect the Bash tool call.** PreToolUse fires for every tool. Filter for `tool_name == "Bash"` AND `tool_input["command"]` matches a regex like `^\s*git\s+commit\b` (case-insensitive). Fall through for non-commit Bash calls.
-2. **Identify sub-agent sessions.** Use slice 1's `getSessionAndParent` to determine if the current session has a parent (i.e., is a sub-agent). If the current session is the orchestrator (no parent), allow normally -- the orchestrator commits on main intentionally.
+1. **Detect the Bash tool call.** PreToolUse fires for every tool. Filter for `tool_name == &#34;Bash&#34;` AND `tool_input[&#34;command&#34;]` matches a regex like `^\s*git\s+commit\b` (case-insensitive). Fall through for non-commit Bash calls.
+2. **Identify sub-agent sessions.** Use slice 1&#39;s `getSessionAndParent` to determine if the current session has a parent (i.e., is a sub-agent). If the current session is the orchestrator (no parent), allow normally -- the orchestrator commits on main intentionally.
 3. **Resolve current branch.** Run `git -C  rev-parse --abbrev-ref HEAD` from the hook to get the branch. If it returns `main` or `master` AND the session has a parent: refuse with structured error.
-4. **Per-agent branch convention** (escape hatch): if the branch matches `worktree-agent-*` or `subagent-*` or has the env var `HTMLGRAPH_AGENT_BRANCH=1` set in the hook's spawned env, allow even on main. This lets dispatch tooling explicitly mark "this is a per-agent branch I created intentionally" without forcing branch-name matching.
-5. **Error message structure:** the refusal must include (a) which session is blocked, (b) what branch it's on, (c) suggested remediation: "create a per-agent branch first: `git checkout -b worktree-agent-` then commit and merge to the track branch via the orchestrator." Include the parent-session ID for cross-reference.
-6. **Wire the guard into pretooluse.go's dispatch.** Register it AFTER slice 1's claim-check enhancement (deps: [1]) so the parent-chain logic is available. Keep the guard small and isolated in its own file.</p>
+4. **Per-agent branch convention** (escape hatch): if the branch matches `worktree-agent-*` or `subagent-*` or has the env var `HTMLGRAPH_AGENT_BRANCH=1` set in the hook&#39;s spawned env, allow even on main. This lets dispatch tooling explicitly mark &#34;this is a per-agent branch I created intentionally&#34; without forcing branch-name matching.
+5. **Error message structure:** the refusal must include (a) which session is blocked, (b) what branch it&#39;s on, (c) suggested remediation: &#34;create a per-agent branch first: `git checkout -b worktree-agent-` then commit and merge to the track branch via the orchestrator.&#34; Include the parent-session ID for cross-reference.
+6. **Wire the guard into pretooluse.go&#39;s dispatch.** Register it AFTER slice 1&#39;s claim-check enhancement (deps: [1]) so the parent-chain logic is available. Keep the guard small and isolated in its own file.</p>
         </section>
     </article>
 </body>

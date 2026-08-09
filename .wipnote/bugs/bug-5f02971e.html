@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Host-path leak: /Users/shakes paths in agent-memory reference file</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T14:13:47.549199"
-             data-updated="2026-04-24T14:15:05.061801" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:01.828364" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".claude/agent-memory/htmlgraph-researcher/reference_external_cli_integration.md,cmd/htmlgraph/dashboard/js/app.js">
 
         <header>
             <h1>Host-path leak: /Users/shakes paths in agent-memory reference file</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T14:13:47.550672">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T14:14:18.468399">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                    <li><a href="../sessions/cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T14:14:18.468399">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T14:13:47.550672">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two literal /Users/shakes/ paths in .claude/agent-memory/htmlgraph-researcher/reference_external_cli_integration.md (nvm install path and codex symlink error). Replace with ~ or env-var forms so the memory is portable across machines.</p>
+            <p>Two literal [host-path]/ paths in .claude/agent-memory/htmlgraph-researcher/reference_external_cli_integration.md (nvm install path and codex symlink error). Replace with ~ or env-var forms so the memory is portable across machines.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-16T04:16:59.130665"
-             data-updated="2026-05-16T13:52:38.235236" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:49.427428" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".wipnote/features/feat-f93fe770.html,.wipnote/plans/plan-83f909bc.html,.wipnote/plans/plan-83f909bc.yaml,cmd/wipnote/main.go,cmd/wipnote/reconcile.go,cmd/wipnote/reconcile_test.go,hooks/hooks.json,internal/hooks/missing_events.go,internal/hooks/session_end.go,internal/hooks/session_end_reconcile_test.go,internal/hooks/session_start.go,packages/gemini-extension/hooks/hooks.json,packages/plugin-core/manifest.json,plugin/hooks/hooks.json">
 
         <header>
             <h1>Session-exit reconciliation (reconcile --strict &#43; harness-discriminated Stop/SessionEnd)</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:59.135058">trk-0677c709</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:59.141242">plan-83f909bc</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:59.1421">feat-2bfd67e9</a></li>
+                    <li><a href="../features/feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:59.1421">feat-2bfd67e9</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T05:35:21.44602">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
+                    <li><a href="../sessions/ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T05:35:21.44602">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:59.135058">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:59.141242">plan-83f909bc</a></li>
                 </ul>
             </section>
         </nav>
@@ -65,7 +65,7 @@ task_completion_gate.go:15); Gemini SessionEnd routes through
 session-end and Codex TaskComplete maps to stop, both sharing the
 non-blocking path. New design: add an explicit HARNESS DISCRIMINATOR in
 the reconcile/Stop path — return BlockExit2Error (exit-2 block) ONLY
-when harness=="claude" (deliberately amending the
+when harness==&#34;claude&#34; (deliberately amending the
 missing_events.go:114/125 no-block contract); for Gemini and Codex emit
 a DURABLE structured warning (persist to a warnings log under .wipnote/
 or the read index) AND surface it at next SessionStart

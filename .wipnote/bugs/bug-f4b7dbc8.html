@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>assistant_text rows fail to render: _assistantTextsForTurn returns 0 despite data present</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T09:58:32.28284"
-             data-updated="2026-04-21T10:44:41.47853" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:42.700766" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/api_otel.go,cmd/htmlgraph/claude_serve_autostart.go,cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/serve.go,cmd/htmlgraph/serve_parent.go,internal/db/pragmas.go,internal/db/schema.go">
 
         <header>
             <h1>assistant_text rows fail to render: _assistantTextsForTurn returns 0 despite data present</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T09:58:32.284187">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T09:58:32.505789">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T09:58:32.505789">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T09:58:32.284187">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>API /api/otel/logs returns assistant_text rows correctly (5 in current session). Component cache otelLogsBySession populated (size 6 for session). renderAssistantText helper exists. But _assistantTextsForTurn({span_id: parent_span_uuid_from_api}) returns empty array — so renderTurn never emits any assistant-text rows. Root cause: mismatch between what field _assistantTextsForTurn matches on and what turn objects actually carry for their identifier. API's assistant_text.parent_span is the user-query record uuid. The turn object in the dashboard likely uses a different field name (e.g., event_id, prompt_id, or ts-based match). Need to inspect _assistantTextsForTurn + the turn-object shape in renderTurn and fix the match predicate.</p>
+            <p>API /api/otel/logs returns assistant_text rows correctly (5 in current session). Component cache otelLogsBySession populated (size 6 for session). renderAssistantText helper exists. But _assistantTextsForTurn({span_id: parent_span_uuid_from_api}) returns empty array — so renderTurn never emits any assistant-text rows. Root cause: mismatch between what field _assistantTextsForTurn matches on and what turn objects actually carry for their identifier. API&#39;s assistant_text.parent_span is the user-query record uuid. The turn object in the dashboard likely uses a different field name (e.g., event_id, prompt_id, or ts-based match). Need to inspect _assistantTextsForTurn + the turn-object shape in renderTurn and fix the match predicate.</p>
         </section>
     </article>
 </body>

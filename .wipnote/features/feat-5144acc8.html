@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Apply WAL pragma to registry.OpenReadOnly path</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-26T20:02:40.851054"
-             data-updated="2026-04-26T20:31:45.854862" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:05.394641" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="internal/registry/registry.go,internal/registry/registry_test.go">
 
         <header>
             <h1>Apply WAL pragma to registry.OpenReadOnly path</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-8ee8f517.html" data-relationship="planned_in" data-since="2026-04-26T20:02:40.860188">plan-8ee8f517</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="9db86a91-da81-4149-b443-a3d8bb0fcc63.html" data-relationship="implemented_in" data-since="2026-04-26T20:13:16.680979">session 9db86a91-da81-4149-b443-a3d8bb0fcc63</a></li>
+                    <li><a href="../sessions/9db86a91-da81-4149-b443-a3d8bb0fcc63.html" data-relationship="implemented_in" data-since="2026-04-26T20:13:16.680979">session 9db86a91-da81-4149-b443-a3d8bb0fcc63</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T20:02:40.8539">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T20:02:40.8539">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-8ee8f517.html" data-relationship="planned_in" data-since="2026-04-26T20:02:40.860188">plan-8ee8f517</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>internal/registry/registry.go:215-220 (`OpenReadOnly`) already sets `_busy_timeout=5000` in its DSN string — busy_timeout is NOT the gap (feasibility critic A4 falsified the original plan's framing). The actual gap is that this path skips the WAL mode pragma and other journal-mode logic in `internal/db/pragmas.go`. Refactor `OpenReadOnly` to either route through `db.Open(...)` (which applies all pragmas including WAL selection) or to explicitly invoke `BuildPragmas` from `internal/db/pragmas.go` after opening.
+            <p>internal/registry/registry.go:215-220 (`OpenReadOnly`) already sets `_busy_timeout=5000` in its DSN string — busy_timeout is NOT the gap (feasibility critic A4 falsified the original plan&#39;s framing). The actual gap is that this path skips the WAL mode pragma and other journal-mode logic in `internal/db/pragmas.go`. Refactor `OpenReadOnly` to either route through `db.Open(...)` (which applies all pragmas including WAL selection) or to explicitly invoke `BuildPragmas` from `internal/db/pragmas.go` after opening.
 
 
 ## Why

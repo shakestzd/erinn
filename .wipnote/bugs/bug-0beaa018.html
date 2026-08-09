@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Launcher OTLP endpoint env var leaks stale port across sessions; no receiver-reachability warning</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-23T20:09:41.992103"
-             data-updated="2026-04-23T20:50:06.433409" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:37.86186" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-0beaa018.html,.htmlgraph/bugs/bug-10ca4796.html,.htmlgraph/bugs/bug-1b095c09.html,.htmlgraph/bugs/bug-27cbefbc.html,.htmlgraph/bugs/bug-3043976d.html,.htmlgraph/bugs/bug-6d235100.html,.htmlgraph/bugs/bug-b58a330e.html,.htmlgraph/bugs/bug-dd81395e.html,.htmlgraph/bugs/bug-e5c2df6d.html,.htmlgraph/bugs/bug-ec4d3d8f.html,.htmlgraph/tracks/trk-0677c709.html,cmd/htmlgraph/claude_env.go,cmd/htmlgraph/claude_env_test.go">
 
         <header>
             <h1>Launcher OTLP endpoint env var leaks stale port across sessions; no receiver-reachability warning</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T20:09:41.999687">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T20:10:14.592897">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T20:10:14.592897">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T20:09:41.999687">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>claude_env.go:49 uses addIfUnset for OTEL_EXPORTER_OTLP_ENDPOINT. When the launcher's parent env already has that variable set (inherited from a prior htmlgraph claude session whose computed port differs from this session's hash), addIfUnset keeps the stale value. Claude Code then sends OTLP to a port no receiver is bound to and spans are silently dropped. Symptom: dashboard OTel panels stay empty with no hint why. Durable fix: (1) change addIfUnset to setOrReplaceEnv for OTEL_EXPORTER_OTLP_ENDPOINT so the launcher-computed endpoint always wins. Users who want an external endpoint override should use HTMLGRAPH_OTEL_HTTP_PORT / HTMLGRAPH_OTEL_BIND which LoadConfigFromEnv already honors. (2) Add a ~1s TCP probe at launcher start; if the computed host:port is not reachable, log a one-line stderr warning naming the endpoint. Files: cmd/htmlgraph/claude_env.go (primary), cmd/htmlgraph/claude_env_test.go (assertion that pre-existing env gets overridden). Symmetry note: line 29 already does setOrReplaceEnv for HTMLGRAPH_PROJECT_DIR — overriding the paired endpoint is consistent.</p>
+            <p>claude_env.go:49 uses addIfUnset for OTEL_EXPORTER_OTLP_ENDPOINT. When the launcher&#39;s parent env already has that variable set (inherited from a prior htmlgraph claude session whose computed port differs from this session&#39;s hash), addIfUnset keeps the stale value. Claude Code then sends OTLP to a port no receiver is bound to and spans are silently dropped. Symptom: dashboard OTel panels stay empty with no hint why. Durable fix: (1) change addIfUnset to setOrReplaceEnv for OTEL_EXPORTER_OTLP_ENDPOINT so the launcher-computed endpoint always wins. Users who want an external endpoint override should use HTMLGRAPH_OTEL_HTTP_PORT / HTMLGRAPH_OTEL_BIND which LoadConfigFromEnv already honors. (2) Add a ~1s TCP probe at launcher start; if the computed host:port is not reachable, log a one-line stderr warning naming the endpoint. Files: cmd/htmlgraph/claude_env.go (primary), cmd/htmlgraph/claude_env_test.go (assertion that pre-existing env gets overridden). Symmetry note: line 29 already does setOrReplaceEnv for HTMLGRAPH_PROJECT_DIR — overriding the paired endpoint is consistent.</p>
         </section>
     </article>
 </body>

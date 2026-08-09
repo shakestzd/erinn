@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="critical"
              data-created="2026-05-23T07:04:47.048016"
-             data-updated="2026-05-23T08:05:04.700738" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:41:38.679238" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-0ed4e469.html,internal/hooks/pretooluse.go,internal/hooks/tooluse_shared.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go">
 
         <header>
             <h1>yolo: subagent source-code edits leak to canonical main instead of staying in the managed worktree</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T07:04:47.059823">trk-be293476</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T07:05:34.638833">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T07:05:34.638833">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T07:04:47.059823">trk-be293476</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>User confirms that in 'wipnote yolo --track ' runs, actual SOURCE/code file changes (not just .wipnote artifacts) end up on canonical main rather than the created worktree. Expected: code edits stay in the worktree (CWD=workDir); only .wipnote/*.html artifacts go to main (WIPNOTE_PROJECT_DIR=canonicalRoot, by design). Hypothesis: spawned subagents resolve edit targets via WIPNOTE_PROJECT_DIR (=main) or otherwise do not inherit the worktree CWD, breaking isolation. Investigate subagent CWD inheritance + how agents/hooks/system-prompt resolve the project/edit root under yolo.</p>
+            <p>User confirms that in &#39;wipnote yolo --track &#39; runs, actual SOURCE/code file changes (not just .wipnote artifacts) end up on canonical main rather than the created worktree. Expected: code edits stay in the worktree (CWD=workDir); only .wipnote/*.html artifacts go to main (WIPNOTE_PROJECT_DIR=canonicalRoot, by design). Hypothesis: spawned subagents resolve edit targets via WIPNOTE_PROJECT_DIR (=main) or otherwise do not inherit the worktree CWD, breaking isolation. Investigate subagent CWD inheritance + how agents/hooks/system-prompt resolve the project/edit root under yolo.</p>
         </section>
     </article>
 </body>

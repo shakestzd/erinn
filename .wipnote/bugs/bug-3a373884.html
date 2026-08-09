@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-08T11:54:22.40863"
-             data-updated="2026-05-08T11:54:35.268079" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:41:49.92024" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files=".devcontainer/README.md,docs/reference/cli.md,internal/launcher/profile/profile.go,internal/launcher/profile/profile_test.go,scripts/deploy-all.sh,scripts/devcontainer-verify.sh">
 
         <header>
             <h1>devcontainer dashboard port 8088 not reachable on host — appPort missing forwardPorts</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-08T11:54:22.415957">trk-a30e8df4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c1bd05ba-0477-4bac-891a-4c6e23030093.html" data-relationship="implemented_in" data-since="2026-05-08T11:54:29.299375">session c1bd05ba-0477-4bac-891a-4c6e23030093</a></li>
+                    <li><a href="../sessions/c1bd05ba-0477-4bac-891a-4c6e23030093.html" data-relationship="implemented_in" data-since="2026-05-08T11:54:29.299375">session c1bd05ba-0477-4bac-891a-4c6e23030093</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-08T11:54:22.415957">trk-a30e8df4</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Dashboard at port 8088 doesn't open in the host browser from a Codespace or VS Code devcontainer. devcontainer.json uses appPort which publishes at Docker level but does not trigger VS Code port tunneling. Need to add forwardPorts: [8088] alongside appPort so VS Code Dev Containers extension auto-forwards port 8088 to the host. Recurring issue.</p>
+            <p>Dashboard at port 8088 doesn&#39;t open in the host browser from a Codespace or VS Code devcontainer. devcontainer.json uses appPort which publishes at Docker level but does not trigger VS Code port tunneling. Need to add forwardPorts: [8088] alongside appPort so VS Code Dev Containers extension auto-forwards port 8088 to the host. Recurring issue.</p>
         </section>
     </article>
 </body>

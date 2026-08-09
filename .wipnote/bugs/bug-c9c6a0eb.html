@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-03T14:50:06.751078"
-             data-updated="2026-06-03T14:56:59.929392" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+             data-updated="2026-08-09T20:42:31.143233" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e" data-affected_files=".wipnote/bugs/bug-c9c6a0eb.html,cmd/wipnote/dashboard/js/app.js">
 
         <header>
             <h1>Dashboard polls /api/terminal/sessions every 4s forever — 404 flood when WIPNOTE_TERMINAL unset</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-03T14:50:06.778095">trk-d8aef97a</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3e494367-8068-4984-9d56-6bf658805afd.html" data-relationship="implemented_in" data-since="2026-06-03T14:50:12.647567">session 3e494367-8068-4984-9d56-6bf658805afd</a></li>
+                    <li><a href="../sessions/3e494367-8068-4984-9d56-6bf658805afd.html" data-relationship="implemented_in" data-since="2026-06-03T14:50:12.647567">session 3e494367-8068-4984-9d56-6bf658805afd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-03T14:50:06.778095">trk-d8aef97a</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Discovered during Playwright QA: the project dashboard fires GET /api/terminal/sessions every 4s with no back-off, producing hundreds of 404 console errors (190+ in ~2min) on any /p// page. Root cause is client-side: the terminal routes ARE implemented (cmd/wipnote/serve.go:150-155 -> handleTerminalSessions in terminal_handlers.go) but gated behind os.Getenv WIPNOTE_TERMINAL == 1, so they 404 when unset. A startup probe probeTerminalFeature (dashboard/js/app.js:3108) already detects absence and hides the button, but the separate liveness setInterval at app.js:3849-3859 polls blindly and swallows the error in an empty .catch(). Fix (client): have the probe record a terminalFeatureAvailable flag (false on 404) and guard the interval body so the poll stops once the feature is known absent. Server route is correct; do not change it.</p>
+            <p>Discovered during Playwright QA: the project dashboard fires GET /api/terminal/sessions every 4s with no back-off, producing hundreds of 404 console errors (190+ in ~2min) on any /p// page. Root cause is client-side: the terminal routes ARE implemented (cmd/wipnote/serve.go:150-155 -&gt; handleTerminalSessions in terminal_handlers.go) but gated behind os.Getenv WIPNOTE_TERMINAL == 1, so they 404 when unset. A startup probe probeTerminalFeature (dashboard/js/app.js:3108) already detects absence and hides the button, but the separate liveness setInterval at app.js:3849-3859 polls blindly and swallows the error in an empty .catch(). Fix (client): have the probe record a terminalFeatureAvailable flag (false on 404) and guard the interval body so the poll stops once the feature is known absent. Server route is correct; do not change it.</p>
         </section>
     </article>
 </body>

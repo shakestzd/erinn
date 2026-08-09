@@ -76,6 +76,12 @@ func runRecommend(topN int, jsonOut bool) error {
 		return err
 	}
 
+	// One corpus parse for the whole command. Every section below is derived
+	// from this node set; before bug-1a51ab15 the three analytics calls each
+	// re-read every HTML file from disk, so a single invocation paid four
+	// full parses. Threading the loaded set through also makes the sections
+	// mutually consistent — WIP already counted plan nodes that the
+	// bottleneck and parallel sections could not see.
 	nodes, err := graph.LoadAll(dir)
 	if err != nil {
 		return fmt.Errorf("load work items: %w", err)
@@ -83,21 +89,12 @@ func runRecommend(topN int, jsonOut bool) error {
 
 	health := buildHealthCounts(nodes)
 	wipItems := collectWIPItems(nodes)
-	bottlenecks, err := workitem.FindBottlenecks(dir)
-	if err != nil {
-		return fmt.Errorf("find bottlenecks: %w", err)
-	}
-	recs, err := workitem.RecommendNextWork(dir)
-	if err != nil {
-		return fmt.Errorf("recommend next work: %w", err)
-	}
+	bottlenecks := workitem.FindBottlenecksIn(nodes)
+	recs := workitem.RecommendNextWorkIn(nodes)
 	if len(recs) > topN {
 		recs = recs[:topN]
 	}
-	parallelSets, err := workitem.GetParallelWork(dir)
-	if err != nil {
-		return fmt.Errorf("get parallel work: %w", err)
-	}
+	parallelSets := workitem.GetParallelWorkIn(nodes)
 
 	if jsonOut {
 		return printRecommendJSON(health, wipItems, bottlenecks, recs, parallelSets)

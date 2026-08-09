@@ -43,11 +43,17 @@ func FindBottlenecks(projectDir string) ([]Bottleneck, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find bottlenecks: %w", err)
 	}
+	return FindBottlenecksIn(nodes), nil
+}
 
+// FindBottlenecksIn is FindBottlenecks over an already-loaded node set.
+// Callers that have run graph.LoadAll should use this rather than paying a
+// second full corpus parse (bug-1a51ab15).
+func FindBottlenecksIn(nodes []*models.Node) []Bottleneck {
 	stale := staleBottlenecks(nodes)
 	overloaded := overloadedTrackBottlenecks(nodes)
 
-	return append(stale, overloaded...), nil
+	return append(stale, overloaded...)
 }
 
 // RecommendNextWork returns up to 5 suggested todo items, ordered by track
@@ -57,7 +63,11 @@ func RecommendNextWork(projectDir string) ([]Recommendation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("recommend next work: %w", err)
 	}
+	return RecommendNextWorkIn(nodes), nil
+}
 
+// RecommendNextWorkIn is RecommendNextWork over an already-loaded node set.
+func RecommendNextWorkIn(nodes []*models.Node) []Recommendation {
 	trackPriority := buildTrackPriorityMap(nodes)
 	var recs []Recommendation
 
@@ -80,7 +90,7 @@ func RecommendNextWork(projectDir string) ([]Recommendation, error) {
 	if len(recs) > 5 {
 		recs = recs[:5]
 	}
-	return recs, nil
+	return recs
 }
 
 // GetParallelWork returns groups of todo items in the same track that can
@@ -90,7 +100,11 @@ func GetParallelWork(projectDir string) ([]ParallelSet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get parallel work: %w", err)
 	}
+	return GetParallelWorkIn(nodes), nil
+}
 
+// GetParallelWorkIn is GetParallelWork over an already-loaded node set.
+func GetParallelWorkIn(nodes []*models.Node) []ParallelSet {
 	byTrack := groupTodosByTrack(nodes)
 	var sets []ParallelSet
 
@@ -104,7 +118,7 @@ func GetParallelWork(projectDir string) ([]ParallelSet, error) {
 	sort.Slice(sets, func(i, j int) bool {
 		return sets[i].TrackID < sets[j].TrackID
 	})
-	return sets, nil
+	return sets
 }
 
 // ---------------------------------------------------------------------------

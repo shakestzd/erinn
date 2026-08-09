@@ -1520,6 +1520,15 @@ func execCodex(opts codexLaunchOpts) error {
 		effectiveProjDir = opts.WipnoteRoot
 	}
 
+	// Write launch marker to the main project root (mirrors launchClaude and
+	// execAntigravity — see writeLaunchMarker in claude.go). Codex hooks read
+	// this to distinguish a launcher-started session (daemon guaranteed) from
+	// a bare/IDE/desktop-app session: unlike Claude's ephemeral --plugin-dir
+	// model, Codex hooks persist across every entry point once installed
+	// (spk-5a716533), so this marker is the only durable signal that a
+	// wipnote launcher is behind THIS session.
+	writeLaunchMarker(string(opts.effectiveMode()), effectiveProjDir)
+
 	// Auto-start a detached `wipnote serve` for the dashboard.
 	ensureServeForDashboard(effectiveProjDir)
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>[P1] Pre-commit guardrail: scan .htmlgraph/ and .claude/ for host-local absolute paths</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T23:38:26.598186"
-             data-updated="2026-04-22T03:34:17.483978" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+             data-updated="2026-08-09T20:41:54.83873" data-agent-assigned="claude-code" data-track-id="trk-787f57d3" data-affected_files="cmd/htmlgraph/check.go,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/check_host_paths_test.go,cmd/htmlgraph/testdata/bad-path-sample.html,cmd/htmlgraph/testdata/clean-sample.html,scripts/check-host-paths.sh">
 
         <header>
             <h1>[P1] Pre-commit guardrail: scan .htmlgraph/ and .claude/ for host-local absolute paths</h1>
@@ -27,27 +27,27 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:21:02.770681">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="bug-5150e42a.html" data-relationship="relates_to" data-since="2026-04-21T23:38:54.349691">[P2] Cross-environment absolute-path drift — class audit</a></li>
-                    <li><a href="bug-e1c968fe.html" data-relationship="relates_to" data-since="2026-04-21T23:38:55.608788">[P1] Worktree .git file carries cross-machine absolute paths — breaks in devcontainer</a></li>
+                    <li><a href="../sessions/dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:21:02.770681">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:26.882818">trk-787f57d3</a></li>
+                    <li><a href="../tracks/trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:26.882818">trk-787f57d3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-5150e42a.html" data-relationship="relates_to" data-since="2026-04-21T23:38:54.349691">[P2] Cross-environment absolute-path drift — class audit</a></li>
+                    <li><a href="../bugs/bug-e1c968fe.html" data-relationship="relates_to" data-since="2026-04-21T23:38:55.608788">[P1] Worktree .git file carries cross-machine absolute paths — breaks in devcontainer</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Missing systemic guardrail. Two findings in the audit (F2: plan-c248b73f.yaml:178 contains <user-home>/.copilot/... path; F3: bug-71fc095f.html:43 contains <user-home>/DevProjects/... path) show that host-local absolute paths are landing in committed .htmlgraph artifacts with no check. Fix: pre-commit hook or CI step that runs 'git diff --cached' and greps for /Users//, /home// (excluding /home/runner for CI), /workspaces//, and <tmp>/folders/. Exit non-zero with offending file:line. Allowlist for known-safe cases (e.g. docs explaining how paths work). Acceptance: committing a staged file containing such a path fails pre-commit with a clear message. Covered by synthesis of audit.</p>
+            <p>Missing systemic guardrail. Two findings in the audit (F2: plan-c248b73f.yaml:178 contains /.copilot/... path; F3: bug-71fc095f.html:43 contains /DevProjects/... path) show that host-local absolute paths are landing in committed .htmlgraph artifacts with no check. Fix: pre-commit hook or CI step that runs &#39;git diff --cached&#39; and greps for /Users//, /home// (excluding /home/runner for CI), /workspaces//, and /folders/. Exit non-zero with offending file:line. Allowlist for known-safe cases (e.g. docs explaining how paths work). Acceptance: committing a staged file containing such a path fails pre-commit with a clear message. Covered by synthesis of audit.</p>
         </section>
     </article>
 </body>

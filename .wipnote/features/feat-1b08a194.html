@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Canonical sessions ledger: archive appends a durable session row that edges can resolve</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-1b08a194"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T12:02:54.994416"
+             data-updated="2026-08-09T12:27:40.0808" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Canonical sessions ledger: archive appends a durable session row that edges can resolve</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T12:02:55.006697">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-10e166d8.html" data-relationship="relates_to" data-since="2026-08-09T12:03:08.016526">Only 82 of 828 implemented_in edges declared in HTML reach the index</a></li>
+                    <li><a href="../features/feat-d1439606.html" data-relationship="relates_to" data-since="2026-08-09T12:03:08.111299">Edge derivation contract: tombstone policy plus canonical-vs-index census</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="spawned_from" data-since="2026-08-09T12:27:40.080426">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Sessions are the one node type work items link to whose lifecycle is ephemeral: raw events are gitignored, archiving tar-gzips them into an equally untracked graveyard, and nothing durable remains — which is why canonical HTML declares edges to 156 session targets of which 3 resolve. Fix the cause: a canonical git-tracked sessions ledger HTML file following the architecture-cards table pattern, fragment-addressable by session id. REVISED PER DESIGN REVIEW: the row is created at SESSION START, not archive time, mirroring the claim ledger exactly — open row at birth, enriched at death. Start writes id, harness, project and start time; session end closes the row with an end time; archive enriches it with distilled totals and the archive path if cheaply available. Root sessions only — synthetic per-subagent ids must not each get a row or the ledger fills with stubs, and the measured dangling targets are all root-session UUIDs. Start-time creation means an implemented-in edge written at completion never targets anything undurable even briefly, a session that dies unarchived still has its row, and the ledger — not the derived sessions table — becomes the validity authority the reindex gate consults, for live sessions as well as dead ones. The write costs are absorbed by existing machinery: once-per-session lock-and-append on the start hook, and the deferred commit-queue with per-path coalescing already handles a git-tracked file dirtied mid-session for the claim ledger. Edges keep their existing target ids; nothing rewrites old HTML. BACKFILL: the archive holds tarballs back to May, so most of the 153 dangling targets can be reconstructed — id and end time from the tarball at minimum. Tombstones remain only for pre-ledger sessions with no surviving archive. Open decision: one file with stable fragment urls versus sharding for worktree conflict avoidance — session starts are far rarer than claims, so one file is likely fine, but choose deliberately. Sequencing: after the in-flight edge-contract work, same gate and reindex region.
+Acceptance Criteria
+A session started after this lands has a canonical row before any edge can target it. The reindex gate resolves session targets from the ledger, not the derived table. Backfill reconstructs rows for archived sessions. Root sessions only. Survives a fresh clone.</p>
+        </section>
+    </article>
+</body>
+</html>

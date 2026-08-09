@@ -147,6 +147,16 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		sessTotal, sessUpserted, sessErrs = reindexSessions(database, sessDir, projectDir)
 		sessionsIndexed = true
 
+		// The seam for the canonical sessions ledger (feat-1b08a194): its
+		// contract makes the ledger, not this derived table, the authority for
+		// session validity. That is a swap of the collector below — an id it
+		// registers classifies EdgeTargetLive and indexes with no tombstone
+		// marker, with no change to graph.ClassifyEdgeTarget, which asks only
+		// whether an id is in validIDs and never where it came from.
+		//
+		// Whatever replaces or joins this call must stay ABOVE
+		// purgeStaleEntries, for the same reason collectPlanIDs does: the purge
+		// judges targets against validIDs as it stands at that moment.
 		collectSessionIDs(database, validIDs)
 		purged, edgesPurged := purgeStaleEntries(database, validIDs)
 		reindexEdges(database, wipnoteDir, validIDs)

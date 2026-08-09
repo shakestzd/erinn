@@ -73,6 +73,17 @@ const (
 	// records in this repo's .wipnote/sessions/ use it, so the end-to-end path
 	// must cover it and not just the dashed UUID.
 	derivePrunedSessionAlt = "019f424e188c60f444c8eaca668b"
+
+	// A session destined to have a row in the canonical sessions ledger
+	// (feat-1b08a194). Today it is indistinguishable from a pruned session —
+	// no ledger exists, so it tombstones — and the expectation below says so.
+	//
+	// WHEN feat-1b08a194 LANDS this case flips: give it a ledger row, and
+	// deriveExpectedEdges must move it out of deriveSessionShapedTargets into
+	// the valid-id set, at which point the edge indexes as EdgeTargetLive with
+	// NO tombstone marker. That is the acceptance criterion for the gate half
+	// of that feature, and it should fail here first.
+	deriveLedgerSession = "55556666-7777-8888-9999-aaaabbbbcccc"
 )
 
 // deriveSessionShapedTargets is the fixture's own statement of which targets
@@ -80,10 +91,14 @@ const (
 // shape check: if it did, a gate that classified `feat-ghost-9999` as a session
 // would classify it that way on both sides and the test would agree with the
 // bug.
+//
+// deriveLedgerSession sits here only because no ledger exists yet — see its
+// declaration for what moves when feat-1b08a194 lands.
 var deriveSessionShapedTargets = map[string]bool{
 	deriveLiveSession:      true,
 	derivePrunedSession:    true,
 	derivePrunedSessionAlt: true,
+	deriveLedgerSession:    true,
 }
 
 // buildEdgeDerivationFixture writes a synthetic .wipnote/ tree covering every
@@ -146,6 +161,9 @@ func buildEdgeDerivationFixture(t *testing.T) string {
 		map[string][]censusEdgeSpec{
 			"part_of":    plainEdges(deriveTrackID),
 			"relates_to": plainEdges(deriveBugID),
+			// Destined for a canonical sessions-ledger row; tombstoned until
+			// that ledger exists.
+			"implemented_in": plainEdges(deriveLedgerSession),
 		})
 
 	// Plan-SOURCED HTML edges, plus the YAML the slice pass reads.
@@ -486,6 +504,23 @@ func TestReindex_TombstoneDistinguishedFromDroppedEdge(t *testing.T) {
 			"only session-shaped targets may tombstone — %s is not an ephemeral node, it is absent",
 			ghost.from, ghost.rel, ghost.to, row.count, metaOrNone(row.meta), deriveGhostItem)
 	}
+
+	// The handoff case. Tombstoned today because no canonical sessions ledger
+	// exists; when feat-1b08a194 lands this assertion is the one that should
+	// fail first, and the fix is to give the fixture a ledger row and move the
+	// id into the valid-id set rather than to relax the assertion.
+	ledger := censusEdge{from: deriveSpikeID, rel: "implemented_in", to: deriveLedgerSession}
+	ledgerRow, ok := census[ledger]
+	if !ok {
+		t.Errorf("edge to %s went missing entirely: %s -%s-> %s",
+			deriveLedgerSession, ledger.from, ledger.rel, ledger.to)
+	} else if !strings.Contains(ledgerRow.meta, `"tombstoned"`) {
+		t.Errorf("edge to a session with no canonical ledger row is not tombstoned: %s -%s-> %s meta=%s.\n"+
+			"If the sessions ledger (feat-1b08a194) has landed, this is the expected flip: give the fixture\n"+
+			"a ledger row for %s and move it out of deriveSessionShapedTargets into the valid-id set, so it\n"+
+			"classifies EdgeTargetLive with no marker. Do not simply drop this assertion.",
+			ledger.from, ledger.rel, ledger.to, metaOrNone(ledgerRow.meta), deriveLedgerSession)
+	}
 }
 
 // assertDerivationCasesPresent guards against a vacuous comparison. If the
@@ -501,6 +536,7 @@ func assertDerivationCasesPresent(t *testing.T, expected derivedEdgeSet) {
 		{"edge to a live session", censusEdge{from: deriveFeatureA, rel: "implemented_in", to: deriveLiveSession}},
 		{"tombstoned edge to a pruned session", censusEdge{from: deriveFeatureA, rel: "implemented_in", to: derivePrunedSession}},
 		{"tombstoned edge to a pruned session in the 28-hex id shape", censusEdge{from: deriveBugID, rel: "implemented_in", to: derivePrunedSessionAlt}},
+		{"edge to a session awaiting a canonical ledger row (feat-1b08a194)", censusEdge{from: deriveSpikeID, rel: "implemented_in", to: deriveLedgerSession}},
 		{"plan-YAML slice ordering edge", censusEdge{from: deriveFeatureB, rel: "blocked_by", to: deriveFeatureA}},
 		{"arch-ledger learning edge", censusEdge{from: deriveArchNode, rel: "learned_from", to: deriveFeatureA}},
 		{"arch-ledger reverse learning edge", censusEdge{from: deriveFeatureA, rel: "has_learning", to: deriveArchNode}},

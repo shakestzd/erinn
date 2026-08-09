@@ -104,11 +104,42 @@ const (
 
 // ClassifyEdgeTarget applies the target-validity gate to one declared edge.
 // validIDs is the set of node ids the current reindex pass has registered
-// (work items, tracks, plans, and live sessions).
+// (work items, tracks, plans, and sessions).
 //
 // This is the single definition of the policy: both the indexing pass and the
 // stale-edge purge consult it, so a tombstone written by one cannot be deleted
 // by the other on the next rebuild.
+//
+// # Adding a resolution source
+//
+// The tombstone is the LAST tier, not the only answer for a session-shaped id.
+// This function asks only whether the id is in validIDs — never where it came
+// from — so a new authority for session validity is added by populating
+// validIDs, not by changing anything here.
+//
+// validIDs is already a multi-source whitelist assembled that way: work items
+// and tracks register during their node passes, collectPlanIDs adds plan ids
+// that have no node table at all, and collectSessionIDs adds ids from the
+// derived sessions table. The canonical sessions ledger (feat-1b08a194) is the
+// next one — its contract is that the ledger, not the derived table, becomes
+// the validity authority, which is a swap of that collector. An id it resolves
+// classifies EdgeTargetLive and indexes with no marker, and an edge previously
+// tombstoned loses its marker on the next pass because InsertEdge replaces the
+// row wholesale. Both are the intended outcomes.
+//
+// The one constraint a new collector must honour: it has to run BEFORE
+// purgeStaleEntries, for the same reason collectPlanIDs and collectSessionIDs
+// do — the purge consults this function with whatever validIDs holds at that
+// moment, so an id registered afterwards is an id the purge has already judged
+// unresolvable.
+//
+// Note for that work: resolving a target here does NOT make it renderable.
+// Titles come from the sessions table in three separate readers — resolveNodes
+// in core/graph/querybuilder.go, resolveProvenanceNode, and loadGraphNodes — so
+// a ledger-only session would resolve as valid, index WITHOUT a tombstone
+// marker, and still render as an unlabelled node. That is strictly worse than
+// the tombstone it replaces, which at least says why it is blank. A ledger read
+// path in those readers has to land with the gate change, not after it.
 func ClassifyEdgeTarget(targetID string, validIDs map[string]bool) EdgeTargetDisposition {
 	switch {
 	case validIDs[targetID]:

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-26T05:05:50.132322"
-             data-updated="2026-05-26T09:18:42.932739" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-08-09T20:43:01.476962" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94" data-affected_files=".wipnote/.gitignore,.wipnote/bugs/bug-8d5bbefa.html,.wipnote/bugs/bug-b9d0e3e0.html,.wipnote/bugs/bug-c4fee953.html,.wipnote/bugs/bug-f3fd2605.html,.wipnote/features/feat-3f66d83f.html,.wipnote/features/feat-76504033.html,.wipnote/features/feat-9704121b.html,.wipnote/features/feat-c0307d7a.html,.wipnote/features/feat-d9607f58.html,.wipnote/plans/plan-18147795.html,.wipnote/plans/plan-6ee9b0c8.html,.wipnote/plans/plan-cc24034c.html,.wipnote/session-families.json,.wipnote/spikes/spk-f394951f.html,.wipnote/tracks/trk-0677c709.html,.wipnote/tracks/trk-43648254.html,.wipnote/tracks/trk-b1d06a84.html,.wipnote/tracks/trk-be293476.html,.wipnote/tracks/trk-c4615ad2.html,cmd/wipnote/git_mutation_lock.go,cmd/wipnote/git_mutation_lock_test.go,cmd/wipnote/plan_yaml_cmds.go,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/workitem_commit.go,go.mod,go.sum">
 
         <header>
             <h1>Centralize wipnote Git mutation execution behind a repo-scoped lock</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-4a65d000.html" data-relationship="caused_by" data-since="2026-05-26T05:43:53.889946">Durably prevent stale git index.lock from wipnote autocommit</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.13897">trk-b1d06a84</a></li>
+                    <li><a href="../bugs/bug-4a65d000.html" data-relationship="caused_by" data-since="2026-05-26T05:43:53.889946">Durably prevent stale git index.lock from wipnote autocommit</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:08:58.441513">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                    <li><a href="../sessions/e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:08:58.441513">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.13897">trk-b1d06a84</a></li>
                 </ul>
             </section>
         </nav>
@@ -58,12 +58,12 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Add a single helper for wipnote-owned Git mutations that acquires a repo-scoped advisory lock before running index/ref-writing Git commands. Use it to serialize concurrent agents and CLIs before Git's own index.lock contention path is reached. CONSTRAINT: the advisory lock only serializes wipnote's own processes; external writers (IDE, gitstatus daemon, user git) do not honor it, so the existing runGitWithLockRetry backoff loop MUST be retained as a complementary layer. flock auto-releases on process death, so wipnote's own lock can never go stale -- this is the rationale for flock over a pidfile.
+            <p>Add a single helper for wipnote-owned Git mutations that acquires a repo-scoped advisory lock before running index/ref-writing Git commands. Use it to serialize concurrent agents and CLIs before Git&#39;s own index.lock contention path is reached. CONSTRAINT: the advisory lock only serializes wipnote&#39;s own processes; external writers (IDE, gitstatus daemon, user git) do not honor it, so the existing runGitWithLockRetry backoff loop MUST be retained as a complementary layer. flock auto-releases on process death, so wipnote&#39;s own lock can never go stale -- this is the rationale for flock over a pidfile.
 Acceptance Criteria
 Concurrent wipnote processes are serialized via the advisory lock; runGitWithLockRetry is retained for external-writer contention; lock auto-releases if the holding process dies.
 Expected Behavior
-Two wipnote autocommits launched simultaneously never both enter git's index-writing path at once; if one process is killed mid-commit, the lock is released automatically and the next process proceeds.
-[2026-05-26 09:18 claude-code] accepted-advisory (provenance override): Implementation committed as b59b3ce59 with feat-3f66d83f in the subject for recoverable provenance. Subagent commit has no session-linked tool event, so transcript-driven 'ingest commits' cannot auto-link it; quality gates (build/vet/test) pass.</p>
+Two wipnote autocommits launched simultaneously never both enter git&#39;s index-writing path at once; if one process is killed mid-commit, the lock is released automatically and the next process proceeds.
+[2026-05-26 09:18 claude-code] accepted-advisory (provenance override): Implementation committed as b59b3ce59 with feat-3f66d83f in the subject for recoverable provenance. Subagent commit has no session-linked tool event, so transcript-driven &#39;ingest commits&#39; cannot auto-link it; quality gates (build/vet/test) pass.</p>
         </section>
     </article>
 </body>

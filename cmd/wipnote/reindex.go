@@ -212,6 +212,26 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 	}
 	errCount += claimErrs
 
+	// Gate ledger (feat-0e5ca43e). Backfill runs FIRST: it moves gate runs
+	// recorded before the ledger existed into it, and only then can the
+	// projection below treat them as rebuildable. Both run on the incremental
+	// path, for the same reason reindexClaimEpisodes does — ledger writes commit
+	// asynchronously, so a git-diff-driven pass would miss a run that is written
+	// but not yet flushed.
+	backfilled, backfillErrs := backfillGateLedgerFromIndex(database, wipnoteDir, verboseFlag)
+	if backfilled > 0 || backfillErrs > 0 {
+		fmt.Printf("  gate ledger: %d pre-ledger gate runs given a canonical home (%d errors)\n",
+			backfilled, backfillErrs)
+	}
+	errCount += backfillErrs
+
+	gateRows, gateErrs := reindexGateRecords(database, wipnoteDir, verboseFlag)
+	if gateRows > 0 || gateErrs > 0 {
+		fmt.Printf("  gate records: %d projected from the canonical ledger, %d errors\n",
+			gateRows, gateErrs)
+	}
+	errCount += gateErrs
+
 	// Ingest recap artifacts (.wipnote/recaps/*.html) into the recaps read index.
 	recapTotal, recapUpserted, recapErrs := reindexRecaps(database, wipnoteDir, projectDir, verboseFlag)
 	if recapUpserted > 0 || recapErrs > 0 {

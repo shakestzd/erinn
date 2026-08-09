@@ -238,11 +238,11 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "internal/gate/check.go",
-		Function:       "PersistRecord",
+		Function:       "projectRecordToIndex",
 		OpenExpr:       "dbpkg.Open",
 		Ordinal:        1,
 		Classification: intentionalCLIMutation,
-		Note:           "`wipnote check --gate` persists the session-local gate record after foreground build/vet/test execution completes.",
+		Note:           "`wipnote check --gate` mirrors the canonical gate-ledger record into the read index after foreground build/vet/test execution completes. The canonical write is a plain fsynced file append and never touches SQLite (feat-0e5ca43e).",
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",

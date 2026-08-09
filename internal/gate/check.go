@@ -15,6 +15,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/storage"
@@ -159,7 +160,11 @@ type RunResult struct {
 	Skipped       bool
 	AllowlistHits []AllowlistHit
 	OutputSummary string
-	Record        *dbpkg.GateRecord
+	// Record is the CANONICAL ledger record this run wrote, not the index row.
+	// Callers that inspect it (the completion gate's post-recheck assertion, the
+	// `check --gate` summary) are therefore reading the same artifact a later
+	// completion in another process will read.
+	Record *gateledger.Record
 }
 
 type packageJSON struct {
@@ -493,25 +498,29 @@ func GateCommandAllowlisted(cmdErr error, hits []AllowlistHit) bool {
 	return cmdErr != nil && len(hits) > 0
 }
 
-func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, result *RunResult) (*dbpkg.GateRecord, error) {
+// PersistRecord writes one gate run to the CANONICAL ledger and projects it into
+// the derived index.
+//
+// Order is the contract, not a detail. The ledger append is fsynced before the
+// index is even opened, so the record is durable — and readable by the completion
+// that follows in a different process — regardless of what the index does. Only
+// the git commit of the ledger is deferred, through the commit queue.
+//
+// An index failure is still returned as an error, matching the behaviour before
+// the ledger existed, but it no longer LOSES the record: the canonical row is on
+// disk and the next `wipnote reindex` replays it.
+//
+// The allowlist hit DETAIL travels with the record, not just its count. A hit is
+// what converted a failing gate command into a pass (see GateCommandAllowlisted),
+// so dropping the detail would make every forgiven pass indistinguishable from a
+// clean one, permanently.
+func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, result *RunResult) (*gateledger.Record, error) {
 	if result == nil {
 		return nil, fmt.Errorf("gate result is nil")
 	}
 	if strings.TrimSpace(sessionID) == "" {
 		return nil, nil
 	}
-	dbPath, err := storage.CanonicalDBPath(projectRoot)
-	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return nil, fmt.Errorf("ensure db dir: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("open db: %w", err)
-	}
-	defer database.Close()
 
 	hitsJSON, err := json.Marshal(result.AllowlistHits)
 	if err != nil {
@@ -525,7 +534,8 @@ func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, r
 	if err != nil {
 		return nil, fmt.Errorf("marshal guards run: %w", err)
 	}
-	record := &dbpkg.GateRecord{
+
+	record, err := gateledger.StoreForProject(projectRoot).Append(gateledger.Record{
 		SessionID:         sessionID,
 		WorkItemID:        workItemID,
 		Harness:           harness,
@@ -539,12 +549,33 @@ func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, r
 		OutputSummary:     result.OutputSummary,
 		ProfileSignature:  result.Plan.ProfileSignature,
 		GuardsRunJSON:     string(guardsRunJSON),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("record gate run: %w", err)
 	}
-	record.EnsureSignature()
-	if err := dbpkg.InsertGateRecord(database, record); err != nil {
+
+	if err := projectRecordToIndex(projectRoot, record); err != nil {
 		return nil, err
 	}
-	return record, nil
+	return &record, nil
+}
+
+// projectRecordToIndex mirrors a canonical record into the read index so the
+// dashboard and reporting queries see it without waiting for a reindex.
+func projectRecordToIndex(projectRoot string, record gateledger.Record) error {
+	dbPath, err := storage.CanonicalDBPath(projectRoot)
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return fmt.Errorf("ensure db dir: %w", err)
+	}
+	database, err := dbpkg.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
+	}
+	defer database.Close()
+	return dbpkg.InsertGateRecord(database, dbpkg.GateRecordFromLedger(record))
 }
 
 // gateStatus derives the persisted DB status for a gate run. The gate_records
@@ -684,20 +715,40 @@ func ReportGuardProfileDrift(database *sql.DB, projectRoot, sessionID string, w 
 
 const CompletionGateFallbackWindow = 6 * time.Hour
 
-func ValidateCompletionRecord(projectRoot string, database *sql.DB, sessionID, workItemID, harness string, stdout, stderr io.Writer) error {
-	if database == nil {
-		return nil
-	}
+// ValidateCompletionRecord decides whether workItemID may complete, reading gate
+// evidence from the CANONICAL ledger (feat-0e5ca43e).
+//
+// # Why canonical and not the index
+//
+// The evidence used to come from the SQLite read index, which lives in the OS
+// cache directory and may be purged at any time — so a purge silently changed
+// whether completions were permitted, and nothing could rebuild the records
+// (bug-550c1cd8). Reading the ledger makes the verdict independent of index
+// state: emptying gate_records changes nothing here. The parse cost is a
+// non-issue on a command that already re-runs the whole quality gate.
+//
+// # BEHAVIOUR CHANGE: the verdict is now coupled to working-tree git state
+//
+// The ledger is a git-tracked file, so checking out an older commit surfaces THAT
+// commit's gate records, and a completion judged there sees the evidence that
+// existed there. This is deliberate and judged correct — a gate record is a fact
+// about a tree state, so evaluating it against the tree you are on beats
+// evaluating it against a machine-local cache that outlives every checkout — but
+// it differs from the index-backed gate, which answered identically regardless of
+// HEAD. Anyone completing work on a detached or rewound checkout should expect
+// the older answer.
+func ValidateCompletionRecord(projectRoot string, sessionID, workItemID, harness string, stdout, stderr io.Writer) error {
 	if strings.TrimSpace(sessionID) == "" {
 		return fmt.Errorf("refusing to complete %s: no active session id is available; run `wipnote check --gate` from an active session first", workItemID)
 	}
-	record, err := dbpkg.LatestGateRecordForSession(database, sessionID)
+	store := gateledger.StoreForProject(projectRoot)
+	record, err := store.LatestForSession(sessionID)
 	if err != nil {
 		return fmt.Errorf("load gate record: %w", err)
 	}
-	sessionScopedValid := record != nil && record.Status == "pass" && record.SignatureValid()
+	sessionScopedValid := record != nil && record.Passed() && record.SignatureValid()
 	if !sessionScopedValid {
-		fallback, ferr := dbpkg.LatestPassingGateRecordForWorkItem(database, workItemID, CompletionGateFallbackWindow)
+		fallback, ferr := store.LatestPassingForWorkItem(workItemID, CompletionGateFallbackWindow)
 		if ferr != nil {
 			return fmt.Errorf("load gate record: %w", ferr)
 		}
@@ -710,7 +761,7 @@ func ValidateCompletionRecord(projectRoot string, database *sql.DB, sessionID, w
 	if err != nil {
 		return fmt.Errorf("re-run quality gate before completing %s: %w", workItemID, err)
 	}
-	if result == nil || result.Record == nil || result.Record.Status != "pass" || !result.Record.SignatureValid() {
+	if result == nil || result.Record == nil || !result.Record.Passed() || !result.Record.SignatureValid() {
 		return fmt.Errorf("refusing to complete %s: the immediate gate re-check did not produce a valid passing record for session %s", workItemID, sessionID)
 	}
 	return nil

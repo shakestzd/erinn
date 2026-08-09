@@ -209,18 +209,28 @@ func TestMigrateFromUserVersionNMinus1(t *testing.T) {
 // for and one version behind, then confirms a normal db.Open repairs it —
 // proving the fix applies through the same entry point every writer (hooks,
 // serve, reindex) already uses, with no new mechanism required.
+// otelAttributionStepVersion is the version of the step that owns
+// otel_signals.agent_id (019_otel_signals_attribution_columns).
+//
+// The rewind below is pinned to THIS step rather than to currentSchemaVersion-1.
+// It used to be current-1, which worked only while 019 happened to be the newest
+// step: adding any later step (020_gate_records_record_id was the first) left the
+// rewind above 019, so the owning step never re-ran and the repair this test
+// exists to prove was never exercised. Pin to the owner, not to the tail.
+const otelAttributionStepVersion = 19
+
 func TestMigrateFromAlreadyCurrentDB_MissingLaterColumn(t *testing.T) {
 	current := db.CurrentSchemaVersion()
-	if current < 2 {
-		t.Skipf("currentSchemaVersion=%d < 2; cannot test N-1 migration", current)
+	if current < otelAttributionStepVersion {
+		t.Skipf("currentSchemaVersion=%d < %d; agent_id step not present", current, otelAttributionStepVersion)
 	}
 
 	path := fileDBPath(t, "missing_agent_id.db")
 
-	// Cold-migrate to pick up every table, then strip the column the newest
-	// step is responsible for and rewind user_version by one — simulating a
-	// database that finished migrating to "current" on an OLDER binary,
-	// before that step's column existed at all.
+	// Cold-migrate to pick up every table, then strip the column its step is
+	// responsible for and rewind user_version to just below that step —
+	// simulating a database that finished migrating on an OLDER binary, before
+	// the column existed at all.
 	cold, err := db.Open(path)
 	if err != nil {
 		t.Fatalf("cold seed Open: %v", err)
@@ -231,7 +241,7 @@ func TestMigrateFromAlreadyCurrentDB_MissingLaterColumn(t *testing.T) {
 	if _, err := cold.Exec(`ALTER TABLE otel_signals DROP COLUMN agent_id`); err != nil {
 		t.Fatalf("drop agent_id to simulate pre-migration DB: %v", err)
 	}
-	if _, err := cold.Exec(fmt.Sprintf("PRAGMA user_version = %d", current-1)); err != nil {
+	if _, err := cold.Exec(fmt.Sprintf("PRAGMA user_version = %d", otelAttributionStepVersion-1)); err != nil {
 		t.Fatalf("rewind user_version: %v", err)
 	}
 	cold.Close()
@@ -792,7 +802,7 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	// Steps 10, 11 and 12 should have run (trigger repair + total_events
 	// backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns"}
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
@@ -941,7 +951,7 @@ func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
 
 	// Steps 11, 12 and 13 should have run (backfill + gate_records profile columns + arch_cards).
 	calls := recorder.Calls()
-	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns"}
+	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}

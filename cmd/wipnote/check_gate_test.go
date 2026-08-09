@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/commitqueue"
@@ -176,21 +177,47 @@ func TestRunSessionGate_ReportsAndPersistsAllowlistHits(t *testing.T) {
 		t.Fatal("expected persisted gate record")
 	}
 
+	// Canonical first: the allowlist hit DETAIL, not just the count, must survive
+	// the round trip through .wipnote/gate-ledger.html. Without the detail every
+	// historical pass is indistinguishable from a clean one (feat-0e5ca43e).
+	canonical, err := gateledger.StoreForProject(projectRoot).LatestForSession("sess-gate-listener")
+	if err != nil {
+		t.Fatalf("LatestForSession: %v", err)
+	}
+	if canonical == nil {
+		t.Fatal("expected canonical gate record in the ledger")
+	}
+	if canonical.AllowlistHitCount != len(result.AllowlistHits) {
+		t.Fatalf("canonical allowlist hit count = %d, want %d", canonical.AllowlistHitCount, len(result.AllowlistHits))
+	}
+	if !strings.Contains(canonical.AllowlistHitsJSON, "listener-socket-sandbox") {
+		t.Fatalf("canonical allowlist hits JSON = %s, want listener entry", canonical.AllowlistHitsJSON)
+	}
+	if !strings.Contains(canonical.AllowlistHitsJSON, "socket sandbox error") {
+		t.Fatalf("canonical allowlist hits JSON = %s, want the justification prose", canonical.AllowlistHitsJSON)
+	}
+	if !canonical.SignatureValid() {
+		t.Fatal("canonical record signature did not re-verify after the ledger round trip")
+	}
+
 	database := openGateTestDB(t, projectRoot)
 	defer database.Close()
 
-	record, err = dbpkg.LatestGateRecordForSession(database, "sess-gate-listener")
+	indexed, err := dbpkg.LatestGateRecordForSession(database, "sess-gate-listener")
 	if err != nil {
 		t.Fatalf("LatestGateRecordForSession: %v", err)
 	}
-	if record == nil {
-		t.Fatal("expected persisted gate record")
+	if indexed == nil {
+		t.Fatal("expected projected gate record")
 	}
-	if record.AllowlistHitCount != len(result.AllowlistHits) {
-		t.Fatalf("allowlist hit count = %d, want %d", record.AllowlistHitCount, len(result.AllowlistHits))
+	if indexed.RecordID != canonical.ID {
+		t.Fatalf("index row record_id = %q, want the canonical id %q", indexed.RecordID, canonical.ID)
 	}
-	if !strings.Contains(record.AllowlistHitsJSON, "listener-socket-sandbox") {
-		t.Fatalf("allowlist hits JSON = %s, want listener entry", record.AllowlistHitsJSON)
+	if indexed.AllowlistHitCount != len(result.AllowlistHits) {
+		t.Fatalf("allowlist hit count = %d, want %d", indexed.AllowlistHitCount, len(result.AllowlistHits))
+	}
+	if !strings.Contains(indexed.AllowlistHitsJSON, "listener-socket-sandbox") {
+		t.Fatalf("allowlist hits JSON = %s, want listener entry", indexed.AllowlistHitsJSON)
 	}
 }
 
@@ -1013,21 +1040,22 @@ func TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID(t *testing.T
 	database := openGateTestDB(t, projectRoot)
 	defer database.Close()
 
-	// Insert a passing gate record attributed to the work item but from
-	// a DIFFERENT session than the one that will call validateCompletionGateRecord.
-	// Do not pre-call EnsureSignature() — InsertGateRecord sets CheckedAt then
-	// computes the signature to keep them consistent.
-	priorRecord := &dbpkg.GateRecord{
+	// Append a passing gate record attributed to the work item but from a
+	// DIFFERENT session than the one that will call validateCompletionGateRecord.
+	// It goes to the CANONICAL ledger, not the index: since feat-0e5ca43e the
+	// completion gate reads the ledger, so a record that exists only in
+	// gate_records is invisible to it. Do not pre-compute the signature —
+	// Append stamps it after normalising CheckedAt, keeping the two consistent.
+	if _, err := gateledger.StoreForProject(projectRoot).Append(gateledger.Record{
 		SessionID:     "sess-gate-producer",
 		WorkItemID:    "feat-cross-session-test",
 		ProjectType:   "go",
 		GateCommand:   "go build ./...",
-		Status:        "pass",
+		Status:        gateledger.StatusPass,
 		Source:        "check",
 		OutputSummary: "all commands passed",
-	}
-	if err := dbpkg.InsertGateRecord(database, priorRecord); err != nil {
-		t.Fatalf("insert prior record: %v", err)
+	}); err != nil {
+		t.Fatalf("append prior record: %v", err)
 	}
 
 	// The completing session is different. With empty work_item_id the
@@ -1035,7 +1063,7 @@ func TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID(t *testing.T
 	// find the record, then run the re-check gate and pass.
 	// validateCompletionGateRecord calls runSessionGate internally for the
 	// re-check; it runs against projectRoot (a real Go project from setupGateTestProject).
-	err := validateCompletionGateRecord(projectRoot, database, "sess-completing", "feat-cross-session-test")
+	err := validateCompletionGateRecord(projectRoot, "sess-completing", "feat-cross-session-test")
 	if err != nil {
 		t.Fatalf("expected cross-session match to pass, got: %v", err)
 	}

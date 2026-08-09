@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 19
+const currentSchemaVersion = 20
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -137,6 +137,11 @@ var migrations = []migrationStep{
 		version: 19,
 		name:    "019_otel_signals_attribution_columns",
 		apply:   stepOtelSignalsAttributionColumns,
+	},
+	{
+		version: 20,
+		name:    "020_gate_records_record_id",
+		apply:   stepGateRecordsRecordID,
 	},
 }
 
@@ -553,6 +558,49 @@ func stepGateRecordsProfileSignature(db *sql.DB) error {
 				return fmt.Errorf("add gate_records column (%s): %w", stmt, err)
 			}
 		}
+	}
+	return nil
+}
+
+// stepGateRecordsRecordID adds gate_records.record_id — the id of the canonical
+// .wipnote/gate-ledger.html row this index row projects (feat-0e5ca43e).
+//
+// The index is now derived: reindex replays the ledger through INSERT OR IGNORE
+// keyed on record_id, so a purged cache rebuilds and a warm cache is a no-op.
+// The unique index is PARTIAL because existing rows predate the ledger and all
+// carry an empty record_id — constraining them would fail the migration on any
+// DB with more than one historical gate run. They keep their rows and are given
+// canonical ids by the backfill pass, which stamps record_id as it writes each.
+//
+// Idempotent: ALTER TABLE ADD COLUMN is swallowed by isDuplicateColumnError on
+// re-run, and a fresh DB created by CreateAllTables already has the column.
+//
+// A MISSING gate_records table is not an error. stepCreateBaseTables is version
+// 1, so it never re-runs on a database seeded at a later user_version, and such a
+// database can legitimately reach this step with the table absent. There is
+// nothing to alter and nothing to lose: CreateAllTables already declares
+// record_id, so whenever the table is finally created it arrives with the column.
+func stepGateRecordsRecordID(db *sql.DB) error {
+	var name string
+	err := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name='gate_records'`,
+	).Scan(&name)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check gate_records existence: %w", err)
+	}
+
+	if _, err := db.Exec(`ALTER TABLE gate_records ADD COLUMN record_id TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !isDuplicateColumnError(err) {
+			return fmt.Errorf("add gate_records.record_id: %w", err)
+		}
+	}
+	if _, err := db.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_gate_records_record_id ON gate_records(record_id) WHERE record_id != ''`,
+	); err != nil {
+		return fmt.Errorf("create gate_records record_id index: %w", err)
 	}
 	return nil
 }

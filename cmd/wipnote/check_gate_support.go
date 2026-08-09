@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/internal/gate"
 )
 
@@ -53,7 +53,7 @@ func gateCommandAllowlisted(cmdErr error, hits []gateAllowlistHit) bool {
 	return gate.GateCommandAllowlisted(cmdErr, hits)
 }
 
-func persistGateRecord(projectRoot, sessionID, workItemID, source string, result *gateRunResult) (*dbpkg.GateRecord, error) {
+func persistGateRecord(projectRoot, sessionID, workItemID, source string, result *gateRunResult) (*gateledger.Record, error) {
 	return gate.PersistRecord(projectRoot, sessionID, workItemID, source, currentHarness(), result)
 }
 
@@ -73,8 +73,11 @@ func reportGuardProfileDrift(database *sql.DB, projectRoot, sessionID string, w 
 	gate.ReportGuardProfileDrift(database, projectRoot, sessionID, w)
 }
 
-func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionID, workItemID string) error {
-	return gate.ValidateCompletionRecord(projectRoot, database, sessionID, workItemID, currentHarness(), os.Stdout, os.Stderr)
+// validateCompletionGateRecord takes no *sql.DB: the completion gate resolves its
+// evidence from the canonical ledger, so its verdict is independent of index
+// state (feat-0e5ca43e).
+func validateCompletionGateRecord(projectRoot, sessionID, workItemID string) error {
+	return gate.ValidateCompletionRecord(projectRoot, sessionID, workItemID, currentHarness(), os.Stdout, os.Stderr)
 }
 
 func gateSignalContext() (context.Context, context.CancelFunc) {

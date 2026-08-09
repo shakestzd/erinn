@@ -1,17 +1,26 @@
 package db
 
 import (
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/shakestzd/wipnote/core/gateledger"
 )
 
-// GateRecord is a session-local derived quality-gate run stored in the read
-// index. It is intentionally NOT canonical .wipnote state.
+// GateRecord is a quality-gate run as it appears in the READ INDEX.
+//
+// The canonical record lives in core/gateledger (.wipnote/gate-ledger.html); this
+// is the derived projection reindex rebuilds from it (feat-0e5ca43e, closing
+// bug-550c1cd8). Rows here are queryable but never authoritative — the completion
+// gate reads the ledger, not this table.
 type GateRecord struct {
-	ID                int64
+	ID int64
+	// RecordID is the canonical ledger record id (gr-…) this row projects, or ""
+	// for a legacy row written before the ledger existed. It is the key the
+	// reindex projection is idempotent on.
+	RecordID          string
 	SessionID         string
 	WorkItemID        string
 	Harness           string
@@ -34,26 +43,28 @@ type GateRecord struct {
 	GuardsRunJSON string
 }
 
-func (gr *GateRecord) signablePayload() string {
-	checkedAt := gr.CheckedAt.UTC().Format(time.RFC3339Nano)
-	return strings.Join([]string{
-		gr.SessionID,
-		gr.WorkItemID,
-		gr.Harness,
-		gr.ProjectType,
-		gr.GateCommand,
-		gr.Status,
-		checkedAt,
-		gr.AllowlistHitsJSON,
-		gr.Source,
-		gr.OutputSummary,
-	}, "\n")
+// signatureInput builds the canonical signable field set.
+//
+// The algorithm deliberately lives in core/gateledger and is only reached from
+// here: the SAME signature is computed over the canonical ledger record and
+// verified against this projection, so two independent implementations would be
+// a drift bug that only surfaces as a completion mysteriously refused.
+func (gr *GateRecord) signatureInput() gateledger.SignatureInput {
+	return gateledger.SignatureInput{
+		SessionID:         gr.SessionID,
+		WorkItemID:        gr.WorkItemID,
+		Harness:           gr.Harness,
+		ProjectType:       gr.ProjectType,
+		GateCommand:       gr.GateCommand,
+		Status:            gr.Status,
+		CheckedAt:         gr.CheckedAt,
+		AllowlistHitsJSON: gr.AllowlistHitsJSON,
+		Source:            gr.Source,
+		OutputSummary:     gr.OutputSummary,
+	}
 }
 
-func (gr *GateRecord) ComputeSignature() string {
-	sum := sha256.Sum256([]byte(gr.signablePayload()))
-	return fmt.Sprintf("%x", sum[:])
-}
+func (gr *GateRecord) ComputeSignature() string { return gr.signatureInput().Sum() }
 
 func (gr *GateRecord) EnsureSignature() {
 	gr.Signature = gr.ComputeSignature()
@@ -66,12 +77,28 @@ func (gr *GateRecord) SignatureValid() bool {
 	return gr.Signature == gr.ComputeSignature()
 }
 
+// InsertGateRecord projects one gate run into the read index, ignoring a record
+// already projected. See InsertGateRecordIfAbsent for the inserted/ignored
+// distinction.
 func InsertGateRecord(database *sql.DB, gr *GateRecord) error {
+	_, err := InsertGateRecordIfAbsent(database, gr)
+	return err
+}
+
+// InsertGateRecordIfAbsent projects one gate run into the read index and reports
+// whether a row was actually written.
+//
+// The insert is OR IGNORE against the partial unique index on record_id, so
+// projecting the same canonical record twice — a gate run that wrote this row
+// directly, followed by the reindex pass replaying the same ledger row — is a
+// no-op rather than a duplicate. Legacy rows (record_id "") sit outside that
+// index and keep the old insert-always behaviour.
+func InsertGateRecordIfAbsent(database *sql.DB, gr *GateRecord) (bool, error) {
 	if database == nil {
-		return nil
+		return false, nil
 	}
 	if gr == nil {
-		return fmt.Errorf("gate record is nil")
+		return false, fmt.Errorf("gate record is nil")
 	}
 	if gr.CheckedAt.IsZero() {
 		gr.CheckedAt = time.Now().UTC()
@@ -86,22 +113,100 @@ func InsertGateRecord(database *sql.DB, gr *GateRecord) error {
 		gr.EnsureSignature()
 	}
 	res, err := database.Exec(`
-		INSERT INTO gate_records (
-			session_id, work_item_id, harness, project_type, gate_command,
+		INSERT OR IGNORE INTO gate_records (
+			record_id, session_id, work_item_id, harness, project_type, gate_command,
 			status, checked_at, signature, allowlist_hits_json,
 			allowlist_hit_count, source, output_summary,
 			profile_signature, guards_run
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		gr.SessionID, nullStr(gr.WorkItemID), nullStr(gr.Harness), gr.ProjectType,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		gr.RecordID, gr.SessionID, nullStr(gr.WorkItemID), nullStr(gr.Harness), gr.ProjectType,
 		gr.GateCommand, gr.Status, gr.CheckedAt.UTC().Format(time.RFC3339Nano),
 		gr.Signature, gr.AllowlistHitsJSON, gr.AllowlistHitCount, gr.Source,
 		nullStr(gr.OutputSummary), gr.ProfileSignature, gr.GuardsRunJSON,
 	)
 	if err != nil {
-		return fmt.Errorf("insert gate record: %w", err)
+		return false, fmt.Errorf("insert gate record: %w", err)
+	}
+	// RowsAffected is the ONLY reliable inserted/ignored signal here: an ignored
+	// INSERT OR IGNORE still reports the previous row's LastInsertId, so the id
+	// alone cannot tell the two apart.
+	affected, err := res.RowsAffected()
+	if err != nil || affected == 0 {
+		return false, nil
 	}
 	if id, err := res.LastInsertId(); err == nil {
 		gr.ID = id
+	}
+	return true, nil
+}
+
+// GateRecordFromLedger projects a canonical ledger record into its index row.
+func GateRecordFromLedger(r gateledger.Record) *GateRecord {
+	return &GateRecord{
+		RecordID:          r.ID,
+		SessionID:         r.SessionID,
+		WorkItemID:        r.WorkItemID,
+		Harness:           r.Harness,
+		ProjectType:       r.ProjectType,
+		GateCommand:       r.GateCommand,
+		Status:            r.Status,
+		CheckedAt:         r.CheckedAt,
+		Signature:         r.Signature,
+		AllowlistHitsJSON: r.AllowlistHitsJSON,
+		AllowlistHitCount: r.AllowlistHitCount,
+		Source:            r.Source,
+		OutputSummary:     r.OutputSummary,
+		ProfileSignature:  r.ProfileSignature,
+		GuardsRunJSON:     r.GuardsRunJSON,
+	}
+}
+
+// UnledgeredGateRecords returns index rows that carry no canonical record id —
+// gate runs written before the ledger existed.
+//
+// This is the input to the one-shot backfill that gives those runs a canonical
+// home. Without it the seventy-five records bug-550c1cd8 counted would stay
+// cache-only forever: the ledger would protect every FUTURE run and lose every
+// past one on the first purge.
+func UnledgeredGateRecords(database *sql.DB) ([]*GateRecord, error) {
+	if database == nil {
+		return nil, nil
+	}
+	rows, err := database.Query(`
+		SELECT id, COALESCE(record_id,''), session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
+		       COALESCE(project_type,''), COALESCE(gate_command,''), COALESCE(status,''),
+		       checked_at, COALESCE(signature,''), COALESCE(allowlist_hits_json,'[]'),
+		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,''),
+		       COALESCE(profile_signature,''), COALESCE(guards_run,'[]')
+		FROM gate_records
+		WHERE COALESCE(record_id,'') = ''
+		ORDER BY checked_at ASC, id ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("query unledgered gate records: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*GateRecord
+	for rows.Next() {
+		rec, scanErr := scanGateRecord(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		if rec != nil {
+			out = append(out, rec)
+		}
+	}
+	return out, rows.Err()
+}
+
+// SetGateRecordID stamps a legacy row with the canonical record id it was
+// backfilled into, so the next backfill pass skips it.
+func SetGateRecordID(database *sql.DB, rowID int64, recordID string) error {
+	if database == nil || strings.TrimSpace(recordID) == "" {
+		return nil
+	}
+	if _, err := database.Exec(`UPDATE gate_records SET record_id = ? WHERE id = ?`, recordID, rowID); err != nil {
+		return fmt.Errorf("stamp gate record %d with %s: %w", rowID, recordID, err)
 	}
 	return nil
 }
@@ -111,7 +216,7 @@ func LatestGateRecordForSession(database *sql.DB, sessionID string) (*GateRecord
 		return nil, nil
 	}
 	row := database.QueryRow(`
-		SELECT id, session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
+		SELECT id, COALESCE(record_id,''), session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
 		       COALESCE(project_type,''), COALESCE(gate_command,''), COALESCE(status,''),
 		       checked_at, COALESCE(signature,''), COALESCE(allowlist_hits_json,'[]'),
 		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,''),
@@ -140,7 +245,7 @@ func LatestPassingGateRecordForWorkItem(database *sql.DB, workItemID string, wit
 		return nil, nil
 	}
 	row := database.QueryRow(`
-		SELECT id, session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
+		SELECT id, COALESCE(record_id,''), session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
 		       COALESCE(project_type,''), COALESCE(gate_command,''), COALESCE(status,''),
 		       checked_at, COALESCE(signature,''), COALESCE(allowlist_hits_json,'[]'),
 		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,''),
@@ -237,7 +342,7 @@ func scanGateRecord(scanner interface{ Scan(dest ...any) error }) (*GateRecord, 
 	var gr GateRecord
 	var checkedAt string
 	err := scanner.Scan(
-		&gr.ID, &gr.SessionID, &gr.WorkItemID, &gr.Harness, &gr.ProjectType,
+		&gr.ID, &gr.RecordID, &gr.SessionID, &gr.WorkItemID, &gr.Harness, &gr.ProjectType,
 		&gr.GateCommand, &gr.Status, &checkedAt, &gr.Signature,
 		&gr.AllowlistHitsJSON, &gr.AllowlistHitCount, &gr.Source, &gr.OutputSummary,
 		&gr.ProfileSignature, &gr.GuardsRunJSON,

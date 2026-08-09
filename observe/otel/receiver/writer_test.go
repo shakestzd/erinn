@@ -932,6 +932,12 @@ func TestNewWriter_DoesNotForceWAL(t *testing.T) {
 // core/db.TestMigrateFromAlreadyCurrentDB_MissingLaterColumn uses), then
 // confirms NewWriter itself repairs the schema before returning, with no
 // other writer or `wipnote serve` needing to have opened the file first.
+
+// otelAttributionStepVersion is the version of the migration step that owns
+// otel_signals.agent_id (019_otel_signals_attribution_columns). Kept in sync
+// with the constant of the same name in core/db's migration tests.
+const otelAttributionStepVersion = 19
+
 func TestNewWriter_AppliesPendingMigrations(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "missing_agent_id.db")
 
@@ -939,14 +945,18 @@ func TestNewWriter_AppliesPendingMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed db.Open: %v", err)
 	}
-	current := db.CurrentSchemaVersion()
 	if _, err := seed.Exec(`DROP INDEX IF EXISTS idx_otel_agent_ts`); err != nil {
 		t.Fatalf("drop idx_otel_agent_ts: %v", err)
 	}
 	if _, err := seed.Exec(`ALTER TABLE otel_signals DROP COLUMN agent_id`); err != nil {
 		t.Fatalf("drop agent_id to simulate a DB that fell behind: %v", err)
 	}
-	if _, err := seed.Exec(fmt.Sprintf("PRAGMA user_version = %d", current-1)); err != nil {
+	// Rewind to just below the step that OWNS agent_id
+	// (019_otel_signals_attribution_columns), not to CurrentSchemaVersion-1.
+	// The latter worked only while 019 happened to be the newest step: any later
+	// step left the rewind above 019, so the owning migration never re-ran and
+	// this test failed on a repair it never actually asked for.
+	if _, err := seed.Exec(fmt.Sprintf("PRAGMA user_version = %d", otelAttributionStepVersion-1)); err != nil {
 		t.Fatalf("rewind user_version: %v", err)
 	}
 	seed.Close()
@@ -978,8 +988,8 @@ func TestNewWriter_AppliesPendingMigrations(t *testing.T) {
 	if err := probe.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("PRAGMA user_version: %v", err)
 	}
-	if version != current {
-		t.Errorf("user_version after NewWriter = %d, want %d", version, current)
+	if want := db.CurrentSchemaVersion(); version != want {
+		t.Errorf("user_version after NewWriter = %d, want %d", version, want)
 	}
 
 	var agentID sql.NullString

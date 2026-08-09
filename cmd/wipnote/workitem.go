@@ -1393,7 +1393,7 @@ func checkCompletionGateRecord(database *sql.DB, projectRoot, sessionID, workIte
 		return nil
 	}
 	reportGuardProfileDrift(database, projectRoot, sessionID, os.Stderr)
-	return validateCompletionGateRecord(projectRoot, database, sessionID, workItemID)
+	return validateCompletionGateRecord(projectRoot, sessionID, workItemID)
 }
 
 // unwrapPreBlock strips a leading/trailing <pre>...</pre> wrapper plus HTML

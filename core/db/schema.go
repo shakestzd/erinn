@@ -437,9 +437,13 @@ func CreateAllTables(db *sql.DB) error {
 			indexed_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 
-		// 17. gate_records — session-local derived quality-gate runs
+		// 17. gate_records — DERIVED quality-gate runs, projected from the
+		// canonical ledger at .wipnote/gate-ledger.html (feat-0e5ca43e). record_id
+		// is that ledger row's id and the key the projection is idempotent on; ""
+		// marks a legacy row written before the ledger existed.
 		`CREATE TABLE IF NOT EXISTS gate_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			record_id TEXT NOT NULL DEFAULT '',
 			session_id TEXT NOT NULL,
 			work_item_id TEXT,
 			harness TEXT,
@@ -562,6 +566,10 @@ func CreateAllIndexes(db *sql.DB) error {
 		// gate_records
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_session_checked ON gate_records(session_id, checked_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_work_item_checked ON gate_records(work_item_id, checked_at DESC)",
+		// PARTIAL unique index: it makes the ledger projection idempotent (INSERT
+		// OR IGNORE on a record already projected) while leaving legacy rows, which
+		// all share record_id '', outside the constraint entirely.
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_gate_records_record_id ON gate_records(record_id) WHERE record_id != ''",
 		// recaps
 		"CREATE INDEX IF NOT EXISTS idx_recaps_kind ON recaps(kind)",
 		"CREATE INDEX IF NOT EXISTS idx_recaps_work_item ON recaps(work_item_id)",

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Subagent tool spans occasionally emit with parent_span=interaction instead of parent_span=Agent (TRACEPARENT propagation gap)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T02:57:27.710747"
-             data-updated="2026-04-21T03:09:04.989102" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:41:36.015597" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".claude/settings.local.json,.htmlgraph/.otel-notice-shown,.htmlgraph/bugs/bug-049df2a4.html,.htmlgraph/bugs/bug-3c4acb55.html,.htmlgraph/bugs/bug-63e588c5.html,.htmlgraph/bugs/bug-73eb8412.html,.htmlgraph/bugs/bug-9ffb1cc4.html,.htmlgraph/bugs/bug-d0fa005b.html,.htmlgraph/features/feat-14eb64d5.html,.htmlgraph/features/feat-26b8a5db.html,.htmlgraph/features/feat-292f87fe.html,.htmlgraph/features/feat-2b146a86.html,.htmlgraph/features/feat-378817e2.html,.htmlgraph/features/feat-4b4be3ec.html,.htmlgraph/features/feat-6c0bbfcf.html,.htmlgraph/features/feat-79f99a81.html,.htmlgraph/features/feat-7aade9d4.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-afbb4dc9.html,.htmlgraph/features/feat-e1efb972.html,.htmlgraph/features/feat-ebefd886.html,.htmlgraph/migrations/ai-title-backfill.done,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-97f85b3b.html,.htmlgraph/tracks/trk-c4615ad2.html,cmd/htmlgraph/api_otel.go,cmd/htmlgraph/claude.go,cmd/htmlgraph/claude_env.go,cmd/htmlgraph/claude_env_test.go,cmd/htmlgraph/claude_serve_autostart.go,cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/serve.go,internal/db/otel_schema.go,internal/hooks/attribution.go,internal/hooks/missing_events.go,internal/hooks/subagent_start.go,internal/hooks/subagent_start_test.go,internal/hooks/transcript_assistant.go,internal/hooks/transcript_assistant_test.go,internal/hooks/version_check.go,internal/hooks/version_check_test.go,internal/otel/receiver/writer.go,internal/otel/receiver/writer_test.go">
 
         <header>
             <h1>Subagent tool spans occasionally emit with parent_span=interaction instead of parent_span=Agent (TRACEPARENT propagation gap)</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4.html" data-relationship="implemented_in" data-since="2026-04-21T02:58:18.472927">session b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4</a></li>
+                    <li><a href="../sessions/b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4.html" data-relationship="implemented_in" data-since="2026-04-21T02:58:18.472927">session b6b51c56-c2f2-4913-8b6d-6bc4414a9ab4</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T02:57:27.713836">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T02:57:27.713836">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Evidence from DB (trace d3fa3d2fd8600a97): subagent-emitted Edit spans 6793b5c483f3666c and fbbe292a126f251f have parent_span=interaction, not parent_span=Agent, even though they were produced inside the subagent's execution window. Subsequent spans in the same trace (Bash, tool_execution, etc.) correctly parent to the Agent span (433e504d97f50699). Pattern: spans emitted early in the subagent lifecycle (before Claude Code fully establishes Agent-span OTel context) leak upward to the interaction scope; spans emitted later correctly inherit the Agent context. Dashboard cannot fix this in _indexSpans because the parent_span pointer itself is wrong. Workaround options: (1) receiver-side re-attribution by overlap window — if a tool span's [start, end] is contained within some Agent span's [start, end] in the same trace, re-parent under the Agent; (2) re-attribution by htmlgraph.agent_id resource attribute — for new dispatches, every subagent-emitted span carries agent_id as a resource attr; any span whose resource agent_id matches an Agent span AND whose parent_span points elsewhere is provably mis-parented, re-parent in internal/otel/receiver/writer.go. Option 2 is cleanest but only works post-feat-e1efb972 (once OTEL_RESOURCE_ATTRIBUTES injection is in effect). Likely upstream: Claude Code internal trace context propagation around subagent invocation.</p>
+            <p>Evidence from DB (trace d3fa3d2fd8600a97): subagent-emitted Edit spans 6793b5c483f3666c and fbbe292a126f251f have parent_span=interaction, not parent_span=Agent, even though they were produced inside the subagent&#39;s execution window. Subsequent spans in the same trace (Bash, tool_execution, etc.) correctly parent to the Agent span (433e504d97f50699). Pattern: spans emitted early in the subagent lifecycle (before Claude Code fully establishes Agent-span OTel context) leak upward to the interaction scope; spans emitted later correctly inherit the Agent context. Dashboard cannot fix this in _indexSpans because the parent_span pointer itself is wrong. Workaround options: (1) receiver-side re-attribution by overlap window — if a tool span&#39;s [start, end] is contained within some Agent span&#39;s [start, end] in the same trace, re-parent under the Agent; (2) re-attribution by htmlgraph.agent_id resource attribute — for new dispatches, every subagent-emitted span carries agent_id as a resource attr; any span whose resource agent_id matches an Agent span AND whose parent_span points elsewhere is provably mis-parented, re-parent in internal/otel/receiver/writer.go. Option 2 is cleanest but only works post-feat-e1efb972 (once OTEL_RESOURCE_ATTRIBUTES injection is in effect). Likely upstream: Claude Code internal trace context propagation around subagent invocation.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-29T14:23:33.538444"
-             data-updated="2026-05-29T15:57:57.067387" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09">
+             data-updated="2026-08-09T20:43:03.943796" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09" data-affected_files=".wipnote/features/feat-4be58538.html,internal/db/claim_collision.go,internal/db/claim_collision_test.go">
 
         <header>
             <h1>Reclaim claims from ended/interrupted sessions in work-item start (no spurious live-collision block)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:23:33.582077">trk-93178cf4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T14:26:28.356557">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                    <li><a href="../sessions/c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T14:26:28.356557">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:23:33.582077">trk-93178cf4</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>feat-5a9839fb's LiveCollision treats any claim whose owning session is heartbeat-live as a live collision. But a session killed via Ctrl+C skips ReleaseAllClaimsForSession (SessionEnd cancelled by CC), leaving a claim that looks live for ~120s. Make the live-collision check ALSO treat a claim whose owning session has ended (status completed/ended, or a Stop/SessionEnd recorded) as immediately reclaimable, so feature/bug/spike start does not spuriously block after an interrupted exit. Files: internal/db/claim_collision.go, internal/db/session_repo.go, tests. Independent of the SessionEnd-slim feature (different package).</p>
+            <p>feat-5a9839fb&#39;s LiveCollision treats any claim whose owning session is heartbeat-live as a live collision. But a session killed via Ctrl+C skips ReleaseAllClaimsForSession (SessionEnd cancelled by CC), leaving a claim that looks live for ~120s. Make the live-collision check ALSO treat a claim whose owning session has ended (status completed/ended, or a Stop/SessionEnd recorded) as immediately reclaimable, so feature/bug/spike start does not spuriously block after an interrupted exit. Files: internal/db/claim_collision.go, internal/db/session_repo.go, tests. Independent of the SessionEnd-slim feature (different package).</p>
         </section>
     </article>
 </body>

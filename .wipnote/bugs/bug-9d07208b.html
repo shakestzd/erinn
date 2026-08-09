@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="low"
              data-created="2026-05-22T01:39:49.354422"
-             data-updated="2026-05-22T01:47:05.539132" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
+             data-updated="2026-08-09T20:42:19.742053" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8" data-affected_files=".wipnote/bugs/bug-9d07208b.html,cmd/wipnote/claude.go,cmd/wipnote/yolo.go">
 
         <header>
             <h1>Session-name timestamp uses UTC instead of local machine timezone</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-22T01:40:05.290187">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-22T01:40:05.290187">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T01:39:49.361976">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T01:39:49.361976">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>defaultSessionName (cmd/wipnote/claude.go) and yoloDefaultName (cmd/wipnote/yolo.go) format the session-label timestamp with time.Now().UTC().Format(20060102-150405), producing a confusing future/offset time (e.g. ...013719 at 21:37 local). Should use local time (time.Now()) so the session name reflects the user's clock.</p>
+            <p>defaultSessionName (cmd/wipnote/claude.go) and yoloDefaultName (cmd/wipnote/yolo.go) format the session-label timestamp with time.Now().UTC().Format(20060102-150405), producing a confusing future/offset time (e.g. ...013719 at 21:37 local). Should use local time (time.Now()) so the session name reflects the user&#39;s clock.</p>
         </section>
     </article>
 </body>

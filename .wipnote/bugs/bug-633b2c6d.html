@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Activity Feed renders subagent tool calls as flat siblings of Task/Agent instead of nested children</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-24T02:34:52.265258"
-             data-updated="2026-04-24T03:34:58.427815" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:03.883519" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files="cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/dashboard/css/components.css">
 
         <header>
             <h1>Activity Feed renders subagent tool calls as flat siblings of Task/Agent instead of nested children</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T02:34:52.268655">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T02:34:55.979584">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T02:34:55.979584">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T02:34:52.268655">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Tree API at /api/events/tree returns nested children correctly: a turn's Task child has 30 and 51 grandchildren (subagent tool calls) for the 'yes we need to fix the ui issues' turn, verified via curl. But the Activity Feed UI renders all events at the same visual depth — subagent Bash/Read/Edit calls appear as SIBLINGS of the Task/Agent row, not as CHILDREN. Screenshot at /tmp/Screenshot_2026-04-23_at_10.28.24_PM.png shows the flat rendering. Recent commits 93d77cbc and 725a58ca touched this file for unrelated improvements (assistant-label, stop-reason-label, Stop event fallback) — possible regression or pre-existing bug only now visible. Investigate cmd/htmlgraph/dashboard/components/event-tree.js — specifically how renderEvent / the tree recursion handles children when the child's event_type='task_delegation'. The renderer likely iterates children linearly without descending into child.children arrays. The fetchSubagentEvents path (transcript-view.js:424) is for transcript view, not event tree — event tree should use the inline nested children from the API response, not a separate fetch.</p>
+            <p>Tree API at /api/events/tree returns nested children correctly: a turn&#39;s Task child has 30 and 51 grandchildren (subagent tool calls) for the &#39;yes we need to fix the ui issues&#39; turn, verified via curl. But the Activity Feed UI renders all events at the same visual depth — subagent Bash/Read/Edit calls appear as SIBLINGS of the Task/Agent row, not as CHILDREN. Screenshot at /tmp/Screenshot_2026-04-23_at_10.28.24_PM.png shows the flat rendering. Recent commits 93d77cbc and 725a58ca touched this file for unrelated improvements (assistant-label, stop-reason-label, Stop event fallback) — possible regression or pre-existing bug only now visible. Investigate cmd/htmlgraph/dashboard/components/event-tree.js — specifically how renderEvent / the tree recursion handles children when the child&#39;s event_type=&#39;task_delegation&#39;. The renderer likely iterates children linearly without descending into child.children arrays. The fetchSubagentEvents path (transcript-view.js:424) is for transcript view, not event tree — event tree should use the inline nested children from the API response, not a separate fetch.</p>
         </section>
     </article>
 </body>

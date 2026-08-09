@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.601106"
-             data-updated="2026-05-26T23:25:29.84473" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-08-09T20:43:20.633372" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e" data-affected_files=".wipnote/features/feat-81004e4c.html,internal/guardprofile/profile.go,internal/guardprofile/profile_test.go,internal/guardprofile/signature.go">
 
         <header>
             <h1>Project guard profile config: schema, loader, signature (feat-29e16b20)</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:18:53.862409">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.631911">plan-1187cb00</a></li>
+                    <li><a href="../sessions/e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:18:53.862409">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.643534">trk-fb4a1d6e</a></li>
+                    <li><a href="../tracks/trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.643534">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.631911">plan-1187cb00</a></li>
                 </ul>
             </section>
         </nav>
@@ -50,13 +50,13 @@
 .wipnote/guard-profile.yaml. Schema is phase-grouped:
 guards.{quality,completion,yolo} each a list of
 {name, cmd, cwd, applies_when}, plus approved:{signature, by, at}.
-Provide Load(repoRoot) (missing file -> (nil,nil)), Validate, and
+Provide Load(repoRoot) (missing file -&gt; (nil,nil)), Validate, and
 Signature(profile). CANONICALIZATION (fixed, cross-platform): phases in
 the fixed order quality,completion,yolo; within each, guards sorted by
 name; each guard encoded as the NUL-joined tuple
 name\0cmd\0cwd\0applies_when-normalized; applies_when paths sorted and
 slash-normalized; the approved block is EXCLUDED from the hash. Signature =
-"sha256:"+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
+&#34;sha256:&#34;+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
 (Signature(profile) == profile.approved.signature). No gate wiring (slice-2)
 and no discovery (slice-3) here.
 [2026-05-26 23:25 claude-code] accepted-advisory (provenance override): Implementation committed at c021945c430fcff55c1f783bafcdf2553ac15134 with subject containing (feat-81004e4c); wipnote ingest commits ran but auto-linker did not attach the commit in this delegated subagent session. All gates pass (go build/vet/test green under TMPDIR=[host-path]/.gotest-tmp).</p>

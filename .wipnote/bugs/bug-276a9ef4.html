@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-20T16:02:09.244399"
-             data-updated="2026-05-20T16:44:36.740201" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4">
+             data-updated="2026-08-09T20:41:44.604135" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4" data-affected_files=".wipnote/bugs/bug-276a9ef4.html,cmd/wipnote/codex.go,cmd/wipnote/codex_test.go">
 
         <header>
             <h1>wipnote codex registration fails on macOS install — Codex CLI does not find manifest at marketplace root</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T16:20:28.218428">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                    <li><a href="../sessions/ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T16:20:28.218428">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T16:02:09.263537">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T16:02:09.263537">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,7 +47,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Reproduction (v0.60.4 darwin/arm64): after 'wipnote upgrade' lays down ~/.local/share/wipnote/codex-marketplace, 'wipnote codex' prints 'WIPNOTE AGENTS NOT LOADED' with Codex CLI error 'invalid marketplace file ...codex-marketplace: marketplace root does not contain a supported manifest'. Root cause: prior fix for bug-53e78bcc (commit 46b94966f) updated the validator isValidHarnessTree to accept both flat and deep codex layouts so resolveSharedTreePath succeeds, but did not fix the registration call. cmd/wipnote/codex.go:772 passes the tree ROOT to 'codex plugin marketplace add', while the actual marketplace.json lives at /.agents/plugins/marketplace.json. Codex CLI looks for the manifest at the path it was given and errors. Affects all dogfooders running wipnote codex from a v0.60.3+ install. Likely fix: pass /.agents/plugins/marketplace.json (or its parent dir) to Codex; or restructure bundled tree so marketplace.json lives at root. Workaround: codex plugin marketplace add ~/.local/share/wipnote/codex-marketplace/.agents/plugins/marketplace.json
+            <p>Reproduction (v0.60.4 darwin/arm64): after &#39;wipnote upgrade&#39; lays down ~/.local/share/wipnote/codex-marketplace, &#39;wipnote codex&#39; prints &#39;WIPNOTE AGENTS NOT LOADED&#39; with Codex CLI error &#39;invalid marketplace file ...codex-marketplace: marketplace root does not contain a supported manifest&#39;. Root cause: prior fix for bug-53e78bcc (commit 46b94966f) updated the validator isValidHarnessTree to accept both flat and deep codex layouts so resolveSharedTreePath succeeds, but did not fix the registration call. cmd/wipnote/codex.go:772 passes the tree ROOT to &#39;codex plugin marketplace add&#39;, while the actual marketplace.json lives at /.agents/plugins/marketplace.json. Codex CLI looks for the manifest at the path it was given and errors. Affects all dogfooders running wipnote codex from a v0.60.3+ install. Likely fix: pass /.agents/plugins/marketplace.json (or its parent dir) to Codex; or restructure bundled tree so marketplace.json lives at root. Workaround: codex plugin marketplace add ~/.local/share/wipnote/codex-marketplace/.agents/plugins/marketplace.json
 [2026-05-20 16:39 claude-code] accepted-advisory (provenance override): Implementation committed in b22f44b2e (fix(codex): pass marketplace.json file path to codex CLI); link command unavailable, provenance tracked via commit message referencing bug-276a9ef4
 [2026-05-20 16:41 claude-code] accepted-advisory (provenance override): Implementation committed in b22f44b2e (fix(codex): pass marketplace.json file path to codex CLI); link command unavailable, provenance tracked via commit message referencing bug-276a9ef4
 [2026-05-20 16:42 claude-code] accepted-advisory (provenance override): Implementation committed in b22f44b2e (fix(codex): pass marketplace.json file path to codex CLI); link command unavailable, provenance tracked via commit message referencing bug-276a9ef4</p>

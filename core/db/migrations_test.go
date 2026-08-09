@@ -283,6 +283,108 @@ func TestMigrateFromAlreadyCurrentDB_MissingLaterColumn(t *testing.T) {
 	}
 }
 
+// claimEpisodesTableStepVersion is the version of the step that owns the
+// claim_episodes table (021_claim_episodes_table, bug-8af46da3).
+const claimEpisodesTableStepVersion = 21
+
+// TestMigrateFromAlreadyCurrentDB_MissingClaimEpisodesTable reproduces
+// bug-8af46da3: claim_episodes was declared in CreateAllTables, which is
+// reachable only from step 1 (stepCreateBaseTables). A step at version 1
+// runs exactly once -- the first time a database goes from user_version 0 to
+// current -- so any database that had already migrated past version 1
+// BEFORE claim_episodes existed in source never received the table, no
+// matter which binary or entry point (serve, hooks, reindex) opened it
+// afterward. Confirmed live: the table did not exist on an index already at
+// the (then-)current schema version, so the claim-episode projection failed
+// on every reindex with a missing-table error and the canonical claim
+// ledger was never once projected into the index it feeds.
+//
+// The fix added 021_claim_episodes_table (same shape as
+// 019_otel_signals_attribution_columns for bug-286ce8f7). This test seeds a
+// DB that is fully current EXCEPT missing the table that step owns, and one
+// version behind, then confirms a normal db.Open repairs it AND that the
+// claim-episode projection -- PurgeClaimEpisodes + UpsertClaimEpisode, the
+// two calls `wipnote reindex` makes every pass -- succeeds afterward through
+// the exact same entry point every writer already uses.
+func TestMigrateFromAlreadyCurrentDB_MissingClaimEpisodesTable(t *testing.T) {
+	current := db.CurrentSchemaVersion()
+	if current < claimEpisodesTableStepVersion {
+		t.Skipf("currentSchemaVersion=%d < %d; claim_episodes step not present", current, claimEpisodesTableStepVersion)
+	}
+
+	path := fileDBPath(t, "missing_claim_episodes.db")
+
+	// Cold-migrate to pick up every table, then drop claim_episodes (and its
+	// indexes) and rewind user_version to just below the owning step --
+	// simulating a database that finished migrating on an OLDER binary,
+	// before the table existed in CreateAllTables at all.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold seed Open: %v", err)
+	}
+	for _, stmt := range []string{
+		`DROP INDEX IF EXISTS idx_claim_episodes_agent_start`,
+		`DROP INDEX IF EXISTS idx_claim_episodes_session_agent`,
+		`DROP INDEX IF EXISTS idx_claim_episodes_work_item`,
+		`DROP TABLE IF EXISTS claim_episodes`,
+	} {
+		if _, err := cold.Exec(stmt); err != nil {
+			cold.Close()
+			t.Fatalf("drop claim_episodes fixture (%s): %v", stmt, err)
+		}
+	}
+	if _, err := cold.Exec(fmt.Sprintf("PRAGMA user_version = %d", claimEpisodesTableStepVersion-1)); err != nil {
+		cold.Close()
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	cold.Close()
+
+	// Confirm the table is genuinely gone before the real assertion, so a
+	// failure below can't be misread as "the table was never dropped."
+	verify := openRaw(t, path)
+	if _, err := verify.Exec(`SELECT episode_id FROM claim_episodes LIMIT 1`); err == nil {
+		verify.Close()
+		t.Fatal("claim_episodes still queryable after DROP TABLE — test setup did not simulate the bug")
+	}
+	verify.Close()
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("warm Open at N-1 with missing table: %v", err)
+	}
+	defer warm.Close()
+
+	if v := queryUserVersion(t, warm); v != current {
+		t.Fatalf("user_version after repair = %d, want %d", v, current)
+	}
+
+	// The real regression check: the claim-episode projection must succeed
+	// through the exact same db.Open every writer (reindex, serve) calls.
+	// PurgeClaimEpisodes + UpsertClaimEpisode are the two calls
+	// reindexClaimEpisodes makes every pass.
+	if err := db.PurgeClaimEpisodes(warm); err != nil {
+		t.Fatalf("purge claim episodes after repair: %v", err)
+	}
+	started := time.Now().Add(-time.Hour)
+	if err := db.UpsertClaimEpisode(warm, db.ClaimEpisode{
+		EpisodeID:  "ep-repaired",
+		WorkItemID: "bug-8af46da3",
+		SessionID:  "sess-repaired",
+		AgentID:    "claim-ledger@session-repaired",
+		StartedAt:  started,
+	}); err != nil {
+		t.Fatalf("upsert claim episode into repaired table: %v", err)
+	}
+
+	got, err := db.ClaimEpisodesForWorkItem(warm, "bug-8af46da3")
+	if err != nil {
+		t.Fatalf("read back claim episode after repair: %v", err)
+	}
+	if len(got) != 1 || got[0].EpisodeID != "ep-repaired" {
+		t.Fatalf("ClaimEpisodesForWorkItem after repair = %+v, want one episode ep-repaired", got)
+	}
+}
+
 // TestMigrateFromPreCopySwap simulates a legacy DB whose agent_events table
 // was created WITHOUT the CHECK constraint and WITH the self-referential
 // parent_event_id foreign key. After Open runs migrations, the table must have
@@ -802,7 +904,7 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	// Steps 10, 11 and 12 should have run (trigger repair + total_events
 	// backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id"}
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id", "021_claim_episodes_table"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
@@ -951,7 +1053,7 @@ func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
 
 	// Steps 11, 12 and 13 should have run (backfill + gate_records profile columns + arch_cards).
 	calls := recorder.Calls()
-	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id"}
+	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns", "020_gate_records_record_id", "021_claim_episodes_table"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}

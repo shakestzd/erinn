@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 20
+const currentSchemaVersion = 21
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -142,6 +142,11 @@ var migrations = []migrationStep{
 		version: 20,
 		name:    "020_gate_records_record_id",
 		apply:   stepGateRecordsRecordID,
+	},
+	{
+		version: 21,
+		name:    "021_claim_episodes_table",
+		apply:   stepClaimEpisodesTable,
 	},
 }
 
@@ -601,6 +606,55 @@ func stepGateRecordsRecordID(db *sql.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_gate_records_record_id ON gate_records(record_id) WHERE record_id != ''`,
 	); err != nil {
 		return fmt.Errorf("create gate_records record_id index: %w", err)
+	}
+	return nil
+}
+
+// stepClaimEpisodesTable creates the claim_episodes read-index table and its
+// three lookup indexes (bug-8af46da3).
+//
+// claim_episodes was declared in CreateAllTables (schema.go) — the function
+// stepCreateBaseTables (version 1) calls — but never given a companion
+// versioned step. stepCreateBaseTables only runs for a database going from
+// user_version 0 to current; any database that had already migrated past
+// version 1 BEFORE claim_episodes was added to CreateAllTables never runs
+// that function again and therefore never gets the table, no matter which
+// binary or entry point (serve, hooks, reindex) opens it afterward — the
+// same defect shape as bug-286ce8f7 (see stepOtelSignalsAttributionColumns)
+// and the gate_records fix in stepGateRecordsRecordID. Confirmed live: the
+// table did not exist on an index already at the (then-)current schema
+// version, so every claim-episode reindex pass failed with a missing-table
+// error and the claim ledger was never once projected into the index it
+// feeds.
+//
+// Idempotent: CREATE TABLE/INDEX IF NOT EXISTS are no-ops on a DB that
+// already has the table (e.g. a fresh DB where stepCreateBaseTables ran
+// first — both this step and CreateAllTables declare the same DDL, matching
+// the existing gate_records/session_files/arch_cards/recaps pattern where a
+// table lives in both the create-all path and its own dedicated step).
+func stepClaimEpisodesTable(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS claim_episodes (
+		episode_id      TEXT PRIMARY KEY,
+		work_item_id    TEXT NOT NULL,
+		session_id      TEXT NOT NULL,
+		root_session_id TEXT NOT NULL DEFAULT '',
+		agent_id        TEXT NOT NULL,
+		started_at      TEXT NOT NULL,
+		ended_at        TEXT NOT NULL DEFAULT '',
+		outcome         TEXT NOT NULL DEFAULT '',
+		source_file     TEXT NOT NULL DEFAULT '',
+		indexed_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return fmt.Errorf("create claim_episodes: %w", err)
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_claim_episodes_agent_start ON claim_episodes(agent_id, started_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_claim_episodes_session_agent ON claim_episodes(session_id, agent_id, started_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_claim_episodes_work_item ON claim_episodes(work_item_id, started_at)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create claim_episodes index: %w", err)
+		}
 	}
 	return nil
 }

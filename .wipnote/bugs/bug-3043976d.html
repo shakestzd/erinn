@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Autodetect unsafe fstypes for SQLite journal_mode — WAL crashes on virtiofs WAL-SHM mmap</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-23T07:59:24.876653"
-             data-updated="2026-04-23T08:09:05.810245" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:47.13772" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-0beaa018.html,.htmlgraph/bugs/bug-10ca4796.html,.htmlgraph/bugs/bug-1b095c09.html,.htmlgraph/bugs/bug-27cbefbc.html,.htmlgraph/bugs/bug-3043976d.html,.htmlgraph/bugs/bug-6d235100.html,.htmlgraph/bugs/bug-b58a330e.html,.htmlgraph/bugs/bug-dd81395e.html,.htmlgraph/bugs/bug-e5c2df6d.html,.htmlgraph/bugs/bug-ec4d3d8f.html,.htmlgraph/tracks/trk-0677c709.html,internal/db/fstype_linux.go,internal/db/fstype_other.go,internal/db/fstype_test.go,internal/db/pragmas.go,internal/db/schema.go">
 
         <header>
             <h1>Autodetect unsafe fstypes for SQLite journal_mode — WAL crashes on virtiofs WAL-SHM mmap</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T07:59:25.134603">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T08:01:02.398963">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T08:01:02.398963">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T07:59:25.134603">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-up to bug-6d235100. The first fix (mmap_size=0) eliminated the main-DB mmap crash but WAL mode still crashes in _walIndexAppend because the -shm (shared memory index) file is always mmap'd when journal_mode=WAL — that is not configurable via mmap_size. On virtiofs/fakeowner bind mounts (Docker Desktop macOS devcontainers), mmap is unsafe, so every write SIGBUSes and can corrupt the DB. Fix: at db.Open(), detect the backing filesystem for dbPath via unix.Statfs / /proc/self/mountinfo; choose journal_mode=WAL on safelisted native fstypes (ext4, xfs, btrfs, tmpfs, zfs) and journal_mode=DELETE on unsafe ones (fuse*, virtiofs, 9p, overlay upper layer, fakeowner). Default to DELETE when uncertain. Keep mmap_size=0 as the default. Expected files: internal/db/pragmas.go + new helper like internal/db/fstype_linux.go / fstype_other.go with build tags.</p>
+            <p>Follow-up to bug-6d235100. The first fix (mmap_size=0) eliminated the main-DB mmap crash but WAL mode still crashes in _walIndexAppend because the -shm (shared memory index) file is always mmap&#39;d when journal_mode=WAL — that is not configurable via mmap_size. On virtiofs/fakeowner bind mounts (Docker Desktop macOS devcontainers), mmap is unsafe, so every write SIGBUSes and can corrupt the DB. Fix: at db.Open(), detect the backing filesystem for dbPath via unix.Statfs / /proc/self/mountinfo; choose journal_mode=WAL on safelisted native fstypes (ext4, xfs, btrfs, tmpfs, zfs) and journal_mode=DELETE on unsafe ones (fuse*, virtiofs, 9p, overlay upper layer, fakeowner). Default to DELETE when uncertain. Keep mmap_size=0 as the default. Expected files: internal/db/pragmas.go + new helper like internal/db/fstype_linux.go / fstype_other.go with build tags.</p>
         </section>
     </article>
 </body>

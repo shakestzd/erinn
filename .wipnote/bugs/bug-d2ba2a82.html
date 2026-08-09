@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Hardcoded :4318 causes cross-project OTel data leakage when multiple projects are open</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T11:35:28.875574"
-             data-updated="2026-04-21T11:46:38.492215" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:33.689261" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/claude_env.go,cmd/htmlgraph/claude_env_test.go,cmd/htmlgraph/claude_serve_autostart.go,cmd/htmlgraph/serve_child.go,internal/otel/receiver/port.go,internal/otel/receiver/receiver.go,internal/otel/receiver/receiver_test.go">
 
         <header>
             <h1>Hardcoded :4318 causes cross-project OTel data leakage when multiple projects are open</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:35:28.877055">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:35:29.104475">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:35:29.104475">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:35:28.877055">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev Finding 2: all Claude launches export to the same global OTLP endpoint 127.0.0.1:4318 but the receiver lives inside a per-project _serve-child. Only one child can bind that port. Sequence: Project A opens, A's child binds 4318. Project B opens, launcher's probePort sees 4318 'live' so ensureServeForOtel skips its own spawn, and B's env vars still point at 4318. Result: B's telemetry flows into A's otel_signals DB. Silent cross-project data mixing + misattribution. Fix: allocate a per-project OTLP port (hash of project_dir or registry-assigned), write it to .htmlgraph/.otlp-port, have both the launcher's buildClaudeLaunchEnv and the serve-child receiver read that file so they agree. Launcher env OTEL_EXPORTER_OTLP_ENDPOINT becomes http://127.0.0.1: instead of :4318. Keep :4318 as a default only when the project-specific file is absent.</p>
+            <p>roborev Finding 2: all Claude launches export to the same global OTLP endpoint 127.0.0.1:4318 but the receiver lives inside a per-project _serve-child. Only one child can bind that port. Sequence: Project A opens, A&#39;s child binds 4318. Project B opens, launcher&#39;s probePort sees 4318 &#39;live&#39; so ensureServeForOtel skips its own spawn, and B&#39;s env vars still point at 4318. Result: B&#39;s telemetry flows into A&#39;s otel_signals DB. Silent cross-project data mixing + misattribution. Fix: allocate a per-project OTLP port (hash of project_dir or registry-assigned), write it to .htmlgraph/.otlp-port, have both the launcher&#39;s buildClaudeLaunchEnv and the serve-child receiver read that file so they agree. Launcher env OTEL_EXPORTER_OTLP_ENDPOINT becomes http://127.0.0.1: instead of :4318. Keep :4318 as a default only when the project-specific file is absent.</p>
         </section>
     </article>
 </body>

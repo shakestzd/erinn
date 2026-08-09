@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-13T08:13:24.604362"
-             data-updated="2026-05-13T08:15:12.528965" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43">
+             data-updated="2026-08-09T20:42:26.243705" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43" data-affected_files=".wipnote/bugs/bug-b33e95e3.html">
 
         <header>
             <h1>checkProjectDivergence: &#39;.&#39; short-circuit disables cross-project protection (roborev #1693)</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-bd410702.html" data-relationship="caused_by" data-since="2026-05-13T08:13:24.609344">feat-bd410702</a></li>
+                    <li><a href="../features/feat-bd410702.html" data-relationship="caused_by" data-since="2026-05-13T08:13:24.609344">feat-bd410702</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T08:13:24.611432">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T08:13:24.611432">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Roborev #1693 caught regression in commit 1aa67324d. The 'sess.ProjectDir == "."' short-circuit was too aggressive: any session whose stored project_dir happens to be "." would bypass the divergence check entirely, allowing write tools to run against a different wipnote project without being blocked. DB shows 8/136 sessions have "." (anomalies, not the norm), so the protection should stay. Proper fix: remove the short-circuit and trust canonicalRepoRoot (which already calls filepath.Abs for relative paths). Add regression test with sess.ProjectDir="." + event.CWD in another project that MUST block.</p>
+            <p>Roborev #1693 caught regression in commit 1aa67324d. The &#39;sess.ProjectDir == &#34;.&#34;&#39; short-circuit was too aggressive: any session whose stored project_dir happens to be &#34;.&#34; would bypass the divergence check entirely, allowing write tools to run against a different wipnote project without being blocked. DB shows 8/136 sessions have &#34;.&#34; (anomalies, not the norm), so the protection should stay. Proper fix: remove the short-circuit and trust canonicalRepoRoot (which already calls filepath.Abs for relative paths). Add regression test with sess.ProjectDir=&#34;.&#34; + event.CWD in another project that MUST block.</p>
         </section>
     </article>
 </body>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Add reset verb to revert work items from in-progress to todo</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-01T17:55:54.305561"
-             data-updated="2026-05-01T18:17:47.122604" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2">
+             data-updated="2026-08-09T20:41:44.822174" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2" data-affected_files=".htmlgraph/bugs/bug-28544453.html,.htmlgraph/bugs/bug-cc26f6d1.html,.htmlgraph/bugs/bug-f0eff9b7.html,.htmlgraph/features/feat-605aaaac.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-d1f3b2a6.html,.htmlgraph/features/feat-de257710.html,.htmlgraph/spikes/spk-09d20cf8.html,cmd/htmlgraph/bug_reset.go,cmd/htmlgraph/bug_reset_test.go,cmd/htmlgraph/feature_reset.go,cmd/htmlgraph/feature_reset_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/related.go,cmd/htmlgraph/spike_reset.go,cmd/htmlgraph/spike_reset_test.go">
 
         <header>
             <h1>Add reset verb to revert work items from in-progress to todo</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:55:54.318193">trk-2c83a1e2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T17:55:54.408791">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T17:55:54.408791">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-01T17:55:54.318193">trk-2c83a1e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -42,11 +42,11 @@
             <h3>Description</h3>
             <p>## Why
 
-The CLI exposes status-transition verbs start (todo->in-progress), complete (in-progress->done), and reopen (done->in-progress for features and plans only) — but no verb for in-progress->todo. The orchestrator cannot cleanly recover from a stale claim: the only options today are (a) delete the item (loses history + edges), or (b) complete it (semantically wrong — implies shipped). This blocks WIP hygiene during cleanup passes. The PreToolUse hook (internal/hooks/pretooluse.go:33-46) blocks direct .htmlgraph/ edits as a workaround.
+The CLI exposes status-transition verbs start (todo-&gt;in-progress), complete (in-progress-&gt;done), and reopen (done-&gt;in-progress for features and plans only) — but no verb for in-progress-&gt;todo. The orchestrator cannot cleanly recover from a stale claim: the only options today are (a) delete the item (loses history + edges), or (b) complete it (semantically wrong — implies shipped). This blocks WIP hygiene during cleanup passes. The PreToolUse hook (internal/hooks/pretooluse.go:33-46) blocks direct .htmlgraph/ edits as a workaround.
 
 ## Scope
 
-Add a reset subcommand to the feature, bug, and spike command groups that flips an in-progress item back to todo. Pattern reference: cmd/htmlgraph/feature_reopen.go for the per-verb-file convention and command shape. Underlying primitive: internal/workitem/edit.go SetStatus chain (EditBuilder.SetStatus("todo").Save()).
+Add a reset subcommand to the feature, bug, and spike command groups that flips an in-progress item back to todo. Pattern reference: cmd/htmlgraph/feature_reopen.go for the per-verb-file convention and command shape. Underlying primitive: internal/workitem/edit.go SetStatus chain (EditBuilder.SetStatus(&#34;todo&#34;).Save()).
 
 ## Acceptance
 

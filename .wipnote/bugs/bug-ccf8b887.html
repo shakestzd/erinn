@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Address PR #62 review feedback (registry hardening &#43; indexer removal)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-29T03:40:05.453146"
-             data-updated="2026-04-29T03:43:28.688959" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:31.93445" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4d3c3139.html,.htmlgraph/bugs/bug-ccf8b887.html,.htmlgraph/bugs/bug-ff6a3286.html,.htmlgraph/features/feat-09024fb0.html,.htmlgraph/features/feat-1c3ebad9.html,.htmlgraph/features/feat-35519ac2.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-6286f19f.html,.htmlgraph/features/feat-75426991.html,.htmlgraph/features/feat-7b094d00.html,.htmlgraph/features/feat-7b195a56.html,.htmlgraph/features/feat-9104fb56.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-bc3c0067.html,.htmlgraph/features/feat-c6b3d956.html,.htmlgraph/features/feat-dcf3d618.html,.htmlgraph/features/feat-e195d658.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-cb36e595.html,cmd/htmlgraph/otel_collect_handler.go,internal/otel/convert/convert.go">
 
         <header>
             <h1>Address PR #62 review feedback (registry hardening &#43; indexer removal)</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-cc41e3d2.html" data-relationship="caused_by" data-since="2026-04-29T03:40:05.463931">bug-cc41e3d2</a></li>
+                    <li><a href="../bugs/bug-cc41e3d2.html" data-relationship="caused_by" data-since="2026-04-29T03:40:05.463931">bug-cc41e3d2</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-29T03:40:05.470586">trk-cb36e595</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-29T03:40:05.470586">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
@@ -44,9 +44,9 @@
 
 1. SCOPE: PR bundles registry hardening (bug-cc41e3d2) AND NDJSON indexer removal (bug-28a9d7a7). Split into two PRs OR update PR title/summary to disclose the indexer removal.
 
-2. TITLE: 'concurrent writes' is overstated — no locking/CAS added, last-writer-wins still possible. Either add file locking OR soften the title. Also drop 'atomic write via temp-file+rename' from summary since that pre-existed.
+2. TITLE: &#39;concurrent writes&#39; is overstated — no locking/CAS added, last-writer-wins still possible. Either add file locking OR soften the title. Also drop &#39;atomic write via temp-file+rename&#39; from summary since that pre-existed.
 
-3. BUG: TestMain in worktree_helpers_test.go has 'defer os.RemoveAll' followed by 'os.Exit' — defers do NOT run after os.Exit. Fix: move cleanup before os.Exit so xdg-data/xdg-config tempdirs do not leak in /tmp.
+3. BUG: TestMain in worktree_helpers_test.go has &#39;defer os.RemoveAll&#39; followed by &#39;os.Exit&#39; — defers do NOT run after os.Exit. Fix: move cleanup before os.Exit so xdg-data/xdg-config tempdirs do not leak in /tmp.
 
 4. CONTRACT: registry.Save() now silently calls Prune(). Either rename to SaveAndPrune/Compact, OR beef up the godoc so the side-effect is unmissable.
 

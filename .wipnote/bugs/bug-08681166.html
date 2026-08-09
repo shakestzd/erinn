@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Main serve DB pool loses busy_timeout on pooled connections — cascades into OTel ingestion outage</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T15:25:34.977916"
-             data-updated="2026-04-25T23:09:01.540891" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:41:36.887065" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".devcontainer/devcontainer.json,.devcontainer/post-create.sh,cmd/htmlgraph/backfill.go,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/cleanup.go,cmd/htmlgraph/cleanup_test.go,cmd/htmlgraph/graph.go,cmd/htmlgraph/ingest.go,cmd/htmlgraph/ingest_gemini.go,cmd/htmlgraph/init.go,cmd/htmlgraph/main.go,cmd/htmlgraph/migrate.go,cmd/htmlgraph/migrate_attribution.go,cmd/htmlgraph/plan_feedback_cmd.go,cmd/htmlgraph/plan_feedback_cmd_test.go,cmd/htmlgraph/plan_finalize_yaml.go,cmd/htmlgraph/plan_typed_sections.go,cmd/htmlgraph/plan_yaml_extras.go,cmd/htmlgraph/projects.go,cmd/htmlgraph/projects_test.go,cmd/htmlgraph/purge_spikes.go,cmd/htmlgraph/query.go,cmd/htmlgraph/reindex.go,cmd/htmlgraph/related.go,cmd/htmlgraph/serve_child.go,cmd/htmlgraph/session.go,cmd/htmlgraph/status.go,cmd/htmlgraph/statusline.go,cmd/htmlgraph/sweep.go,cmd/htmlgraph/trace.go,cmd/htmlgraph/track.go,cmd/htmlgraph/workitem_test.go,internal/hooks/runner.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go,internal/storage/dbpath.go,internal/storage/dbpath_test.go,internal/workitem/project.go">
 
         <header>
             <h1>Main serve DB pool loses busy_timeout on pooled connections — cascades into OTel ingestion outage</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="6df464e9-ddf2-412f-a6d2-d7c45ed69c29.html" data-relationship="implemented_in" data-since="2026-04-21T15:26:26.381433">session 6df464e9-ddf2-412f-a6d2-d7c45ed69c29</a></li>
+                    <li><a href="../sessions/6df464e9-ddf2-412f-a6d2-d7c45ed69c29.html" data-relationship="implemented_in" data-since="2026-04-21T15:26:26.381433">session 6df464e9-ddf2-412f-a6d2-d7c45ed69c29</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T15:25:34.981072">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T15:25:34.981072">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Resolved by bug-a312db4d. The SQLite read-index now lives in the host's OS user cache directory (resolved via storage.CanonicalDBPath, keyed by sha256(projectDir)) — always on a filesystem that supports WAL/SHM mmap (ext4, APFS, etc). The busy_timeout fragility was a symptom of running WAL on virtiofs; with the canonical DB outside the project tree, that class of failure is gone for every user, not just our devcontainer.</p>
+            <p>Resolved by bug-a312db4d. The SQLite read-index now lives in the host&#39;s OS user cache directory (resolved via storage.CanonicalDBPath, keyed by sha256(projectDir)) — always on a filesystem that supports WAL/SHM mmap (ext4, APFS, etc). The busy_timeout fragility was a symptom of running WAL on virtiofs; with the canonical DB outside the project tree, that class of failure is gone for every user, not just our devcontainer.</p>
         </section>
     </article>
 </body>

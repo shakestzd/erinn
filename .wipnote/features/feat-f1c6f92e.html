@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-19T00:38:27.185081"
-             data-updated="2026-05-19T02:47:52.135516" data-agent-assigned="claude-code" data-track-id="trk-f15004d6">
+             data-updated="2026-08-09T20:43:47.558405" data-agent-assigned="claude-code" data-track-id="trk-f15004d6" data-affected_files=".wipnote/features/feat-f1c6f92e.html,cmd/wipnote/api.go,cmd/wipnote/api_parallel_sessions_test.go,cmd/wipnote/dashboard/css/components.css,cmd/wipnote/dashboard/index.html,cmd/wipnote/dashboard/js/app.js,cmd/wipnote/session.go,cmd/wipnote/who.go,internal/db/session_files_test.go,internal/db/session_repo.go">
 
         <header>
             <h1>Tier 0 — Surface session→files: wipnote who &#43; session show &#43; API &#43; dashboard</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="plan-c3bbb1ed.html" data-relationship="planned_in" data-since="2026-05-19T00:38:27.194678">plan-c3bbb1ed</a></li>
+                    <li><a href="../sessions/1ddaa17f-dfe6-4e94-a3c1-55b4357477ba.html" data-relationship="implemented_in" data-since="2026-05-19T01:35:07.78589">session 1ddaa17f-dfe6-4e94-a3c1-55b4357477ba</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-f15004d6.html" data-relationship="part_of" data-since="2026-05-19T00:38:27.20238">trk-f15004d6</a></li>
+                    <li><a href="../tracks/trk-f15004d6.html" data-relationship="part_of" data-since="2026-05-19T00:38:27.20238">trk-f15004d6</a></li>
                 </ul>
             </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="1ddaa17f-dfe6-4e94-a3c1-55b4357477ba.html" data-relationship="implemented_in" data-since="2026-05-19T01:35:07.78589">session 1ddaa17f-dfe6-4e94-a3c1-55b4357477ba</a></li>
+                    <li><a href="../plans/plan-c3bbb1ed.html" data-relationship="planned_in" data-since="2026-05-19T00:38:27.194678">plan-c3bbb1ed</a></li>
                 </ul>
             </section>
         </nav>
@@ -53,7 +53,7 @@ claim lease remaining, and the files that session has touched
 (feature_files.session_id already exists — schema.go:301-311, nullable).
 Extend `wipnote session show ` with a Files section. Add a `files[]`
 array per session to GET /api/sessions (api.go:97-173, today 13 scalar
-fields, no files). Add an "Active sessions & files" dashboard panel.
+fields, no files). Add an &#34;Active sessions &amp; files&#34; dashboard panel.
 Reuse the ListFilesByFeature pattern (feature_files_repo.go:42) for a
 new ListFilesBySession. No new tables, no writes.</p>
         </section>

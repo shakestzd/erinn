@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Embedded ttyd terminal in dashboard — MVP</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T09:01:59.212338"
-             data-updated="2026-04-21T09:09:15.817886" data-agent-assigned="claude-code">
+             data-updated="2026-08-09T20:43:05.855867" data-agent-assigned="claude-code" data-affected_files=".claude/settings.local.json,.gitignore,.htmlgraph/bugs/bug-3c4acb55.html,.htmlgraph/bugs/bug-63e588c5.html,.htmlgraph/bugs/bug-6ab963d3.html,.htmlgraph/bugs/bug-7609db7c.html,.htmlgraph/bugs/bug-d2ba2a82.html,.htmlgraph/bugs/bug-dda7cc2b.html,.htmlgraph/bugs/bug-e085cdaa.html,.htmlgraph/bugs/bug-f4b7dbc8.html,.htmlgraph/bugs/bug-f6575739.html,.htmlgraph/features/feat-28b62b51.html,.htmlgraph/features/feat-52d15f78.html,.htmlgraph/tracks/trk-c4615ad2.html,.htmlgraph/tracks/trk-cd61bbae.html,.htmlgraph/tracks/trk-d8aef97a.html,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/terminal_handlers.go,internal/terminal/terminal.go">
 
         <header>
             <h1>Embedded ttyd terminal in dashboard — MVP</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c89a0910-ba83-4833-9dee-5364fab28c1a.html" data-relationship="implemented_in" data-since="2026-04-21T09:04:41.821524">session c89a0910-ba83-4833-9dee-5364fab28c1a</a></li>
+                    <li><a href="../sessions/c89a0910-ba83-4833-9dee-5364fab28c1a.html" data-relationship="implemented_in" data-since="2026-04-21T09:04:41.821524">session c89a0910-ba83-4833-9dee-5364fab28c1a</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>MVP that lets users open an interactive Claude session from the dashboard, scoped to the current work item. Approach: Go server spawns ttyd on a localhost port running 'htmlgraph claude', returns the port, frontend iframes it. Minimal surface: POST /api/terminal/start (spawn ttyd, return port+pid), POST /api/terminal/stop (kill pid), a dashboard 'Terminal' button that opens a modal iframe. If the call includes a work item ID, run 'htmlgraph feature start ' in the same shell before 'htmlgraph claude' to scope the session.</p>
+            <p>MVP that lets users open an interactive Claude session from the dashboard, scoped to the current work item. Approach: Go server spawns ttyd on a localhost port running &#39;htmlgraph claude&#39;, returns the port, frontend iframes it. Minimal surface: POST /api/terminal/start (spawn ttyd, return port+pid), POST /api/terminal/stop (kill pid), a dashboard &#39;Terminal&#39; button that opens a modal iframe. If the call includes a work item ID, run &#39;htmlgraph feature start &#39; in the same shell before &#39;htmlgraph claude&#39; to scope the session.</p>
         </section>
     </article>
 </body>

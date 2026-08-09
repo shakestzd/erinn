@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph stale: commit-activity-aware staleness detection</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-26T05:59:00.378678"
-             data-updated="2026-04-26T07:42:52.181683" data-agent-assigned="claude-code">
+             data-updated="2026-08-09T20:43:35.19974" data-agent-assigned="claude-code" data-affected_files="cmd/htmlgraph/git_timestamps.go,cmd/htmlgraph/main.go,cmd/htmlgraph/stale.go,cmd/htmlgraph/stale_test.go">
 
         <header>
             <h1>htmlgraph stale: commit-activity-aware staleness detection</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="958b16d7-8b4a-41d9-b36e-8227420fecac.html" data-relationship="implemented_in" data-since="2026-04-26T05:59:05.513355">session 958b16d7-8b4a-41d9-b36e-8227420fecac</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="bug-d035a6c3.html" data-relationship="relates_to" data-since="2026-04-26T05:59:07.696503">Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</a></li>
+                    <li><a href="../sessions/958b16d7-8b4a-41d9-b36e-8227420fecac.html" data-relationship="implemented_in" data-since="2026-04-26T05:59:05.513355">session 958b16d7-8b4a-41d9-b36e-8227420fecac</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T05:59:05.568602">OTel Integration — telemetry capture, span hierarchy, cost attribution</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T05:59:05.568602">OTel Integration — telemetry capture, span hierarchy, cost attribution</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-d035a6c3.html" data-relationship="relates_to" data-since="2026-04-26T05:59:07.696503">Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,10 +47,10 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-bb06e3f6-0" data-agent="claude-code">✅ Research existing helpers (analytics.go, git_timestamps.go) [task:1]</li>
-                <li data-completed="true" data-step-id="step-feat-bb06e3f6-1" data-agent="claude-code">✅ Write failing tests for stale command (TDD) [task:2]</li>
-                <li data-completed="true" data-step-id="step-feat-bb06e3f6-2" data-agent="claude-code">✅ Implement git helper &#43; staleCmd &#43; register in main.go [task:3]</li>
-                <li data-completed="true" data-step-id="step-feat-bb06e3f6-3" data-agent="claude-code">✅ Quality gate (build, vet, test) &#43; commit &#43; complete feature [task:4]</li>
+                <li data-completed="true" data-step-id="step-feat-bb06e3f6-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Research existing helpers (analytics.go, git_timestamps.go) [task:1]</li>
+                <li data-completed="true" data-step-id="step-feat-bb06e3f6-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Write failing tests for stale command (TDD) [task:2]</li>
+                <li data-completed="true" data-step-id="step-feat-bb06e3f6-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement git helper &#43; staleCmd &#43; register in main.go [task:3]</li>
+                <li data-completed="true" data-step-id="step-feat-bb06e3f6-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Quality gate (build, vet, test) &#43; commit &#43; complete feature [task:4]</li>
             </ol>
         </section>
     </article>

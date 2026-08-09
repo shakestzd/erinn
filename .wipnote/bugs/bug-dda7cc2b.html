@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Receiver gate in serve-child uses isTruthy while launcher defaults on — receiver skipped when HTMLGRAPH_OTEL_ENABLED is unset</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T11:35:28.770162"
-             data-updated="2026-04-21T11:46:38.385812" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:37.196168" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/claude_env.go,cmd/htmlgraph/claude_env_test.go,cmd/htmlgraph/claude_serve_autostart.go,cmd/htmlgraph/serve_child.go,internal/otel/receiver/port.go,internal/otel/receiver/receiver.go,internal/otel/receiver/receiver_test.go">
 
         <header>
             <h1>Receiver gate in serve-child uses isTruthy while launcher defaults on — receiver skipped when HTMLGRAPH_OTEL_ENABLED is unset</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:35:28.771645">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:35:28.981104">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:35:28.981104">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:35:28.771645">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev Finding 1: cmd/htmlgraph/claude_env.go switched to isExplicitlyDisabled (default-on) in feat-afbb4dc9, but cmd/htmlgraph/serve_child.go and internal/otel/receiver/receiver.go LoadConfigFromEnv still use isTruthy for gating. When a user launches Claude with HTMLGRAPH_OTEL_ENABLED unset: launcher enables OTel + points Claude at :4318 + spawns serve, but the spawned serve's child never starts the receiver, so telemetry drops silently. Fix: mirror the default-on semantics in the receiver gate — accept 'not explicitly disabled' instead of 'explicitly truthy'. Also OR ensure spawnDetachedServe explicitly passes HTMLGRAPH_OTEL_ENABLED=1 in the spawned process env. Add a smoke test that asserts the autostarted serve actually binds 4318.</p>
+            <p>roborev Finding 1: cmd/htmlgraph/claude_env.go switched to isExplicitlyDisabled (default-on) in feat-afbb4dc9, but cmd/htmlgraph/serve_child.go and internal/otel/receiver/receiver.go LoadConfigFromEnv still use isTruthy for gating. When a user launches Claude with HTMLGRAPH_OTEL_ENABLED unset: launcher enables OTel + points Claude at :4318 + spawns serve, but the spawned serve&#39;s child never starts the receiver, so telemetry drops silently. Fix: mirror the default-on semantics in the receiver gate — accept &#39;not explicitly disabled&#39; instead of &#39;explicitly truthy&#39;. Also OR ensure spawnDetachedServe explicitly passes HTMLGRAPH_OTEL_ENABLED=1 in the spawned process env. Add a smoke test that asserts the autostarted serve actually binds 4318.</p>
         </section>
     </article>
 </body>

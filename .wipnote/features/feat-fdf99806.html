@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-12T05:55:38.29073"
-             data-updated="2026-05-13T03:24:15.468156" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1440-ga2fa3e672">
+             data-updated="2026-08-09T20:43:50.246098" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1440-ga2fa3e672" data-affected_files=".wipnote/features/feat-fdf99806.html,CLAUDE.md,cmd/wipnote/reindex_rebuild_test.go,cmd/wipnote/workitem.go,cmd/wipnote/workitem_commit.go,cmd/wipnote/workitem_commit_test.go,cmd/wipnote/workitem_create.go,cmd/wipnote/worktree_helpers_test.go,internal/worktree/worktree.go">
 
         <header>
             <h1>Auto-commit .wipnote/ artifact on feature/bug/spike complete</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-12T06:20:51.340101">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
+                    <li><a href="../sessions/e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-12T06:20:51.340101">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T05:55:38.310803">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T05:55:38.310803">trk-08dcbb33</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="bug-5a938a9e.html" data-relationship="relates_to" data-since="2026-05-12T05:58:12.903664">YOLO worktree teardown loses uncommitted .wipnote/ artifacts</a></li>
+                    <li><a href="../bugs/bug-5a938a9e.html" data-relationship="relates_to" data-since="2026-05-12T05:58:12.903664">YOLO worktree teardown loses uncommitted .wipnote/ artifacts</a></li>
                 </ul>
             </section>
         </nav>
@@ -58,7 +58,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Implement the fix designed in bug-5a938a9e diagnosis. Root cause: excludeWipnoteFromWorktree (internal/worktree/worktree.go:382-412) writes .wipnote/ into the worktree's info/exclude, so .wipnote/ artifacts are never staged or committed. YOLO prompt only commits code via git add -p. Result: 7 feat-*.html files were lost when plan-2133adf2 executed via YOLO. Fix: new commitWipnoteArtifact function in cmd/wipnote/workitem.go, called from wiSetStatusWithAgent after col.Complete(id) succeeds. Uses git -C  add+commit so it works from any worktree CWD. Same code path serves yolo, Claude Code Agent(isolation=worktree), Codex, and Gemini. Conductor remains docs-only limitation. Backfill of the 7 lost IDs is a separate concern (user has manual backup).</p>
+            <p>Implement the fix designed in bug-5a938a9e diagnosis. Root cause: excludeWipnoteFromWorktree (internal/worktree/worktree.go:382-412) writes .wipnote/ into the worktree&#39;s info/exclude, so .wipnote/ artifacts are never staged or committed. YOLO prompt only commits code via git add -p. Result: 7 feat-*.html files were lost when plan-2133adf2 executed via YOLO. Fix: new commitWipnoteArtifact function in cmd/wipnote/workitem.go, called from wiSetStatusWithAgent after col.Complete(id) succeeds. Uses git -C  add+commit so it works from any worktree CWD. Same code path serves yolo, Claude Code Agent(isolation=worktree), Codex, and Gemini. Conductor remains docs-only limitation. Backfill of the 7 lost IDs is a separate concern (user has manual backup).</p>
         </section>
     </article>
 </body>

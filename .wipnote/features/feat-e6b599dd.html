@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Ingest path renders session HTML alongside SQLite writes</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-10T10:01:26.015191"
-             data-updated="2026-04-10T14:14:03.598751" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+             data-updated="2026-08-09T20:43:43.825769" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b" data-affected_files="cmd/htmlgraph/ingest.go,cmd/htmlgraph/ingest_events_test.go,cmd/htmlgraph/serve.go,internal/hooks/session_html.go,internal/hooks/session_html_test.go,internal/ingest/parser.go">
 
         <header>
             <h1>Ingest path renders session HTML alongside SQLite writes</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.016405">plan-43659c92</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:06:57.64776">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                    <li><a href="../sessions/6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:06:57.64776">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.016405">plan-43659c92</a></li>
                 </ul>
             </section>
         </nav>
@@ -57,7 +57,7 @@ Update all existing callers in `session_start.go`, `posttooluse.go`, `session_en
 
 **(3) Skip-if-exists guard.** `CreateSessionHTML` already skips when the target file exists (verify this via inspection — if not, add the guard). Live hook writes are authoritative because the hook saw the session in real time; ingest should never overwrite a live-hook-written file. The `--force` flag on `htmlgraph ingest` is the only path that bypasses the skip.
 
-**(4) No framing correction needed for 'structurally-open' — that was an error in v1 of this plan.** Both live and ingest HTML files are self-contained with closing tags. The append mechanism (flock + `</p>
+**(4) No framing correction needed for &#39;structurally-open&#39; — that was an error in v1 of this plan.** Both live and ingest HTML files are self-contained with closing tags. The append mechanism (flock + `</p>
         </section>
     </article>
 </body>

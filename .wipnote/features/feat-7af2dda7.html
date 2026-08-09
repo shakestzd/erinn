@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Graph view: accent-first palette aligned with htmlgraph design system</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-11T10:22:18.691403"
-             data-updated="2026-05-01T17:50:12.680679" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a">
+             data-updated="2026-08-09T20:43:17.776925" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-affected_files=".htmlgraph/bugs/bug-0403e704.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-f22b6349.html,.htmlgraph/bugs/bug-f92bedff.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-500da04c.html,.htmlgraph/features/feat-57d35c02.html,.htmlgraph/features/feat-725953d3.html,.htmlgraph/features/feat-7af2dda7.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-af47836b.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/tracks/trk-2c83a1e2.html,cmd/htmlgraph/dashboard/css/components.css,cmd/htmlgraph/dashboard/index.html,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/git_timestamps.go,cmd/htmlgraph/main.go,cmd/htmlgraph/stale.go,cmd/htmlgraph/stale_test.go">
 
         <header>
             <h1>Graph view: accent-first palette aligned with htmlgraph design system</h1>
@@ -24,17 +24,17 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T10:22:18.817607">trk-d8aef97a</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T10:22:23.468243">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
-                    <li><a href="807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T10:35:58.975276">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                    <li><a href="../sessions/8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T10:22:23.468243">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                    <li><a href="../sessions/807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T10:35:58.975276">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T10:22:18.817607">trk-d8aef97a</a></li>
                 </ul>
             </section>
         </nav>
@@ -44,20 +44,20 @@
             <p>Direction 1 from the design research in this session. Replace the 6-color Tailwind-500 graph palette (#22c55e, #3b82f6, #ef4444, #f59e0b, #8b5cf6, #06b6d4) with one that uses existing CSS design tokens so the graph looks native to htmlgraph.
 
 Concrete color assignments:
-  Track    -> var(--accent)            (chartreuse #CDFF00 dark / olive #4a6e00 light — the brand)
-  Feature  -> var(--text-secondary)    (high-contrast neutral, dominant by mass)
-  Plan     -> var(--text-muted)        (lower-contrast neutral, dashed border to differentiate from feature)
-  Bug      -> var(--status-blocked)    (semantic red, already in the design system)
-  Spike    -> var(--priority-high)     (semantic amber, already in the design system)
-  Session  -> var(--status-ip)         (semantic blue, already in the design system)
+  Track    -&gt; var(--accent)            (chartreuse #CDFF00 dark / olive #4a6e00 light — the brand)
+  Feature  -&gt; var(--text-secondary)    (high-contrast neutral, dominant by mass)
+  Plan     -&gt; var(--text-muted)        (lower-contrast neutral, dashed border to differentiate from feature)
+  Bug      -&gt; var(--status-blocked)    (semantic red, already in the design system)
+  Spike    -&gt; var(--priority-high)     (semantic amber, already in the design system)
+  Session  -&gt; var(--status-ip)         (semantic blue, already in the design system)
 
 Universal improvements that apply regardless of palette choice:
-- Contrast-aware text color via YIQ luminance: pick var(--text-primary) or its inverse based on each fill's brightness, so labels are always readable.
+- Contrast-aware text color via YIQ luminance: pick var(--text-primary) or its inverse based on each fill&#39;s brightness, so labels are always readable.
 - SVG paint-order: stroke fill on labels with a 2px stroke in var(--bg-primary) for legibility on edge-case fills.
 - Theme-aware legend pill: replace hardcoded rgba(15,23,42,0.92) background with var(--bg-secondary) and var(--border) so it stops looking foreign in light mode.
 - Verified data-theme detection: confirm getGraphPalette() actually returns the right palette on theme toggle (current implementation may have a bug — the screenshot showed dark colors on a light background).
 
-Differentiation for features-vs-plans within the grayscale tier: dashed stroke on plan nodes. Reads as 'these are blueprints, not built yet' which matches the semantics.
+Differentiation for features-vs-plans within the grayscale tier: dashed stroke on plan nodes. Reads as &#39;these are blueprints, not built yet&#39; which matches the semantics.
 
 Built on top of an interim commit that ships the existing dark-mode-only color/theme/legend wiring as foundation. This feature replaces the palette portion entirely (the dark mode colors will become accent-tied, the broken light mode palette will go away), but keeps the data-graph-type legend wiring, getGraphPalette/paintGraphLegend helpers, theme MutationObserver, and CHARGE_STRENGTH=-220 from the foundation commit.</p>
         </section>

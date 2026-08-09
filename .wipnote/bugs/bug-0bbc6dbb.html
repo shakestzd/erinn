@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-11T08:30:37.41485"
-             data-updated="2026-06-11T08:49:08.278391" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+             data-updated="2026-08-09T20:41:37.746021" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac" data-affected_files=".gitignore,.wipnote/bugs/bug-0bbc6dbb.html,wipnote">
 
         <header>
             <h1>33MB compiled wipnote binary is tracked at repo root</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-11T08:30:37.426474">trk-757c1c9f</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:35:54.268583">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:35:54.268583">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-11T08:30:37.426474">trk-757c1c9f</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,7 +47,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>git diff showed the repo-root 'wipnote' file as a tracked 33MB binary that changes whenever someone runs go build -o in CWD (the exact anti-pattern CLAUDE.md warns about). It bloats every clone and dirties diffs. Fix: git rm --cached the binary, add /wipnote to .gitignore, verify nothing references the tracked copy (deploy scripts use ~/.local/bin). Found 2026-06-11 while committing PR 1 — excluded from that commit by explicit pathspecs.</p>
+            <p>git diff showed the repo-root &#39;wipnote&#39; file as a tracked 33MB binary that changes whenever someone runs go build -o in CWD (the exact anti-pattern CLAUDE.md warns about). It bloats every clone and dirties diffs. Fix: git rm --cached the binary, add /wipnote to .gitignore, verify nothing references the tracked copy (deploy scripts use ~/.local/bin). Found 2026-06-11 while committing PR 1 — excluded from that commit by explicit pathspecs.</p>
         </section>
     </article>
 </body>

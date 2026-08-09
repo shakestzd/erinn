@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Enforce host-path check in work-item description at creation time; surface guidance in system prompt</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T05:57:42.414596"
-             data-updated="2026-04-24T06:17:52.1448" data-agent-assigned="claude-code">
+             data-updated="2026-08-09T20:43:05.295402" data-agent-assigned="claude-code" data-affected_files=".htmlgraph/features/feat-5143700e.html,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/check_host_paths_test.go,cmd/htmlgraph/prompts/system-prompt.md,cmd/htmlgraph/related.go,cmd/htmlgraph/workitem.go,cmd/htmlgraph/workitem_create.go,cmd/htmlgraph/workitem_test.go">
 
         <header>
             <h1>Enforce host-path check in work-item description at creation time; surface guidance in system prompt</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T05:58:19.292593">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                    <li><a href="../sessions/cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T05:58:19.292593">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>After a 30-minute commit-loop where pre-commit's check-host-paths rejected a bug commit because the description passed to 'htmlgraph bug create' embedded an absolute host path, enforce validation at creation time. Changes: (1) in 'htmlgraph bug|feature|spike create' (and set-description), reject descriptions containing host-local absolute paths (workspaces, home, Users, tmp, private/var prefixes) unless --allow-host-paths is passed — same rule set as scripts/check-host-paths.sh. Emit a clear error pointing at the offending string and suggesting relative-path/basename. (2) add one-line guidance to the system prompt at cmd/htmlgraph/prompts/system-prompt.md under the work-item creation section: 'Do not embed absolute host paths in descriptions — use relative paths or basenames. Enforced at creation.' Lane: Go CLI + embedded system prompt only, no plugin asset changes.</p>
+            <p>After a 30-minute commit-loop where pre-commit&#39;s check-host-paths rejected a bug commit because the description passed to &#39;htmlgraph bug create&#39; embedded an absolute host path, enforce validation at creation time. Changes: (1) in &#39;htmlgraph bug|feature|spike create&#39; (and set-description), reject descriptions containing host-local absolute paths (workspaces, home, Users, tmp, private/var prefixes) unless --allow-host-paths is passed — same rule set as scripts/check-host-paths.sh. Emit a clear error pointing at the offending string and suggesting relative-path/basename. (2) add one-line guidance to the system prompt at cmd/htmlgraph/prompts/system-prompt.md under the work-item creation section: &#39;Do not embed absolute host paths in descriptions — use relative paths or basenames. Enforced at creation.&#39; Lane: Go CLI + embedded system prompt only, no plugin asset changes.</p>
         </section>
     </article>
 </body>

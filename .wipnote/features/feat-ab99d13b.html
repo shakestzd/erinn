@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-12T02:15:32.64153"
-             data-updated="2026-05-12T02:43:14.674184" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:29.864469" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".wipnote/features/feat-3973e948.html,.wipnote/features/feat-39b81fa6.html,.wipnote/features/feat-3e0ff3c8.html,.wipnote/features/feat-4417b8df.html,.wipnote/features/feat-a57eb374.html,.wipnote/features/feat-ab99d13b.html,.wipnote/features/feat-b6a9f2d4.html,.wipnote/features/feat-edbc978b.html,.wipnote/plans/plan-2133adf2.html,.wipnote/plans/plan-2133adf2.yaml,internal/hooks/missing_events.go,internal/hooks/worktree_normalize_test.go">
 
         <header>
             <h1>Normalize WorktreePath in worktree events</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:32.649128">plan-2133adf2</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:32.644009">trk-08dcbb33</a></li>
+                    <li><a href="../features/feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:32.651261">feat-edbc978b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:11.53195">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:34:11.53195">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
                 </ul>
             </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="feat-edbc978b.html" data-relationship="blocked_by" data-since="2026-05-12T02:15:32.651261">feat-edbc978b</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:32.644009">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:32.649128">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -62,7 +62,7 @@ Change: before formatting, run
 `paths.NormalizeToRepoRelative(event.WorktreePath, repoRoot)` and
 embed the relative form (e.g. `.claude/worktrees/feat-x`).
 `extractBranchFromWorktreePath` keeps working because
-`filepath.Base(".claude/worktrees/feat-x")` still returns `feat-x`.
+`filepath.Base(&#34;.claude/worktrees/feat-x&#34;)` still returns `feat-x`.
 
 Apply the same normalization in BOTH the `input_summary` write AND
 the `AdditionalContext` agent-facing message, so the agent and the

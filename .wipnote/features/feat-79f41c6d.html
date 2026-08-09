@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>OpenSpec spec template &#43; `htmlgraph spec generate --insert` (non-destructive, locked)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-04T16:44:03.478468"
-             data-updated="2026-05-04T18:55:58.247943" data-agent-assigned="claude-code" data-track-id="trk-13e39042">
+             data-updated="2026-08-09T20:43:17.257988" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-affected_files=".htmlgraph/bugs/bug-55ee53a9.html,.htmlgraph/bugs/bug-5b5611c2.html,.htmlgraph/bugs/bug-d842d5e6.html,.htmlgraph/features/feat-0fd7c8bc.html,.htmlgraph/features/feat-1f0f27de.html,.htmlgraph/features/feat-79f41c6d.html,.htmlgraph/plans/plan-cc24034c.html,.htmlgraph/plans/plan-cc24034c.yaml,.htmlgraph/tracks/trk-13e39042.html,.htmlgraph/tracks/trk-8f9bc323.html,THIRD-PARTY-NOTICES.md,cmd/htmlgraph/compliance.go,cmd/htmlgraph/plan_cmds.go,cmd/htmlgraph/plan_elicit_decisions.go,cmd/htmlgraph/plan_elicit_decisions_test.go,cmd/htmlgraph/plan_promote_slice.go,cmd/htmlgraph/plan_promote_slice_test.go,cmd/htmlgraph/spec.go,cmd/htmlgraph/spec_test.go,cmd/htmlgraph/tdd.go,cmd/htmlgraph/tdd_test.go,cmd/htmlgraph/workitem.go,cmd/htmlgraph/workitem_test.go,internal/hooks/task_completion_gate.go,internal/planyaml/io.go,internal/planyaml/schema.go,internal/workitem/htmlwriter.go,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/spec-from-slice/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/templates/spec-template.md,packages/gemini-extension/skills/spec-from-slice/SKILL.md,packages/gemini-extension/templates/spec-template.md,plugin/skills/spec-from-slice/SKILL.md,plugin/templates/spec-template.md,skills/spec-from-slice/SKILL.md,templates/spec-template.md">
 
         <header>
             <h1>OpenSpec spec template &#43; `htmlgraph spec generate --insert` (non-destructive, locked)</h1>
@@ -24,44 +24,44 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T18:30:51.97728">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                    <li><a href="c4efb206.html" data-relationship="implemented_in" data-since="2026-05-04T18:44:26.6632">session c4efb206</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:03.48361">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-05-04T16:44:03.48361">trk-13e39042</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:03.493547">plan-cc24034c</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T18:30:51.97728">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
-                    <li><a href="c4efb206.html" data-relationship="implemented_in" data-since="2026-05-04T18:44:26.6632">session c4efb206</a></li>
+                    <li><a href="../plans/plan-cc24034c.html" data-relationship="planned_in" data-since="2026-05-04T16:44:03.493547">plan-cc24034c</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Adopt OpenSpec's MIT-licensed spec template (RFC 2119 Requirement + Given/When/Then Scenario format) as the canonical structure of `htmlgraph spec generate` output. Add `--insert` flag that writes the generated spec into the feature HTML's `
+            <p>Adopt OpenSpec&#39;s MIT-licensed spec template (RFC 2119 Requirement + Given/When/Then Scenario format) as the canonical structure of `htmlgraph spec generate` output. Add `--insert` flag that writes the generated spec into the feature HTML&#39;s `
 ` block — non-destructive by default, with `--force` for explicit overwrite. Extend the existing per-feature lock from feat-38a032e8 to cover spec writes too, preventing lost updates when `spec --insert` and `compliance auto` race on the same feature.
 
 **Implementation:**
 1. Copy `/tmp/openspec/schemas/spec-driven/templates/spec.md` verbatim to `plugin/templates/spec-template.md` with header comment: ``. Create `THIRD-PARTY-NOTICES.md` at repo root with one section per third-party source (OpenSpec entry: name, source URL, license, scope of use).
-2. Update `renderSpecMarkdown` to render a hybrid: keep `## Problem` (from slice's `why`), `## Files` (from slice's `files`), `## Notes` (from slice's `tests`); replace `## Acceptance Criteria` with `## ADDED Requirements` containing one `### Requirement: ` per `done_when` entry, each with at least one `#### Scenario:` block. Mapping rule: `done_when[i]` → Requirement i (criterion text becomes the SHALL line); slice's `tests` field → one Scenario per requirement (split on test type if multiple).
+2. Update `renderSpecMarkdown` to render a hybrid: keep `## Problem` (from slice&#39;s `why`), `## Files` (from slice&#39;s `files`), `## Notes` (from slice&#39;s `tests`); replace `## Acceptance Criteria` with `## ADDED Requirements` containing one `### Requirement: ` per `done_when` entry, each with at least one `#### Scenario:` block. Mapping rule: `done_when[i]` → Requirement i (criterion text becomes the SHALL line); slice&#39;s `tests` field → one Scenario per requirement (split on test type if multiple).
 3. If `slice.DecisionsNotes` is non-empty (field added in slice 3 — defensive: check existence; render nothing if absent), render a `## Decisions` section between `## Problem` and `## ADDED Requirements` containing the prose verbatim.
 4. Add `--insert` boolean flag and `--force` boolean flag to `specGenerateCmd`. With `--insert`:
    - Acquire the per-feature lock (extended in `internal/workitem/htmlwriter.go` — see step 6)
    - Read the feature HTML
-   - If `` exists with non-empty content (after stripping the attribution comment) AND `--force` not set: refuse with error `"spec section already has content; pass --force to overwrite, or edit the section directly"` and print a unified diff of what would change
+   - If `` exists with non-empty content (after stripping the attribution comment) AND `--force` not set: refuse with error `&#34;spec section already has content; pass --force to overwrite, or edit the section directly&#34;` and print a unified diff of what would change
    - Otherwise: locate or create the section, write the rendered Markdown inside, save atomically via `writeFileAtomicRaw`
    - Idempotent only when `--force` is set
 5. Add `--no-clobber-only` mode is the default; existing `--output ` flag still writes to a file (no `--insert`). Mutual exclusivity: `--insert` and `--output` cannot both be set.
-6. **Concurrent-writer safety.** Extend `internal/workitem/htmlwriter.go`'s existing `featureWriteMu sync.Map` (or equivalent per-feature mutex from feat-38a032e8) into a package-level helper `LockFeatureForWrite(featureID string) (release func())` that BOTH `compliance auto`'s findings writer AND `spec generate --insert`'s spec writer acquire before reading the feature HTML. Refactor compliance_auto.go's section writer to use the same helper. The acquire-read-modify-write window must be inside the lock; the atomic temp+rename remains as before. This closes the lost-update race opus's HIGH critique flagged.</p>
+6. **Concurrent-writer safety.** Extend `internal/workitem/htmlwriter.go`&#39;s existing `featureWriteMu sync.Map` (or equivalent per-feature mutex from feat-38a032e8) into a package-level helper `LockFeatureForWrite(featureID string) (release func())` that BOTH `compliance auto`&#39;s findings writer AND `spec generate --insert`&#39;s spec writer acquire before reading the feature HTML. Refactor compliance_auto.go&#39;s section writer to use the same helper. The acquire-read-modify-write window must be inside the lock; the atomic temp+rename remains as before. This closes the lost-update race opus&#39;s HIGH critique flagged.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-17T18:19:54.939891"
-             data-updated="2026-05-17T18:52:12.657495" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:42:57.675031" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files=".wipnote/features/feat-30687f8c.html,.wipnote/plans/plan-1670cacd.html,.wipnote/plans/plan-1670cacd.yaml,cmd/wipnote/api.go,cmd/wipnote/api_feed.go,cmd/wipnote/api_parallel_sessions.go,cmd/wipnote/api_parallel_sessions_test.go,cmd/wipnote/dashboard/components/event-tree.js,cmd/wipnote/dashboard/css/components.css,cmd/wipnote/dashboard/js/app.js,cmd/wipnote/serve.go">
 
         <header>
             <h1>Dashboard worktree/session-family UX</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T18:19:54.944466">trk-a30e8df4</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T18:19:54.951345">plan-1670cacd</a></li>
+                    <li><a href="../features/feat-a225ce7c.html" data-relationship="blocked_by" data-since="2026-05-17T18:19:54.954105">feat-a225ce7c</a></li>
+                    <li><a href="../features/feat-6d8110b1.html" data-relationship="blocked_by" data-since="2026-05-17T18:19:54.958707">feat-6d8110b1</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T18:22:00.795182">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
+                    <li><a href="../sessions/82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T18:22:00.795182">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
                 </ul>
             </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="feat-a225ce7c.html" data-relationship="blocked_by" data-since="2026-05-17T18:19:54.954105">feat-a225ce7c</a></li>
-                    <li><a href="feat-6d8110b1.html" data-relationship="blocked_by" data-since="2026-05-17T18:19:54.958707">feat-6d8110b1</a></li>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T18:19:54.944466">trk-a30e8df4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T18:19:54.951345">plan-1670cacd</a></li>
                 </ul>
             </section>
         </nav>
@@ -60,7 +60,7 @@ the project view. Add API fields and UI affordances for:
 - branch/work-item/session-family badge on active sessions
 - collision or collaboration status for work-item claims
 - stale collector and stale worktree warnings (collector/stale warnings are
-  framed around plan-ae0c37b2's writer-queue and collector-status APIs,
+  framed around plan-ae0c37b2&#39;s writer-queue and collector-status APIs,
   not the deleted slice-6 assumptions)
 - filters by harness, work item, branch, session family, and execution root
 - explicit default grouping semantics for sessions list, activity feed,

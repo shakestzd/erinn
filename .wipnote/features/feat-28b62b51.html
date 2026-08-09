@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Assistant text: render at top of turn &#43; apply markdown</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T11:12:45.222957"
-             data-updated="2026-04-21T11:16:46.301431" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:55.646818" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/dashboard/css/components.css,cmd/htmlgraph/dashboard/index.html">
 
         <header>
             <h1>Assistant text: render at top of turn &#43; apply markdown</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:12:45.225773">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:13:17.231594">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T11:13:17.231594">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T11:12:45.225773">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two UX polish items for assistant_text rows: (1) reorder — within a turn, events must render in descending order (latest on top). Assistant text completes AFTER all tool calls, so it's the newest and should appear FIRST under the user-query turn header, before the tool rows. Currently renderTurn emits spans first then assistant_texts, putting the reply at the bottom. (2) markdown — the expanded assistant text pre block renders raw markdown characters. Should render **bold**, *italic*, backtick-code, code-fenced blocks, bullet/numbered lists, and links. Use marked.js or micromark via CDN (consistent with Prism loading pattern). Sanitize output (marked.js's default escaping is fine) since we're rendering our own agent's text which we trust but defense-in-depth is cheap.</p>
+            <p>Two UX polish items for assistant_text rows: (1) reorder — within a turn, events must render in descending order (latest on top). Assistant text completes AFTER all tool calls, so it&#39;s the newest and should appear FIRST under the user-query turn header, before the tool rows. Currently renderTurn emits spans first then assistant_texts, putting the reply at the bottom. (2) markdown — the expanded assistant text pre block renders raw markdown characters. Should render **bold**, *italic*, backtick-code, code-fenced blocks, bullet/numbered lists, and links. Use marked.js or micromark via CDN (consistent with Prism loading pattern). Sanitize output (marked.js&#39;s default escaping is fine) since we&#39;re rendering our own agent&#39;s text which we trust but defense-in-depth is cheap.</p>
         </section>
     </article>
 </body>

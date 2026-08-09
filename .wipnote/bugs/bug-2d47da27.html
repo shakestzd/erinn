@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Ledger artifacts fail the incremental node scan, freezing last-indexed-commit</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2d47da27"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T14:42:52.033264"
+             data-updated="2026-08-09T14:42:52.043432" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Ledger artifacts fail the incremental node scan, freezing last-indexed-commit</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T14:42:52.043359">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The incremental reindex parses every changed HTML file under the store as a work-item node and counts a parse failure as an error. Four canonical artifacts are tables rather than nodes and therefore fail that parse on every run: the architecture ledger, a claims shard, the sessions ledger, and the gate ledger. The resulting non-zero error count suppresses the last-indexed-commit write, so the incremental pass never advances its bookmark. Confirmed live: the bookmark is frozen dozens of commits behind head. The architecture ledger has done this since it existed, so the freeze is long-standing and each new ledger makes it worse — three of the four artifacts arrived tonight. Fix by excluding table-shaped artifacts from the node scan alongside the existing recap exclusion, and add a test that a store containing every artifact type still advances the bookmark. Worth noting the failure shape: the error is printed on every run and was visible the whole time, but because the only consequence is a bookmark that quietly stops moving, nothing ever escalated it.</p>
+        </section>
+    </article>
+</body>
+</html>

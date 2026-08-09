@@ -725,6 +725,14 @@ func launchClaude(opts LaunchOpts) error {
 	c.Env = buildClaudeLaunchEnv(worktreeOverride, &envOverrides)
 	c.Env = mergeLauncherEnv(c.Env, opts.ExtraEnv...)
 
+	// Guarantee the work-item daemon and publish its socket into the session
+	// (feat-f6759e37). markerRoot is the same root the launch marker is written
+	// to — the main project root even when running in a worktree — so the
+	// daemon, the lease and the marker all agree on which project this is.
+	// Returns nothing when no guarantee could be made, in which case the
+	// session runs (and announces) the unguaranteed contract.
+	c.Env = mergeLauncherEnv(c.Env, ensureDaemonForSession(markerRoot)...)
+
 	// Set working directory to project root so Claude starts in the right place,
 	// even if this command is run from a subdirectory like packages/go.
 	if opts.ProjectRoot != "" {

@@ -425,6 +425,23 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), hooks.AllowForHarness(harness))
 	}
 
+	// Daemon-guarantee breach (feat-f6759e37). This session was started by a
+	// wipnote launcher, which GUARANTEES the work-item daemon, and a read
+	// against it failed after its bounded retries. The policy here is
+	// deliberate and is the point of the whole feature: report loudly and pause
+	// execution rather than quietly answering from the derived index. A silent
+	// fallback is how two data paths diverge without anyone noticing.
+	//
+	// The check sits here, at the single point every hook emits its response,
+	// rather than at each read site — a per-site check is one a future caller
+	// can forget, and forgetting it would restore exactly the quiet failure
+	// this replaces. Sessions with no launcher guarantee never latch a breach,
+	// so this is inert for them.
+	if blocked := hooks.DaemonGuaranteeBlockResult(); blocked != nil {
+		hooks.LogError("runHook", event.SessionID, "daemon guarantee breached: pausing")
+		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), blocked)
+	}
+
 	projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
 	hookName := subcommand
 	hooks.LogTimed(projectDir, "runHook", map[string]string{

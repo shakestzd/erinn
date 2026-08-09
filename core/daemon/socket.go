@@ -57,6 +57,16 @@ type Listener struct {
 	applier  Applier
 	sockPath string
 
+	// reader answers read-protocol frames (feat-f6759e37). Nil means this
+	// daemon serves writes only, and every read is answered
+	// ReadStatusUnsupported — never an empty result, so a client can tell
+	// "no read path here" from "nothing matched".
+	reader Reader
+
+	// attachState tracks launcher pids that suppress idle-exit. See
+	// socket_read.go for why the launcher's guarantee needs it.
+	attachState
+
 	seq atomic.Int64
 
 	// dedup tracks op_ids in TWO disjoint states under dedupMu (roborev-482
@@ -107,6 +117,13 @@ type ListenerConfig struct {
 	Queue      *writequeue.Queue
 	Applier    Applier
 	OwnerPID   int
+
+	// Reader answers read-protocol frames (feat-f6759e37). Optional: a nil
+	// Reader yields a write-only daemon whose reads are all answered
+	// ReadStatusUnsupported. Unlike Applier there is no "rejecting" default to
+	// supply, because the unsupported reply IS the correct rejection and it
+	// already distinguishes itself from an empty result on the wire.
+	Reader Reader
 }
 
 // NewListener binds the Unix socket and returns a Listener ready to Serve.
@@ -139,6 +156,7 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 		ln:           ln,
 		queue:        cfg.Queue,
 		applier:      cfg.Applier,
+		reader:       cfg.Reader,
 		sockPath:     cfg.SocketPath,
 		dedupApplied: newLRUSet(dedupCapacity),
 		dedupPending: newLRUSet(dedupCapacity),
@@ -272,16 +290,33 @@ func (l *Listener) ServeWithIdleTimeout(ctx context.Context, idleTimeout time.Du
 // isIdle reports whether no op is in flight and the last op completed more than
 // idleTimeout ago. Both conditions are required: a long-running commit keeps
 // inFlight > 0 even if lastActivity briefly looks old.
+//
+// A THIRD condition was added with the read protocol (feat-f6759e37): a daemon
+// with any live ATTACHED launcher process is never idle. The availability
+// policy says a launcher-started session guarantees the daemon and hooks do not
+// negotiate — so the daemon must not exit under a session that was promised it,
+// merely because the user stepped away for longer than the idle window. The
+// attachment is pid-scoped rather than open-ended, so the daemon still exits
+// once every launcher that claimed it has gone: a shared daemon outlives any
+// ONE session, not all of them.
 func (l *Listener) isIdle(idleTimeout time.Duration) bool {
 	if l.inFlight.Load() != 0 {
+		return false
+	}
+	if l.liveAttachedCount() > 0 {
 		return false
 	}
 	last := time.Unix(0, l.lastActivity.Load())
 	return time.Since(last) >= idleTimeout
 }
 
-// handleConn reads newline-delimited envelopes and writes one ack per
-// envelope. The connection closes on read EOF or a malformed frame.
+// handleConn reads newline-delimited frames and writes one reply per frame.
+// The connection closes on read EOF or a malformed frame.
+//
+// A frame is either a write Envelope (replied to with an Ack) or a
+// ReadRequest (replied to with a ReadResponse). isReadFrame discriminates on
+// the "read_op" field before either decoder runs, so the two can never be
+// confused — see readwire.go.
 func (l *Listener) handleConn(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
@@ -289,8 +324,13 @@ func (l *Listener) handleConn(ctx context.Context, conn net.Conn) {
 	for {
 		line, err := reader.ReadBytes('\n')
 		if len(line) > 0 {
-			ack := l.process(ctx, line)
-			if encErr := encoder.Encode(ack); encErr != nil {
+			var reply any
+			if isReadFrame(line) {
+				reply = l.processRead(line)
+			} else {
+				reply = l.process(ctx, line)
+			}
+			if encErr := encoder.Encode(reply); encErr != nil {
 				return // client went away
 			}
 		}

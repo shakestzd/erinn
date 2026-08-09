@@ -16,6 +16,7 @@ import (
 
 	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/daemon/apply"
+	"github.com/shakestzd/wipnote/core/daemon/readsrv"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/core/storage"
@@ -222,10 +223,19 @@ func runWriterOnly(serveManaged bool) error {
 	// writable handle (writeDB, MaxOpenConns=1) the OTel sink, indexer, and
 	// maintenance loops use, so all socket-delivered writes serialize on the
 	// one connection — the structural single-writer invariant.
+	// Wire the read side (feat-f6759e37). The Reader answers work-item queries
+	// from CANONICAL state — the .wipnote HTML files — not from writeDB, so it
+	// shares nothing with the write path above and cannot queue behind it. That
+	// is the whole point: hooks are fresh processes that cannot afford the
+	// canonical parse, and this daemon is where that parse gets amortised, so
+	// hooks stop needing the derived index to answer work-item questions.
+	readCache := readsrv.NewCache(wipnoteDir)
+
 	ln, err := daemon.NewListener(daemon.ListenerConfig{
 		SocketPath: daemon.SocketPath(projectRoot),
 		Queue:      q,
 		Applier:    apply.NewApplier(writer.DB()),
+		Reader:     readsrv.Reader(readCache),
 		OwnerPID:   os.Getpid(),
 	})
 	if err != nil {

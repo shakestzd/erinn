@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/ingest"
 	"github.com/shakestzd/wipnote/core/models"
@@ -160,15 +161,11 @@ func buildActiveItemOneLiner(database *sql.DB, featureID string) string {
 	if featureID == "" {
 		return ""
 	}
-
-	var title sql.NullString
-	err := database.QueryRow(
-		`SELECT title FROM features WHERE id = ?`, featureID,
-	).Scan(&title)
-	if err != nil || !title.Valid || title.String == "" {
+	item, found := LookupWorkItem(database, featureID)
+	if !found || item.Title == "" {
 		return fmt.Sprintf("ACTIVE: %s", featureID)
 	}
-	return fmt.Sprintf("ACTIVE: %s — %s", featureID, title.String)
+	return fmt.Sprintf("ACTIVE: %s — %s", featureID, item.Title)
 }
 
 type workItemRow struct {
@@ -180,28 +177,13 @@ type workItemRow struct {
 
 // listOpenWorkItems returns in-progress and todo features/bugs/spikes.
 func listOpenWorkItems(database *sql.DB) []workItemRow {
-	rows, err := database.Query(`
-		SELECT id, title, status, type
-		FROM features
-		WHERE status IN ('in-progress', 'todo', 'active')
-		ORDER BY
-			CASE status WHEN 'in-progress' THEN 0 ELSE 1 END,
-			CASE type WHEN 'feature' THEN 0 WHEN 'bug' THEN 1 ELSE 2 END,
-			created_at DESC
-		LIMIT ?`,
-		maxOpenWorkItemsDisplay,
-	)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-
-	var items []workItemRow
-	for rows.Next() {
-		var r workItemRow
-		if err := rows.Scan(&r.id, &r.title, &r.status, &r.itype); err == nil {
-			items = append(items, r)
-		}
+	found := ListWorkItems(database, daemon.WorkItemListArgs{
+		Statuses: []string{"in-progress", "todo", "active"},
+		Limit:    maxOpenWorkItemsDisplay,
+	})
+	items := make([]workItemRow, 0, len(found))
+	for _, it := range found {
+		items = append(items, workItemRow{id: it.ID, title: it.Title, status: it.Status, itype: it.Type})
 	}
 	return items
 }
@@ -212,11 +194,8 @@ func getActiveWorkItemType(database *sql.DB, featureID string) string {
 	if featureID == "" {
 		return ""
 	}
-	var itemType sql.NullString
-	_ = database.QueryRow(
-		`SELECT type FROM features WHERE id = ?`, featureID,
-	).Scan(&itemType)
-	return itemType.String
+	item, _ := LookupWorkItem(database, featureID)
+	return item.Type
 }
 
 // sanitizePrompt strips XML notification/reminder blocks from prompt text.

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
@@ -293,12 +294,16 @@ func completeIfInProgress(id string, database *sql.DB) bool {
 }
 
 // completeIfInProgressImpl is the real implementation of completeIfInProgress.
+//
+// The status read goes through LookupWorkItem (feat-f6759e37): under a
+// launcher-guaranteed session it is answered from canonical state by the
+// daemon, and under no guarantee from the derived index exactly as before. A
+// daemon failure under guarantee returns not-found here AND latches a breach,
+// so this returns false without acting — and the hook's response is replaced
+// with a loud block before that false is mistaken for "nothing to complete".
 func completeIfInProgressImpl(id string, database *sql.DB) bool {
-	var status string
-	if err := database.QueryRow(`SELECT status FROM features WHERE id = ?`, id).Scan(&status); err != nil {
-		return false
-	}
-	if status != "in-progress" {
+	item, found := LookupWorkItem(database, id)
+	if !found || item.Status != "in-progress" {
 		return false
 	}
 	typeName := inferTypeName(id)
@@ -384,26 +389,18 @@ func autoCompleteByBranch(branch string, database *sql.DB) []string {
 
 // completeInProgressByTrack queries for all in-progress work items on a track
 // and shells out to complete each one. Returns the IDs of completed items.
+//
+// The listing goes through ListWorkItems (feat-f6759e37) — canonical state via
+// the daemon under a launcher guarantee, the derived index otherwise.
 func completeInProgressByTrack(trackID string, database *sql.DB) []string {
-	rows, err := database.Query(
-		`SELECT id FROM features WHERE track_id = ? AND status = 'in-progress'`,
-		trackID,
-	)
-	if err != nil {
-		debugLog("", "[posttooluse] query in-progress for track %s: %v", trackID, err)
-		return nil
-	}
-	defer rows.Close()
-
+	items := ListWorkItems(database, daemon.WorkItemListArgs{
+		TrackID:  trackID,
+		Statuses: []string{"in-progress"},
+	})
 	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			continue
-		}
-		ids = append(ids, id)
+	for _, it := range items {
+		ids = append(ids, it.ID)
 	}
-	_ = rows.Err()
 
 	var completed []string
 	for _, id := range ids {

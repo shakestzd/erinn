@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Dashboard renders slice-local questions as free-text input, ignoring options/recommended</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-03T19:54:31.008585"
-             data-updated="2026-05-03T21:58:18.447569" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:41:36.449701" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-07722c9c.html,.htmlgraph/tracks/trk-cb36e595.html,internal/plantmpl/slice_card_test.go,internal/plantmpl/templates/plan_page.gohtml,internal/plantmpl/templates/slice_card.gohtml">
 
         <header>
             <h1>Dashboard renders slice-local questions as free-text input, ignoring options/recommended</h1>
@@ -24,25 +24,25 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-03T19:54:31.014374">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-03T20:03:07.055391">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-03T20:03:07.055391">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-03T19:54:31.014374">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Symptom: when reviewing a plan slice in the dashboard, each slice-local question shows only a 'Answer question q-foo...' textarea — no multiple-choice options, no recommended-option highlight, no description. Plan-level questions (rendered elsewhere) do render structured options correctly (per prior dashboard rendering of plan-level q-pilot-success-bar / q-cost-measurement).
+            <p>Symptom: when reviewing a plan slice in the dashboard, each slice-local question shows only a &#39;Answer question q-foo...&#39; textarea — no multiple-choice options, no recommended-option highlight, no description. Plan-level questions (rendered elsewhere) do render structured options correctly (per prior dashboard rendering of plan-level q-pilot-success-bar / q-cost-measurement).
 
-Confirmed in plan-72685272: 6 slice-local questions all show free-text inputs despite YAML containing description/recommended/options[] fields after the feat-ad30f4e0 schema extension landed. Schema + validator are correct; API response likely contains the fields (to be verified); the dashboard's frontend template for slice-local questions hasn't been updated to render the structured form.
+Confirmed in plan-72685272: 6 slice-local questions all show free-text inputs despite YAML containing description/recommended/options[] fields after the feat-ad30f4e0 schema extension landed. Schema + validator are correct; API response likely contains the fields (to be verified); the dashboard&#39;s frontend template for slice-local questions hasn&#39;t been updated to render the structured form.
 
 Fix: locate the slice-question render path in plugin/static/ (likely a template or JS function distinct from the plan-level question renderer) and update it to render options + highlight recommended, matching the plan-level behavior.
 

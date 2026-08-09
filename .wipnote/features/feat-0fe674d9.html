@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Migrate hook direct-writes to NDJSON</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-26T20:02:40.830702"
-             data-updated="2026-04-26T21:14:26.239537" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:49.884834" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="internal/hooks/transcript_assistant.go,internal/hooks/transcript_assistant_test.go,internal/hooks/transcript_user_prompt.go,internal/hooks/transcript_user_prompt_test.go">
 
         <header>
             <h1>Migrate hook direct-writes to NDJSON</h1>
@@ -27,32 +27,32 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-65432141.html" data-relationship="blocked_by" data-since="2026-04-26T20:02:40.903057">feat-65432141</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T20:02:40.83296">trk-c4615ad2</a></li>
+                    <li><a href="../features/feat-65432141.html" data-relationship="blocked_by" data-since="2026-04-26T20:02:40.903057">feat-65432141</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="9db86a91-da81-4149-b443-a3d8bb0fcc63.html" data-relationship="implemented_in" data-since="2026-04-26T21:00:29.498035">session 9db86a91-da81-4149-b443-a3d8bb0fcc63</a></li>
+                    <li><a href="../sessions/9db86a91-da81-4149-b443-a3d8bb0fcc63.html" data-relationship="implemented_in" data-since="2026-04-26T21:00:29.498035">session 9db86a91-da81-4149-b443-a3d8bb0fcc63</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T20:02:40.83296">trk-c4615ad2</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-8ee8f517.html" data-relationship="planned_in" data-since="2026-04-26T20:02:40.838763">plan-8ee8f517</a></li>
+                    <li><a href="../plans/plan-8ee8f517.html" data-relationship="planned_in" data-since="2026-04-26T20:02:40.838763">plan-8ee8f517</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Remove the direct INSERT OR IGNORE into otel_signals from internal/hooks/transcript_user_prompt.go:191 and internal/hooks/transcript_assistant.go:298. Replace with NDJSON append to the session's events.ndjson — Verified by the feasibility critic that hooks have `sessionID` and `projectDir` in scope at the INSERT call sites (transcript_user_prompt.go:191 and transcript_assistant.go:298 receive both via the hook event payload and ResolveProjectDir helper). Implementation per q-write-coordination (recommended option-a): hooks call `ndjson.New(projectDir, sessionID).WriteBatch(...)`. The per-session collector's indexer picks them up on next tick. Hidden work flagged by the feasibility critic: the current INSERT writes raw column values (signal_id, span_id, ts_micros, etc.); the NDJSON line format is a full `otel.UnifiedSignal` struct. The mapping from raw transcript record fields to UnifiedSignal must be worked out explicitly during implementation — this is not a one-line replacement.
+            <p>Remove the direct INSERT OR IGNORE into otel_signals from internal/hooks/transcript_user_prompt.go:191 and internal/hooks/transcript_assistant.go:298. Replace with NDJSON append to the session&#39;s events.ndjson — Verified by the feasibility critic that hooks have `sessionID` and `projectDir` in scope at the INSERT call sites (transcript_user_prompt.go:191 and transcript_assistant.go:298 receive both via the hook event payload and ResolveProjectDir helper). Implementation per q-write-coordination (recommended option-a): hooks call `ndjson.New(projectDir, sessionID).WriteBatch(...)`. The per-session collector&#39;s indexer picks them up on next tick. Hidden work flagged by the feasibility critic: the current INSERT writes raw column values (signal_id, span_id, ts_micros, etc.); the NDJSON line format is a full `otel.UnifiedSignal` struct. The mapping from raw transcript record fields to UnifiedSignal must be worked out explicitly during implementation — this is not a one-line replacement.
 
 
 ## Why
@@ -60,7 +60,7 @@ Eliminates the dual-writer contention that started this whole story (bug-4697c62
 
 
 ## Done When
-- grep -rn 'INSERT.*otel_signals' internal/hooks/ returns zero matches
+- grep -rn &#39;INSERT.*otel_signals&#39; internal/hooks/ returns zero matches
 - A transcript hook invocation in a fresh session produces a row in otel_signals within one indexer tick after the hook returns
 - Hook latency under load (1k invocations) regresses by less than 5% versus the direct-SQLite baseline</p>
         </section>

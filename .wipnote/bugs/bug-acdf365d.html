@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-07T06:40:12.026417"
-             data-updated="2026-05-07T14:47:27.999926" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2">
+             data-updated="2026-08-09T20:42:24.634142" data-agent-assigned="claude-code" data-track-id="trk-2c83a1e2" data-affected_files=".wipnote/bugs/bug-acdf365d.html,.wipnote/tracks/trk-2c83a1e2.html,agents/reader.md,agents/test-runner.md,commands/wipnote/error-analysis.toml,commands/wipnote/feature-complete.toml,commands/wipnote/git-commit.toml,commands/wipnote/start.toml,config/validation-config.json,internal/pluginbuild/codex.go,internal/pluginbuild/codex_agents.go,internal/pluginbuild/codex_agents_test.go,internal/pluginbuild/delegation_syntax_test.go,internal/pluginbuild/gemini_agents.go,internal/pluginbuild/gemini_assets.go,internal/pluginbuild/gemini_commands.go,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-reader.toml,packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-test-runner.toml,packages/codex-marketplace/.agents/plugins/wipnote/commands/error-analysis.md,packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-complete.md,packages/codex-marketplace/.agents/plugins/wipnote/commands/git-commit.md,packages/codex-marketplace/.agents/plugins/wipnote/commands/start.md,packages/codex-marketplace/.agents/plugins/wipnote/config/validation-config.json,packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/parallel-orchestrator/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/wipnote-tracker/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/agent-context/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/diagnose/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/execute/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/reference.md,packages/gemini-extension/agents/reader.md,packages/gemini-extension/agents/test-runner.md,packages/gemini-extension/commands/wipnote/error-analysis.toml,packages/gemini-extension/commands/wipnote/feature-complete.toml,packages/gemini-extension/commands/wipnote/git-commit.toml,packages/gemini-extension/commands/wipnote/start.toml,packages/gemini-extension/config/validation-config.json,packages/gemini-extension/skills/.archived/parallel-orchestrator/SKILL.md,packages/gemini-extension/skills/.archived/wipnote-tracker/SKILL.md,packages/gemini-extension/skills/agent-context/SKILL.md,packages/gemini-extension/skills/diagnose/SKILL.md,packages/gemini-extension/skills/execute/SKILL.md,packages/gemini-extension/skills/orchestrator-directives-skill/SKILL.md,packages/gemini-extension/skills/orchestrator-directives-skill/reference.md,plugin/agents/test-runner.md,plugin/commands/error-analysis.md,plugin/config/validation-config.json,plugin/skills/.archived/wipnote-tracker/SKILL.md,plugin/skills/agent-context/SKILL.md,plugin/skills/diagnose/SKILL.md,skills/.archived/parallel-orchestrator/SKILL.md,skills/.archived/wipnote-tracker/SKILL.md,skills/agent-context/SKILL.md,skills/diagnose/SKILL.md,skills/execute/SKILL.md,skills/orchestrator-directives-skill/SKILL.md,skills/orchestrator-directives-skill/reference.md">
 
         <header>
             <h1>Shared command/skill source uses Claude-only Task(subagent_type=) syntax (Codex&#43;Gemini affected)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-07T06:40:12.033061">trk-2c83a1e2</a></li>
+                    <li><a href="../bugs/bug-d548d5ba.html" data-relationship="caused_by" data-since="2026-05-07T06:40:12.03054">bug-d548d5ba</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="be4be18d-a13d-468c-8f8c-6fce55df7f1c.html" data-relationship="implemented_in" data-since="2026-05-07T06:46:05.99528">session be4be18d-a13d-468c-8f8c-6fce55df7f1c</a></li>
-                    <li><a href="019e011c-41cf-7981-8476-30174334e123.html" data-relationship="implemented_in" data-since="2026-05-07T06:52:03.852969">session 019e011c-41cf-7981-8476-30174334e123</a></li>
+                    <li><a href="../sessions/be4be18d-a13d-468c-8f8c-6fce55df7f1c.html" data-relationship="implemented_in" data-since="2026-05-07T06:46:05.99528">session be4be18d-a13d-468c-8f8c-6fce55df7f1c</a></li>
+                    <li><a href="../sessions/019e011c-41cf-7981-8476-30174334e123.html" data-relationship="implemented_in" data-since="2026-05-07T06:52:03.852969">session 019e011c-41cf-7981-8476-30174334e123</a></li>
                 </ul>
             </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="bug-d548d5ba.html" data-relationship="caused_by" data-since="2026-05-07T06:40:12.03054">bug-d548d5ba</a></li>
+                    <li><a href="../tracks/trk-2c83a1e2.html" data-relationship="part_of" data-since="2026-05-07T06:40:12.033061">trk-2c83a1e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,14 +48,14 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-bug-acdf365d-0" data-agent="claude-code">✅ Replaced active shared Claude-only subagent_type examples with harness-neutral delegation wording; regenerated Codex/Gemini ports; added pluginbuild regression test scanning active generated outputs for subagent_type syntax.</li>
-                <li data-completed="true" data-step-id="step-bug-acdf365d-1" data-agent="claude-code">✅ Addressed roborev job 10 by restoring Claude-facing subagent_type examples, moving non-Claude delegation syntax rewriting into Codex/Gemini emitters, and changing the regression test to emit fresh temp outputs before scanning.</li>
+                <li data-completed="true" data-step-id="step-bug-acdf365d-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Replaced active shared Claude-only subagent_type examples with harness-neutral delegation wording; regenerated Codex/Gemini ports; added pluginbuild regression test scanning active generated outputs for subagent_type syntax.</li>
+                <li data-completed="true" data-step-id="step-bug-acdf365d-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Addressed roborev job 10 by restoring Claude-facing subagent_type examples, moving non-Claude delegation syntax rewriting into Codex/Gemini emitters, and changing the regression test to emit fresh temp outputs before scanning.</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Shared markdown sources copy verbatim into every target, so Claude-only delegation syntax leaks into Codex and Gemini output trees. The current Codex-only ID rewrite handles wipnote: -> wipnote-, but it does not address the surrounding Claude tool-call prose such as Task(subagent_type=...) or Agent(... subagent_type=...), which is not valid guidance for Codex or Gemini.
+            <p>Shared markdown sources copy verbatim into every target, so Claude-only delegation syntax leaks into Codex and Gemini output trees. The current Codex-only ID rewrite handles wipnote: -&gt; wipnote-, but it does not address the surrounding Claude tool-call prose such as Task(subagent_type=...) or Agent(... subagent_type=...), which is not valid guidance for Codex or Gemini.
 
 ACTIVE SHARED SOURCES TO AUDIT/EDIT:
 - plugin/commands/feature-complete.md

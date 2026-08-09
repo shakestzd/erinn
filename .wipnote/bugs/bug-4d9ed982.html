@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-24T03:49:05.098876"
-             data-updated="2026-05-24T05:52:31.018817" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:41:55.68242" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-4d9ed982.html,cmd/wipnote/help_test.go,cmd/wipnote/main.go,cmd/wipnote/prune.go,internal/hooks/retention_sweep.go,internal/hooks/session_start.go,internal/otel/retention/config.go,internal/otel/retention/disk_retention_test.go,internal/otel/retention/logrotate.go,internal/otel/retention/ndjson_sweep.go,internal/otel/retention/retention.go">
 
         <header>
             <h1>wipnote accumulates unbounded session events.ndjson &#43; serve logs on disk (no retention/rotation) — multi-GB per project</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-24T03:49:05.233805">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-24T03:49:55.440941">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-24T03:49:55.440941">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-24T03:49:05.233805">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Per-project .wipnote/ grows without bound: observed 9.8GB (sessions/ 7.0GB of raw events.ndjson — one file 2.8GB, another 1.5GB, 152 files / 1400 sessions; logs/ 2.9GB dominated by a single unbounded serve-auto.log). No size cap, rotation, or age/count retention on (a) per-session events.ndjson raw event streams (queryable data already lives in derived SQLite), or (b) serve-auto.log / debug.log. internal/otel/retention exists but does not cover these raw ndjson files or the serve log. Systemic across projects (survival_guide 27GB). Fix in the binary (per-user/cross-project): size-cap + rotate serve/debug logs; cap events.ndjson size and add retention pruning of raw streams for INACTIVE + already-ingested sessions (and/or older than N days / beyond N sessions); NEVER truncate an actively-writing ndjson or unlink an in-use log; surface a configurable retention policy. Optionally a 'wipnote prune'/reconcile-style command for manual reclaim.</p>
+            <p>Per-project .wipnote/ grows without bound: observed 9.8GB (sessions/ 7.0GB of raw events.ndjson — one file 2.8GB, another 1.5GB, 152 files / 1400 sessions; logs/ 2.9GB dominated by a single unbounded serve-auto.log). No size cap, rotation, or age/count retention on (a) per-session events.ndjson raw event streams (queryable data already lives in derived SQLite), or (b) serve-auto.log / debug.log. internal/otel/retention exists but does not cover these raw ndjson files or the serve log. Systemic across projects (survival_guide 27GB). Fix in the binary (per-user/cross-project): size-cap + rotate serve/debug logs; cap events.ndjson size and add retention pruning of raw streams for INACTIVE + already-ingested sessions (and/or older than N days / beyond N sessions); NEVER truncate an actively-writing ndjson or unlink an in-use log; surface a configurable retention policy. Optionally a &#39;wipnote prune&#39;/reconcile-style command for manual reclaim.</p>
         </section>
     </article>
 </body>

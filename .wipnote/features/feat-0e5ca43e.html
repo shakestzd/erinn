@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Canonical gate ledger: give gate records a durable home</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-0e5ca43e"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-09T13:39:09.594974"
+             data-updated="2026-08-09T13:47:25.181162" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Canonical gate ledger: give gate records a durable home</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T13:47:25.181002">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T13:39:09.627747">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-09T13:39:17.269086">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                    <li><a href="../bugs/bug-86e088aa.html" data-relationship="relates_to" data-since="2026-08-09T13:39:17.36457">yolo_guard gates on session-scoped agent_events, violating the project&#39;s own gate-reproducibility rule</a></li>
+                    <li><a href="../features/feat-1b08a194.html" data-relationship="relates_to" data-since="2026-08-09T13:39:17.460954">Canonical sessions ledger: archive appends a durable session row that edges can resolve</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-550c1cd8.html" data-relationship="spawned_from" data-since="2026-08-09T13:39:17.164077">Gate decisions depend on tables with no canonical source</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Gate records are the last decision-affecting data in wipnote with no canonical source. Seventy-five rows across forty-one work items exist only in the derived index, which lives in the operating-system cache directory and may be purged at any time — while the completion gate consults them through a fallback window to decide whether a work item may complete. A purge silently changes whether completions are permitted, and nothing can rebuild them. They are also structurally ideal for the ledger pattern proven twice already: one immutable row per gate run, keyed by work item, queried by recency, with no open-close lifecycle since a gate run is a completed fact when written. STORAGE: a git-tracked HTML table under the store following the architecture-cards and claim-ledger precedent, fragment-addressable by record id, reusing the shared file-lock write path and the deferred commit queue. Consult the claim ledger&#39;s sharding decision and follow or diverge deliberately; gate runs are far rarer than claim events so a single file is plausible. The index table becomes a derived read cache rebuilt by reindex like every other canonical artifact. TWO DECISIONS SETTLED DURING SCOPING, both reversing an earlier framing. First, the allowlist hit detail DOES belong in the canonical row. An allowlist hit is not decoration — a gate command that failed is converted to a pass when its failure matches an allowlist entry, so the hit record is the reason a failure was forgiven. Only the count is consumed today, in session adherence reporting, but the detail names which entries were hit, which is what makes it possible to ask later whether a pass was forgiven for a reason since fixed, or whether an allowlist has gone stale. Dropping it would make every historical pass indistinguishable from a clean one, permanently. Second, the completion gate SHOULD read the ledger directly rather than the index. No counter-argument survived scrutiny: the parse is trivial on a command that runs at completion time, and independence from index state is the goal rather than an inconsistency. One real consequence to accept knowingly — gate decisions become coupled to working-tree git state, so checking out an older commit surfaces that commit&#39;s records. That is judged correct semantics, since a gate record is a fact about a tree state, but it is a behaviour change and should be documented. This is what makes the gate-reproducibility bug resolvable rather than perpetually worked around.
+Acceptance Criteria
+Gate records survive a cache wipe and a fresh clone. The completion gate reads canonical, so a purged index does not change whether a completion is permitted. Allowlist hit detail is preserved canonically. The index rebuilds from the ledger.</p>
+        </section>
+    </article>
+</body>
+</html>

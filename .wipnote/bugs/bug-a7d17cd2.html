@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph reindex (incremental) does not propagate features.track_id changes from bug/feature move</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T18:55:54.285935"
-             data-updated="2026-05-01T21:21:20.469718" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:42:23.373361" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".htmlgraph/bugs/bug-546cda63.html,.htmlgraph/bugs/bug-680d0ee4.html,.htmlgraph/bugs/bug-792a8319.html,.htmlgraph/bugs/bug-89990f33.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a7d17cd2.html,.htmlgraph/bugs/bug-c4e3551d.html,.htmlgraph/features/feat-55d39535.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-08dcbb33.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-be293476.html,cmd/htmlgraph/reindex.go,cmd/htmlgraph/reindex_incremental_test.go">
 
         <header>
             <h1>htmlgraph reindex (incremental) does not propagate features.track_id changes from bug/feature move</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T18:55:54.294229">trk-08dcbb33</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T18:55:54.291567">bug-92690d5b</a></li>
+                    <li><a href="../bugs/bug-92690d5b.html" data-relationship="caused_by" data-since="2026-05-01T18:55:54.291567">bug-92690d5b</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:51:22.118257">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T20:51:22.118257">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T18:55:54.294229">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -52,10 +52,10 @@ After running `htmlgraph bug move  ` (or `feature move`), the canonical HTML is 
 
 ## Reproducer
 
-1. `htmlgraph bug move bug-92690d5b trk-be293476` → 'Moved: ... → trk-be293476'.
-2. `grep data-track-id .htmlgraph/bugs/bug-92690d5b.html` → 'trk-be293476' (correct).
-3. `htmlgraph reindex` → 'Reindexed (incremental): 35 upserted, 0 errors'.
-4. `sqlite3 ~/.cache/htmlgraph//htmlgraph.db 'SELECT track_id FROM features WHERE id = "bug-92690d5b"'` → 'trk-0677c709' (STALE).
+1. `htmlgraph bug move bug-92690d5b trk-be293476` → &#39;Moved: ... → trk-be293476&#39;.
+2. `grep data-track-id .htmlgraph/bugs/bug-92690d5b.html` → &#39;trk-be293476&#39; (correct).
+3. `htmlgraph reindex` → &#39;Reindexed (incremental): 35 upserted, 0 errors&#39;.
+4. `sqlite3 ~/.cache/htmlgraph//htmlgraph.db &#39;SELECT track_id FROM features WHERE id = &#34;bug-92690d5b&#34;&#39;` → &#39;trk-0677c709&#39; (STALE).
 5. `htmlgraph reindex --full` → fixes it.
 
 ## Hypothesis

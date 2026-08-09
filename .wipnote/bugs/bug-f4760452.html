@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>[P3] Scrub host-local absolute paths from already-committed .htmlgraph artifacts</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-21T23:38:34.643566"
-             data-updated="2026-04-22T02:31:41.109752" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+             data-updated="2026-08-09T20:42:42.598558" data-agent-assigned="claude-code" data-track-id="trk-787f57d3" data-affected_files=".htmlgraph/bugs/bug-71fc095f.html,.htmlgraph/plans/plan-c248b73f.yaml,cmd/htmlgraph/check.go,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/check_host_paths_test.go,cmd/htmlgraph/testdata/bad-path-sample.html,cmd/htmlgraph/testdata/clean-sample.html,scripts/check-host-paths.sh">
 
         <header>
             <h1>[P3] Scrub host-local absolute paths from already-committed .htmlgraph artifacts</h1>
@@ -27,27 +27,27 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:21:17.557504">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="bug-4b6d8369.html" data-relationship="relates_to" data-since="2026-04-21T23:39:03.665386">[P1] Pre-commit guardrail: scan .htmlgraph/ and .claude/ for host-local absolute paths</a></li>
+                    <li><a href="../sessions/dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:21:17.557504">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:34.947378">trk-787f57d3</a></li>
-                    <li><a href="bug-5150e42a.html" data-relationship="part_of" data-since="2026-04-21T23:39:02.497452">[P2] Cross-environment absolute-path drift — class audit</a></li>
+                    <li><a href="../tracks/trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:34.947378">trk-787f57d3</a></li>
+                    <li><a href="../bugs/bug-5150e42a.html" data-relationship="part_of" data-since="2026-04-21T23:39:02.497452">[P2] Cross-environment absolute-path drift — class audit</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-4b6d8369.html" data-relationship="relates_to" data-since="2026-04-21T23:39:03.665386">[P1] Pre-commit guardrail: scan .htmlgraph/ and .claude/ for host-local absolute paths</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Audit findings F2 + F3: two committed artifacts carry host-local absolute paths that confuse cross-environment agents. (1) .htmlgraph/plans/plan-c248b73f.yaml:178 contains '<user-home>/.copilot/session-state/869d1f67.../' in a precondition text; (2) .htmlgraph/bugs/bug-71fc095f.html:43-47 references '<sibling-repo-root>/.htmlgraph/htmlgraph.db' in the bug body. Fix: redact to relative or placeholder paths; update .htmlgraph indexes. Depends on bug for pre-commit guardrail (otherwise drift recurs). Acceptance: 'rg "/(Users|home|workspaces)/[^/]+/" .htmlgraph/' returns only expected hits (e.g. this bug's own description).</p>
+            <p>Audit findings F2 + F3: two committed artifacts carry host-local absolute paths that confuse cross-environment agents. (1) .htmlgraph/plans/plan-c248b73f.yaml:178 contains &#39;/.copilot/session-state/869d1f67.../&#39; in a precondition text; (2) .htmlgraph/bugs/bug-71fc095f.html:43-47 references &#39;/.htmlgraph/htmlgraph.db&#39; in the bug body. Fix: redact to relative or placeholder paths; update .htmlgraph indexes. Depends on bug for pre-commit guardrail (otherwise drift recurs). Acceptance: &#39;rg &#34;/(Users|home|workspaces)/[^/]+/&#34; .htmlgraph/&#39; returns only expected hits (e.g. this bug&#39;s own description).</p>
         </section>
     </article>
 </body>

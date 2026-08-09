@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-15T08:35:58.140281"
-             data-updated="2026-05-15T14:33:28.08278" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-role="codex" data-created-by-cli-version="0.59.1-54-g8e91ddee1">
+             data-updated="2026-08-09T20:43:49.597441" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-role="codex" data-created-by-cli-version="0.59.1-54-g8e91ddee1" data-affected_files=".wipnote/features/feat-fae32416.html,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/workitem.go,cmd/wipnote/workitem_commit.go,cmd/wipnote/workitem_test.go">
 
         <header>
             <h1>Pre-complete gate: block feature/bug/spike complete on uncommitted source</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T08:35:58.143957">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T08:54:10.761683">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                    <li><a href="../sessions/08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T08:54:10.761683">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T08:35:58.143957">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Scope: add a Go CLI enforcement gate before feature complete, bug complete, and spike complete mark work done. Investigate command wiring under cmd/wipnote/ for the complete subcommands, and shared completion helpers if present. Also inspect the artifact commit path around commitWipnoteArtifact and commitPlanChange in internal/ so the new check runs before the .wipnote artifact-only commit path can make completion appear durable. Problem: completion currently commits only the .wipnote/*.html artifact and does not verify that tracked source changes are committed, so implementation files such as internal/pluginbuild/ can remain uncommitted after a feature is marked complete. Proposed behavior: before completing, run git status --porcelain semantics and detect tracked-file changes outside .wipnote/. Default behavior should be a hard block, not merely a warning, because completion is the durable done signal and standalone Codex/Gemini/single-agent usage lacks a manual orchestrator safety net. The refusal message should list offending relative file paths, explain that source changes must be committed first, and show exact remediation commands such as git add  && git commit -m ": commit implementation"; provide an explicit --allow-dirty escape hatch for legitimate dirty-tree workflows, logging or printing that the bypass was used. Cross-harness requirement: this must live in the Go CLI completion path, not in a Claude-Code-only hook, so Claude Code, Codex, Gemini, and humans all receive identical enforcement. Acceptance criteria: 1. feature complete, bug complete, and spike complete refuse by default when git status --porcelain reports tracked modified/deleted/renamed/copied files outside .wipnote/. 2. The refusal output lists only relative offending paths and includes a clear git add plus git commit remediation example. 3. Dirty .wipnote artifacts alone do not block the normal completion artifact commit flow. 4. --allow-dirty bypasses the gate for feature/bug/spike complete and makes the bypass visible in command output. 5. Tests cover clean tree, dirty source tree, dirty .wipnote-only tree, and allow-dirty behavior. Likely files touched: cmd/wipnote/, internal/ artifact commit helpers near commitWipnoteArtifact and commitPlanChange, tests under cmd/wipnote/ or internal/ completion-related test files, docs/CLI help text if flags are documented there. Risks: false positives for legitimate dirty source worktrees; need to distinguish tracked source changes from generated .wipnote artifacts and possibly untracked files. Confirm interaction with the worktree/.wipnote gitignore exclusion documented in CLAUDE.md so the check does not accidentally block or ignore the wrong files.</p>
+            <p>Scope: add a Go CLI enforcement gate before feature complete, bug complete, and spike complete mark work done. Investigate command wiring under cmd/wipnote/ for the complete subcommands, and shared completion helpers if present. Also inspect the artifact commit path around commitWipnoteArtifact and commitPlanChange in internal/ so the new check runs before the .wipnote artifact-only commit path can make completion appear durable. Problem: completion currently commits only the .wipnote/*.html artifact and does not verify that tracked source changes are committed, so implementation files such as internal/pluginbuild/ can remain uncommitted after a feature is marked complete. Proposed behavior: before completing, run git status --porcelain semantics and detect tracked-file changes outside .wipnote/. Default behavior should be a hard block, not merely a warning, because completion is the durable done signal and standalone Codex/Gemini/single-agent usage lacks a manual orchestrator safety net. The refusal message should list offending relative file paths, explain that source changes must be committed first, and show exact remediation commands such as git add  &amp;&amp; git commit -m &#34;: commit implementation&#34;; provide an explicit --allow-dirty escape hatch for legitimate dirty-tree workflows, logging or printing that the bypass was used. Cross-harness requirement: this must live in the Go CLI completion path, not in a Claude-Code-only hook, so Claude Code, Codex, Gemini, and humans all receive identical enforcement. Acceptance criteria: 1. feature complete, bug complete, and spike complete refuse by default when git status --porcelain reports tracked modified/deleted/renamed/copied files outside .wipnote/. 2. The refusal output lists only relative offending paths and includes a clear git add plus git commit remediation example. 3. Dirty .wipnote artifacts alone do not block the normal completion artifact commit flow. 4. --allow-dirty bypasses the gate for feature/bug/spike complete and makes the bypass visible in command output. 5. Tests cover clean tree, dirty source tree, dirty .wipnote-only tree, and allow-dirty behavior. Likely files touched: cmd/wipnote/, internal/ artifact commit helpers near commitWipnoteArtifact and commitPlanChange, tests under cmd/wipnote/ or internal/ completion-related test files, docs/CLI help text if flags are documented there. Risks: false positives for legitimate dirty source worktrees; need to distinguish tracked source changes from generated .wipnote artifacts and possibly untracked files. Confirm interaction with the worktree/.wipnote gitignore exclusion documented in CLAUDE.md so the check does not accidentally block or ignore the wrong files.</p>
         </section>
     </article>
 </body>

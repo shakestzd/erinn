@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-18T05:43:44.555448"
-             data-updated="2026-08-09T20:42:12.501618" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9" data-affected_files=".wipnote/bugs/bug-7dbaf552.html,cmd/wipnote/lineage.go,cmd/wipnote/lineage_busy_test.go,cmd/wipnote/query.go,cmd/wipnote/session.go,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/trace.go,internal/db/open_modes.go,internal/db/pragmas.go,internal/db/pragmas_busy_whitebox_test.go,internal/db/pragmas_test.go,internal/db/schema.go">
+             data-updated="2026-05-18T07:24:22.648083" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9">
 
         <header>
             <h1>SQLITE_BUSY in general CLI read/write paths: lineage/trace/query lack RetryOnBusy after open</h1>
@@ -24,24 +24,24 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="../sessions/c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T05:48:45.041126">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
+                    <li><a href="bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T05:44:13.617465">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
+                    <li><a href="spk-cb1d398f.html" data-relationship="relates_to" data-since="2026-05-18T05:44:18.707011">SQLITE_BUSY multi-harness contention stress harness (bug-74a7bda7 validation tooling)</a></li>
+                    <li><a href="plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T05:44:23.703545">Plan: Durable self-contained SQLite contention fix</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T05:43:44.623884">trk-a30e8df4</a></li>
+                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T05:43:44.623884">trk-a30e8df4</a></li>
                 </ul>
             </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="../bugs/bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T05:44:13.617465">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
-                    <li><a href="../spikes/spk-cb1d398f.html" data-relationship="relates_to" data-since="2026-05-18T05:44:18.707011">SQLITE_BUSY multi-harness contention stress harness (bug-74a7bda7 validation tooling)</a></li>
-                    <li><a href="../plans/plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T05:44:23.703545">Plan: Durable self-contained SQLite contention fix</a></li>
+                    <li><a href="c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T05:48:45.041126">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
                 </ul>
             </section>
         </nav>

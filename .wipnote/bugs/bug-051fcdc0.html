@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Address roborev job 11 findings on 14c3ea74: strict env-var match &#43; probe before doorway early return</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T16:56:18.806795"
-             data-updated="2026-04-24T17:02:51.007269" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:36.116798" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-051fcdc0.html,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/serve.go,cmd/htmlgraph/serve_terminal_gate_test.go">
 
         <header>
             <h1>Address roborev job 11 findings on 14c3ea74: strict env-var match &#43; probe before doorway early return</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T16:56:18.812307">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T16:56:22.601515">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                    <li><a href="../sessions/cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T16:56:22.601515">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T16:56:18.812307">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev review verdict Fail on commit 14c3ea74 (feat-31dcb795). HIGH: serve.go env-var gate activates on any non-empty value — HTMLGRAPH_TERMINAL=0 or =false would still enable terminal routes. Fix: strict match on '1'. MEDIUM: probeTerminalFeature() runs after isDoorwayLanding() early return, so the button stays visible on the root landing page. Fix: call probe before the early return. Include tests for false-y env values.</p>
+            <p>roborev review verdict Fail on commit 14c3ea74 (feat-31dcb795). HIGH: serve.go env-var gate activates on any non-empty value — HTMLGRAPH_TERMINAL=0 or =false would still enable terminal routes. Fix: strict match on &#39;1&#39;. MEDIUM: probeTerminalFeature() runs after isDoorwayLanding() early return, so the button stays visible on the root landing page. Fix: call probe before the early return. Include tests for false-y env values.</p>
         </section>
     </article>
 </body>

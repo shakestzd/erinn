@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Canonical attribute set &#43; Codex/Gemini adapter conformance (SCHEMA-1)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-29T18:50:29.615532"
-             data-updated="2026-04-29T19:08:59.226467" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:43:15.24395" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4d3c3139.html,.htmlgraph/bugs/bug-ccf8b887.html,.htmlgraph/bugs/bug-ff6a3286.html,.htmlgraph/features/feat-09024fb0.html,.htmlgraph/features/feat-1c3ebad9.html,.htmlgraph/features/feat-35519ac2.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-6286f19f.html,.htmlgraph/features/feat-75426991.html,.htmlgraph/features/feat-7b094d00.html,.htmlgraph/features/feat-7b195a56.html,.htmlgraph/features/feat-9104fb56.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-bc3c0067.html,.htmlgraph/features/feat-c6b3d956.html,.htmlgraph/features/feat-dcf3d618.html,.htmlgraph/features/feat-e195d658.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-cb36e595.html,internal/otel/adapter/codex.go,internal/otel/adapter/conformance_test.go,internal/otel/adapter/gemini.go,internal/otel/signal.go">
 
         <header>
             <h1>Canonical attribute set &#43; Codex/Gemini adapter conformance (SCHEMA-1)</h1>
@@ -24,35 +24,35 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-29T18:50:29.626152">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c5ae568f-1904-41e6-a072-55afc0755865.html" data-relationship="implemented_in" data-since="2026-04-29T18:55:07.141975">session c5ae568f-1904-41e6-a072-55afc0755865</a></li>
+                    <li><a href="../sessions/c5ae568f-1904-41e6-a072-55afc0755865.html" data-relationship="implemented_in" data-since="2026-04-29T18:55:07.141975">session c5ae568f-1904-41e6-a072-55afc0755865</a></li>
                 </ul>
             </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="feat-ac7532be.html" data-relationship="relates_to" data-since="2026-04-29T18:50:50.118506">Resilient harness-agnostic telemetry capture (collector hardening &#43; Codex/Gemini support)</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-29T18:50:29.626152">trk-cb36e595</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-29T18:50:29.621092">plan-1cd284e0</a></li>
+                    <li><a href="../plans/plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-29T18:50:29.621092">plan-1cd284e0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-ac7532be.html" data-relationship="relates_to" data-since="2026-04-29T18:50:50.118506">Resilient harness-agnostic telemetry capture (collector hardening &#43; Codex/Gemini support)</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Define canonical UnifiedSignal attrs (Harness, SessionID, PromptID) in internal/otel/signal.go. Add internal/otel/adapter/codex.go (service.name=codex-cli, conversation.id->SessionID) and gemini.go (service.name=gemini-cli, session.id->SessionID). For spans/logs without session.id at signal level, fall back to resource-level (pattern from internal/otel/adapter/claude.go:242-249 baseSignal). Document attribute mapping table in signal.go doc comment. Add adapter conformance test verifying all 3 adapters populate Harness, SessionID, CanonicalName across metric/log/span paths. Acceptance: go test ./internal/otel/... includes TestAdapterConformance passing for all 3 adapters. Refs: internal/otel/signal.go:124, parent feat-ac7532be.</p>
+            <p>Define canonical UnifiedSignal attrs (Harness, SessionID, PromptID) in internal/otel/signal.go. Add internal/otel/adapter/codex.go (service.name=codex-cli, conversation.id-&gt;SessionID) and gemini.go (service.name=gemini-cli, session.id-&gt;SessionID). For spans/logs without session.id at signal level, fall back to resource-level (pattern from internal/otel/adapter/claude.go:242-249 baseSignal). Document attribute mapping table in signal.go doc comment. Add adapter conformance test verifying all 3 adapters populate Harness, SessionID, CanonicalName across metric/log/span paths. Acceptance: go test ./internal/otel/... includes TestAdapterConformance passing for all 3 adapters. Refs: internal/otel/signal.go:124, parent feat-ac7532be.</p>
         </section>
     </article>
 </body>

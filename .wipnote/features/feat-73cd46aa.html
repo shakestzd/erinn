@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-06T18:36:47.584055"
-             data-updated="2026-05-11T13:52:28.308012" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:14.732651" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".wipnote/plans/plan-51cb7489.html,.wipnote/plans/plan-51cb7489.yaml">
 
         <header>
             <h1>Install and refresh Codex custom agents during wipnote codex launch</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="019e005d-424e-7bc3-b943-259478b15784.html" data-relationship="implemented_in" data-since="2026-05-07T04:00:21.622307">session 019e005d-424e-7bc3-b943-259478b15784</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-51cb7489.html" data-relationship="planned_in" data-since="2026-05-06T18:36:47.594131">plan-51cb7489</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-dfbb65f1.html" data-relationship="blocked_by" data-since="2026-05-06T18:36:47.596533">feat-dfbb65f1</a></li>
+                    <li><a href="../features/feat-dfbb65f1.html" data-relationship="blocked_by" data-since="2026-05-06T18:36:47.596533">feat-dfbb65f1</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/019e005d-424e-7bc3-b943-259478b15784.html" data-relationship="implemented_in" data-since="2026-05-07T04:00:21.622307">session 019e005d-424e-7bc3-b943-259478b15784</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-06T18:36:47.58698">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-06T18:36:47.58698">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-51cb7489.html" data-relationship="planned_in" data-since="2026-05-06T18:36:47.594131">plan-51cb7489</a></li>
                 </ul>
             </section>
         </nav>
@@ -54,21 +54,21 @@
             <h3>Description</h3>
             <p>Extend the `cmd/wipnote/codex.go` setup path so `wipnote codex --init`,
 `wipnote codex --dev`, and normal `wipnote codex` ensure generated Codex
-custom-agent TOML files are present in the user's Codex agent directory.
+custom-agent TOML files are present in the user&#39;s Codex agent directory.
 
 Distinguish staging from install:
 - **Staging**: the generator writes TOML to a build-output path under
   the wipnote source tree (e.g. `dist/codex-agents/.toml`) for
   inspection and CI. This is NOT where Codex loads agents from.
 - **Install**: at launch time, copy generated TOML into
-  `~/.codex/agents/` (user-global) — Codex's documented agent
+  `~/.codex/agents/` (user-global) — Codex&#39;s documented agent
   location. `os.MkdirAll` the directory if absent (it is not present
   by default). Use a stable filename per agent (e.g.
   `wipnote-sonnet-coder.toml`).
 
 In dev mode, force-refresh on each launch. In normal mode, install
-idempotently: read the existing file's ownership marker; only
-overwrite if the marker matches wipnote's (so user-authored files
+idempotently: read the existing file&#39;s ownership marker; only
+overwrite if the marker matches wipnote&#39;s (so user-authored files
 with the same name are never clobbered). Add a clear ownership marker
 as a TOML comment block at the top of every generated file:
 

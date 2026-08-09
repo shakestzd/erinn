@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Introduce slice-level approval and lifecycle APIs</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-28T17:30:35.625254"
-             data-updated="2026-04-28T18:25:00.335812" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:43:07.550427" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files="cmd/htmlgraph/api.go,cmd/htmlgraph/api_busy_test.go,cmd/htmlgraph/api_plans.go,cmd/htmlgraph/api_plans_test.go,cmd/htmlgraph/api_tree.go,cmd/htmlgraph/api_tree_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/plan_cmds.go,cmd/htmlgraph/plan_create.go,cmd/htmlgraph/plan_mutations.go,cmd/htmlgraph/plan_promote_slice.go,cmd/htmlgraph/plan_promote_slice_test.go,cmd/htmlgraph/plan_validate.go,cmd/htmlgraph/plan_yaml_cmds.go,cmd/htmlgraph/plan_yaml_cmds_test.go,cmd/htmlgraph/worktree_helpers_test.go,commands/htmlgraph/git-commit.toml,docs/blog/posts/plan-mode-crispi.md,docs/reference/cli.md,go.mod,go.sum,internal/db/plan_feedback.go,internal/db/plan_feedback_test.go,internal/hooks/posttooluse.go,internal/hooks/tooluse_shared.go,internal/plantmpl/plantmpl.go,internal/plantmpl/plantmpl_test.go,internal/plantmpl/slice_card.go,internal/plantmpl/slice_card_test.go,internal/plantmpl/templates/plan_page.gohtml,internal/plantmpl/templates/slice_card.gohtml,internal/planyaml/schema.go,internal/planyaml/schema_test.go,internal/planyaml/validate.go,internal/planyaml/validate_test.go,internal/storage/dbpath.go,internal/storage/dbpath_test.go,internal/worktree/worktree.go,packages/codex-marketplace/.agents/plugins/htmlgraph/commands/git-commit.md,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/execute/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/plan/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/static/components.js,packages/gemini-extension/commands/htmlgraph/git-commit.toml,packages/gemini-extension/skills/execute/SKILL.md,packages/gemini-extension/skills/plan/SKILL.md,packages/gemini-extension/static/components.js,plugin/skills/execute/SKILL.md,plugin/skills/plan/SKILL.md,skills/execute/SKILL.md,skills/plan/SKILL.md,static/components.js">
 
         <header>
             <h1>Introduce slice-level approval and lifecycle APIs</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="bd8ae45f-dc5d-4abb-9741-28892ccf7767.html" data-relationship="implemented_in" data-since="2026-04-28T18:09:58.775324">session bd8ae45f-dc5d-4abb-9741-28892ccf7767</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-44d8c24f.html" data-relationship="blocked_by" data-since="2026-04-28T17:30:35.710726">feat-44d8c24f</a></li>
-                    <li><a href="feat-33807582.html" data-relationship="blocked_by" data-since="2026-04-28T17:30:35.716709">feat-33807582</a></li>
+                    <li><a href="../features/feat-44d8c24f.html" data-relationship="blocked_by" data-since="2026-04-28T17:30:35.710726">feat-44d8c24f</a></li>
+                    <li><a href="../features/feat-33807582.html" data-relationship="blocked_by" data-since="2026-04-28T17:30:35.716709">feat-33807582</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/bd8ae45f-dc5d-4abb-9741-28892ccf7767.html" data-relationship="implemented_in" data-since="2026-04-28T18:09:58.775324">session bd8ae45f-dc5d-4abb-9741-28892ccf7767</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-04-28T17:30:35.632696">trk-a30e8df4</a></li>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-04-28T17:30:35.632696">trk-a30e8df4</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-1c14d560.html" data-relationship="planned_in" data-since="2026-04-28T17:30:35.645771">plan-1c14d560</a></li>
+                    <li><a href="../plans/plan-1c14d560.html" data-relationship="planned_in" data-since="2026-04-28T17:30:35.645771">plan-1c14d560</a></li>
                 </ul>
             </section>
         </nav>
@@ -74,7 +74,7 @@ Lifecycle states should distinguish plan state from slice state:
 
 ### Local Decision
 
-Plan-level finalization should become "complete plan" and should not be
+Plan-level finalization should become &#34;complete plan&#34; and should not be
 required before approved slices can move.
 
 ### Critic Revision Badge
@@ -83,7 +83,7 @@ required before approved slices can move.
 
 ### Section-Naming Contract
 
-All CLI mutation commands (approve-slice, reject-slice, answer-slice-question, set-slice-status) MUST use the section-naming contract defined in slice-1: section='slice-' for slice-level state, section='slice--question-' for question answers. Existing IsPlanFullyApproved at internal/db/plan_feedback.go:71 must continue to pass after the changes — add a regression test before introducing slice-local sections.
+All CLI mutation commands (approve-slice, reject-slice, answer-slice-question, set-slice-status) MUST use the section-naming contract defined in slice-1: section=&#39;slice-&#39; for slice-level state, section=&#39;slice--question-&#39; for question answers. Existing IsPlanFullyApproved at internal/db/plan_feedback.go:71 must continue to pass after the changes — add a regression test before introducing slice-local sections.
 
 
 ## Why
@@ -98,8 +98,8 @@ implement slice 1 while slice 4 still has unanswered questions.
 - Slice-local question answers persist and are returned by plan feedback APIs.
 - The plan can remain active while some slices are approved, rejected, pending, or done.
 - Existing `plan_feedback` consumers continue working for legacy YAML plans.
-- Section-naming convention for plan_feedback documented in slice-1 and consumed by slice-4 — slice-local approvals use section='slice-', slice-local question answers use section='slice--question-'
-- validSectionRe at cmd/htmlgraph/api_plans.go:286 extended to accept `slice-\d+-question-[a-z0-9-]+` so the answer-slice-question command is not blocked at the HTTP gate. The existing normalization at api_plans.go:302-306 (underscore-to-hyphen) is mirrored for the new pattern. Regression test added: an HTTP POST to /api/plans//feedback with section='slice-3-question-q-foo' returns 200, not 400.</p>
+- Section-naming convention for plan_feedback documented in slice-1 and consumed by slice-4 — slice-local approvals use section=&#39;slice-&#39;, slice-local question answers use section=&#39;slice--question-&#39;
+- validSectionRe at cmd/htmlgraph/api_plans.go:286 extended to accept `slice-\d+-question-[a-z0-9-]+` so the answer-slice-question command is not blocked at the HTTP gate. The existing normalization at api_plans.go:302-306 (underscore-to-hyphen) is mirrored for the new pattern. Regression test added: an HTTP POST to /api/plans//feedback with section=&#39;slice-3-question-q-foo&#39; returns 200, not 400.</p>
         </section>
     </article>
 </body>

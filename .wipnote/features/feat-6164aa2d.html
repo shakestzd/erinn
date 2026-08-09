@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-17T08:50:55.957154"
-             data-updated="2026-05-17T08:59:52.492706" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:43:10.239197" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files=".wipnote/features/feat-6164aa2d.html,.wipnote/plans/plan-1670cacd.html,.wipnote/plans/plan-1670cacd.yaml,.wipnote/tracks/trk-a30e8df4.html,cmd/wipnote/claude.go,cmd/wipnote/codex.go,cmd/wipnote/gemini.go,cmd/wipnote/launcher_mode.go,cmd/wipnote/launcher_worktree_test.go,cmd/wipnote/yolo.go">
 
         <header>
             <h1>Canonical project identity across worktrees</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T08:50:55.960991">trk-a30e8df4</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T08:50:55.96899">plan-1670cacd</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-d0c910ec.html" data-relationship="blocked_by" data-since="2026-05-17T08:50:55.972359">feat-d0c910ec</a></li>
-                    <li><a href="feat-47997082.html" data-relationship="blocked_by" data-since="2026-05-17T08:50:55.975377">feat-47997082</a></li>
+                    <li><a href="../features/feat-d0c910ec.html" data-relationship="blocked_by" data-since="2026-05-17T08:50:55.972359">feat-d0c910ec</a></li>
+                    <li><a href="../features/feat-47997082.html" data-relationship="blocked_by" data-since="2026-05-17T08:50:55.975377">feat-47997082</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T08:51:33.489293">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
+                    <li><a href="../sessions/82d9294a-1f15-46b4-9180-7c8b499aca65.html" data-relationship="implemented_in" data-since="2026-05-17T08:51:33.489293">session 82d9294a-1f15-46b4-9180-7c8b499aca65</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-17T08:50:55.960991">trk-a30e8df4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-1670cacd.html" data-relationship="planned_in" data-since="2026-05-17T08:50:55.96899">plan-1670cacd</a></li>
                 </ul>
             </section>
         </nav>
@@ -65,7 +65,7 @@ ExecutionRoot}` or equivalent). The write-time path normalization for
 `sessions.project_dir`, DB cache keys, NDJSON event paths, SQLite
 cache-key normalization, and divergence-guard canonical comparison are
 delivered by plan-2133adf2 slices 1 and 4 (feat-edbc978b, feat-3973e948).
-This slice's boundary is strictly the launcher env construction step that
+This slice&#39;s boundary is strictly the launcher env construction step that
 ensures downstream hook/storage code receives the right canonical root in
 the environment.
 [2026-05-17 08:58 claude-code] accepted-advisory (provenance override): Implementation committed in 052f0def2; dirty files api_plans.go/api_plans_test.go/plan_page.gohtml belong to a different concurrent slice and are unrelated to feat-6164aa2d</p>

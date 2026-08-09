@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Dual SQLite DB paths: serve writes .db/htmlgraph.db, CLI hits htmlgraph.db</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-25T21:30:18.736841"
-             data-updated="2026-04-25T23:09:02.558785" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:21.905789" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".devcontainer/devcontainer.json,.devcontainer/post-create.sh,cmd/htmlgraph/api_tree.go,cmd/htmlgraph/api_tree_test.go,cmd/htmlgraph/backfill.go,cmd/htmlgraph/check_host_paths.go,cmd/htmlgraph/cleanup.go,cmd/htmlgraph/cleanup_test.go,cmd/htmlgraph/graph.go,cmd/htmlgraph/hook.go,cmd/htmlgraph/ingest.go,cmd/htmlgraph/ingest_gemini.go,cmd/htmlgraph/init.go,cmd/htmlgraph/main.go,cmd/htmlgraph/migrate.go,cmd/htmlgraph/migrate_attribution.go,cmd/htmlgraph/plan_feedback_cmd.go,cmd/htmlgraph/plan_feedback_cmd_test.go,cmd/htmlgraph/plan_finalize_yaml.go,cmd/htmlgraph/plan_typed_sections.go,cmd/htmlgraph/plan_yaml_extras.go,cmd/htmlgraph/projects.go,cmd/htmlgraph/projects_test.go,cmd/htmlgraph/purge_spikes.go,cmd/htmlgraph/query.go,cmd/htmlgraph/reindex.go,cmd/htmlgraph/related.go,cmd/htmlgraph/serve_child.go,cmd/htmlgraph/session.go,cmd/htmlgraph/status.go,cmd/htmlgraph/statusline.go,cmd/htmlgraph/sweep.go,cmd/htmlgraph/trace.go,cmd/htmlgraph/track.go,cmd/htmlgraph/workitem_test.go,internal/hooks/runner.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go,internal/storage/dbpath.go,internal/storage/dbpath_test.go,internal/workitem/project.go,plugin/static/components.js">
 
         <header>
             <h1>Dual SQLite DB paths: serve writes .db/htmlgraph.db, CLI hits htmlgraph.db</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="290f87aa-f19b-4cf0-990c-4a6ffd1949ba.html" data-relationship="implemented_in" data-since="2026-04-25T21:37:37.57144">session 290f87aa-f19b-4cf0-990c-4a6ffd1949ba</a></li>
+                    <li><a href="../sessions/290f87aa-f19b-4cf0-990c-4a6ffd1949ba.html" data-relationship="implemented_in" data-since="2026-04-25T21:37:37.57144">session 290f87aa-f19b-4cf0-990c-4a6ffd1949ba</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-25T21:30:18.740073">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-25T21:30:18.740073">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Multiple SQLite DB paths in use across the codebase: serve_child.go opens .htmlgraph/.db/htmlgraph.db while a 77MB orphan sits at .htmlgraph/htmlgraph.db. The .db/ subdir was a devcontainer-specific workaround for WAL-on-virtiofs that doesn't help end users (their projects also live on virtiofs/osxfs in Docker Desktop, devcontainers, Codespaces). Durable fix: relocate the SQLite read-index out of the project tree entirely into os.UserCacheDir()/htmlgraph//htmlgraph.db. SQLite is a derived index per the architecture (HTML+NDJSON are canonical), so cache-dir is the correct semantic location. Single helper storage.CanonicalDBPath() owns resolution; HTMLGRAPH_DB_PATH env var allows override. Static + runtime guards prevent regression. Drop the htmlgraph-db named volume from .devcontainer/devcontainer.json — it becomes dead config.
+            <p>Multiple SQLite DB paths in use across the codebase: serve_child.go opens .htmlgraph/.db/htmlgraph.db while a 77MB orphan sits at .htmlgraph/htmlgraph.db. The .db/ subdir was a devcontainer-specific workaround for WAL-on-virtiofs that doesn&#39;t help end users (their projects also live on virtiofs/osxfs in Docker Desktop, devcontainers, Codespaces). Durable fix: relocate the SQLite read-index out of the project tree entirely into os.UserCacheDir()/htmlgraph//htmlgraph.db. SQLite is a derived index per the architecture (HTML+NDJSON are canonical), so cache-dir is the correct semantic location. Single helper storage.CanonicalDBPath() owns resolution; HTMLGRAPH_DB_PATH env var allows override. Static + runtime guards prevent regression. Drop the htmlgraph-db named volume from .devcontainer/devcontainer.json — it becomes dead config.
 Acceptance Criteria
 All sql.Open callers route through storage.CanonicalDBPath. Static unit test fails if any non-storage Go file contains literal htmlgraph.db. Runtime guard warns on legacy project-local DB files. devcontainer named volume removed. Quality gates pass.</p>
         </section>

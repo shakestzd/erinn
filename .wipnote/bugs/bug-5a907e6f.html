@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Synthesized edges are written only to the index and never to canonical HTML</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-5a907e6f"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-09T04:52:59.9062"
+             data-updated="2026-08-09T12:28:27.553196" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Synthesized edges are written only to the index and never to canonical HTML</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-e6e82b5a.html" data-relationship="caused_by" data-since="2026-08-09T05:17:16.558377">Scope stopping the graph index: what reads it, what breaks, what it costs</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T04:52:59.918549">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>RESOLVED AS A DEFINITION, not a defect — verified directly. Both synthesized edge families ARE regenerated on every rebuild from canonical sources: plan-slice ordering from plan YAML in the plan-edge reindex pass, and architecture learning links in the arch reindex pass, both idempotent, both confirmed by reading the reindex code. So these edges are not born in SQLite with no backing; they are derived from canonical artifacts that happen not to be work-item HTML. Writing them INTO work-item HTML would be wrong — it would create a third copy of facts the YAML and ledger already own, exactly the duplication this session spent the night removing. What remains real from the original filing: any reader built over work-item HTML alone sees none of these edges, so tests over that surface can pass vacuously — the bottleneck-filter trap stands. The remaining work is therefore observational, not structural: extend the edge census test to compare canonical declarations plus documented derivations against the index, so the derivation contract is enforced rather than assumed. Folded into the same feature as the gate policy.</p>
+        </section>
+    </article>
+</body>
+</html>

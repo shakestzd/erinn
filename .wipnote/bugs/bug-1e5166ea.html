@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Activity Feed: Task rows lose model/cost pill when orchestrator dispatches multiple Tasks in one LLM turn</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T04:38:03.060209"
-             data-updated="2026-04-24T05:54:32.576282" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:42.580314" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-1e5166ea.html,cmd/htmlgraph/api_otel_test.go,cmd/htmlgraph/dashboard/components/event-tree.js">
 
         <header>
             <h1>Activity Feed: Task rows lose model/cost pill when orchestrator dispatches multiple Tasks in one LLM turn</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-5d7220f3.html" data-relationship="caused_by" data-since="2026-04-24T04:38:05.804865">Activity Feed: Agent tool_use row mislabels orchestrator model as Haiku when dispatching sonnet-coder from Opus</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T04:38:52.304846">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                    <li><a href="../sessions/cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T04:38:52.304846">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T04:38:03.063532">trk-0677c709</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
-                <ul>
-                    <li><a href="bug-5d7220f3.html" data-relationship="caused_by" data-since="2026-04-24T04:38:05.804865">Activity Feed: Agent tool_use row mislabels orchestrator model as Haiku when dispatching sonnet-coder from Opus</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T04:38:03.063532">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Regression from commit 388abbd3 (fix for bug-5d7220f3). When one orchestrator api_request spawns N parallel Task tool_uses in the same LLM turn, only the FIRST Task row absorbs the preceding api_request. Tasks #2..N have no _precedingApi and render without model pill or token/cost data — visually identical to 'OTel not firing'. Root cause: forward-scan exclusive absorption in _indexSpans (cmd/htmlgraph/dashboard/components/event-tree.js) + orchModel detection in 388abbd3 requires (api_request, non-Task tool) pair which may never exist if the orchestrator's turn consisted solely of Task dispatches. Fix direction: allow Task/Agent spans to share a reference to the nearest preceding orchestrator api_request (read-only share, not exclusive ownership), or second pass that inherits model from nearest preceding absorbed api_request. Test gap: api_otel_test.go exercises Go handlers, not the JS _indexSpans logic. Visible evidence: two HTMLGRAPH:SONNET-CODER Task rows with no model pill under an orchestrator that does show $3.41 / 4.22M TOK / 74 tools.</p>
+            <p>Regression from commit 388abbd3 (fix for bug-5d7220f3). When one orchestrator api_request spawns N parallel Task tool_uses in the same LLM turn, only the FIRST Task row absorbs the preceding api_request. Tasks #2..N have no _precedingApi and render without model pill or token/cost data — visually identical to &#39;OTel not firing&#39;. Root cause: forward-scan exclusive absorption in _indexSpans (cmd/htmlgraph/dashboard/components/event-tree.js) + orchModel detection in 388abbd3 requires (api_request, non-Task tool) pair which may never exist if the orchestrator&#39;s turn consisted solely of Task dispatches. Fix direction: allow Task/Agent spans to share a reference to the nearest preceding orchestrator api_request (read-only share, not exclusive ownership), or second pass that inherits model from nearest preceding absorbed api_request. Test gap: api_otel_test.go exercises Go handlers, not the JS _indexSpans logic. Visible evidence: two HTMLGRAPH:SONNET-CODER Task rows with no model pill under an orchestrator that does show $3.41 / 4.22M TOK / 74 tools.</p>
         </section>
     </article>
 </body>

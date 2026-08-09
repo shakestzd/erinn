@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-18T09:03:12.330108"
-             data-updated="2026-05-18T10:10:14.463447" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9">
+             data-updated="2026-08-09T20:42:36.9743" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-427-g39ed400c9" data-affected_files=".wipnote/bugs/bug-dd5db2d1.html,internal/db/pragmas.go,internal/db/pragmas_busy_whitebox_test.go,internal/db/pragmas_test.go">
 
         <header>
             <h1>ApplyPragmas open-time PRAGMA journal_mode SQLITE_BUSY uncovered by RetryOnBusy; bug-56b686aa fix insufficient under saturation</h1>
@@ -24,25 +24,25 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T09:03:12.341177">trk-a30e8df4</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T09:04:52.62555">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
+                    <li><a href="../sessions/c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T09:04:52.62555">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T09:03:12.341177">trk-a30e8df4</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="bug-56b686aa.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.727164">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
-                    <li><a href="bug-7dbaf552.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.743952">SQLITE_BUSY in general CLI read/write paths: lineage/trace/query lack RetryOnBusy after open</a></li>
-                    <li><a href="bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.758717">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
-                    <li><a href="plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.775847">Plan: Durable self-contained SQLite contention fix</a></li>
+                    <li><a href="../bugs/bug-56b686aa.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.727164">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
+                    <li><a href="../bugs/bug-7dbaf552.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.743952">SQLITE_BUSY in general CLI read/write paths: lineage/trace/query lack RetryOnBusy after open</a></li>
+                    <li><a href="../bugs/bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.758717">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
+                    <li><a href="../plans/plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T09:03:57.775847">Plan: Durable self-contained SQLite contention fix</a></li>
                 </ul>
             </section>
         </nav>
@@ -57,7 +57,7 @@
         <section data-content>
             <h3>Description</h3>
             <p>Connection-open ApplyPragmas pragma writes (PRAGMA journal_mode etc. in internal/db/pragmas.go) can return SQLITE_BUSY BEFORE runMigrations. Not wrapped by any RetryOnBusy: bug-74a7bda7=completion/hook/dashboard, bug-7dbaf552 Fix1 wraps runMigrations which runs AFTER ApplyPragmas. busy_timeout 5s is exhausted under multi-session DELETE-mode saturation. bug-56b686aa is marked done for this exact failure but is demonstrably insufficient; reconcile/supersede. Reproduced: wipnote check --gate and wipnote bug complete both failed with applying PRAGMA journal_mode: database is locked. Fix: wrap ApplyPragmas write-bearing pragma statements in db.RetryOnBusy (deepest open layer, every DB open flows through it); reuse db.RetryOnBusy/DefaultBusyBackoff; do not change journal-mode selection.
-[2026-05-18 10:08 claude-code] accepted-advisory (provenance override): Production fix in commit d5c774b19 (wrap ApplyPragmas open-time pragma writes incl. PRAGMA journal_mode SET in db.RetryOnBusy; supersedes insufficient bug-56b686aa whose busy_timeout-first ordering is kept but did not cover the SHARED->RESERVED non-waitable BUSY; mode selection/isUnsafeForMmap untouched). Test-hardening followups 7687cce17 (filesystem-agnostic), 991b10f00 (defeat fast-path so the regression test is non-vacuous), c8646013c (stale-comment). Subagent-authored; devcontainer session-provenance gate (bug-63f42308) cannot auto-link subagent commits though they genuinely exist. Commits real and green (go build/vet/test 42 ok 0 FAIL) and roborev-clean (job 3240 on c8646013c: no issues found; production d5c774b19 unflagged across jobs 3236/3237/3238/3240). TRUNCATE journal-mode change was attempted by a subagent, caught, and reverted (out of scope; only a separate evaluated bug if saturation recurs despite this retry). Audited override accepted; source provenance genuine.</p>
+[2026-05-18 10:08 claude-code] accepted-advisory (provenance override): Production fix in commit d5c774b19 (wrap ApplyPragmas open-time pragma writes incl. PRAGMA journal_mode SET in db.RetryOnBusy; supersedes insufficient bug-56b686aa whose busy_timeout-first ordering is kept but did not cover the SHARED-&gt;RESERVED non-waitable BUSY; mode selection/isUnsafeForMmap untouched). Test-hardening followups 7687cce17 (filesystem-agnostic), 991b10f00 (defeat fast-path so the regression test is non-vacuous), c8646013c (stale-comment). Subagent-authored; devcontainer session-provenance gate (bug-63f42308) cannot auto-link subagent commits though they genuinely exist. Commits real and green (go build/vet/test 42 ok 0 FAIL) and roborev-clean (job 3240 on c8646013c: no issues found; production d5c774b19 unflagged across jobs 3236/3237/3238/3240). TRUNCATE journal-mode change was attempted by a subagent, caught, and reverted (out of scope; only a separate evaluated bug if saturation recurs despite this retry). Audited override accepted; source provenance genuine.</p>
         </section>
     </article>
 </body>

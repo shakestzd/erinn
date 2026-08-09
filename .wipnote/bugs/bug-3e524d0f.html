@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-19T00:03:31.657248"
-             data-updated="2026-05-19T00:35:02.756743" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-625-ge416b178d">
+             data-updated="2026-08-09T20:41:50.831454" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-625-ge416b178d" data-affected_files=".wipnote/bugs/bug-3e524d0f.html,cmd/wipnote/api_plans.go,cmd/wipnote/plan_finalize_yaml.go,cmd/wipnote/plan_finalize_yaml_test.go">
 
         <header>
             <h1>Slice approvals stored only in SQLite plan_feedback, never reconciled to canonical plan YAML — finalize-yaml sees 0 approved</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-05-19T00:03:31.664729">trk-cd61bbae</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="7c55cfac-573e-47b3-8282-4ad81b830136.html" data-relationship="implemented_in" data-since="2026-05-19T00:08:47.134014">session 7c55cfac-573e-47b3-8282-4ad81b830136</a></li>
+                    <li><a href="../sessions/7c55cfac-573e-47b3-8282-4ad81b830136.html" data-relationship="implemented_in" data-since="2026-05-19T00:08:47.134014">session 7c55cfac-573e-47b3-8282-4ad81b830136</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cd61bbae.html" data-relationship="part_of" data-since="2026-05-19T00:03:31.664729">trk-cd61bbae</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,7 +47,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Dashboard Approve button and 'wipnote plan approve-slice' both write approval only to SQLite plan_feedback (section=slice-N, action=approve), which renders the green APPROVED badge. But 'wipnote plan finalize-yaml' reads the canonical plan YAML 'approved:' boolean, which nothing ever flips to true. Result: plan-c3bbb1ed shows all 5 slices APPROVED in the dashboard yet finalize-yaml reports 0 of 5 approved and creates no features/track, blocking yolo launch. CLAUDE.md mandates YAML is the single source of truth and SQLite is a derived index — approval must be persisted into the plan YAML (and HTML regenerated via commitPlanChange), surviving reindex. Repro: open plan in dashboard, approve all slices, run wipnote plan finalize-yaml ; observe 0 of N approved despite badges.
+            <p>Dashboard Approve button and &#39;wipnote plan approve-slice&#39; both write approval only to SQLite plan_feedback (section=slice-N, action=approve), which renders the green APPROVED badge. But &#39;wipnote plan finalize-yaml&#39; reads the canonical plan YAML &#39;approved:&#39; boolean, which nothing ever flips to true. Result: plan-c3bbb1ed shows all 5 slices APPROVED in the dashboard yet finalize-yaml reports 0 of 5 approved and creates no features/track, blocking yolo launch. CLAUDE.md mandates YAML is the single source of truth and SQLite is a derived index — approval must be persisted into the plan YAML (and HTML regenerated via commitPlanChange), surviving reindex. Repro: open plan in dashboard, approve all slices, run wipnote plan finalize-yaml ; observe 0 of N approved despite badges.
 [2026-05-19 00:31 claude-code] accepted-advisory (provenance override): Implementation committed as 0fbcb24cd: finalizeYAMLWithDB reads plan_feedback approvals+amendments, applies them to plan YAML, regenerates HTML, creates track+features idempotently. Regression tests validate approval reconciliation and recovery from pre-finalized state. All quality gates pass.
 [2026-05-19 00:33 claude-code] accepted-advisory (provenance override): Implementation committed as 0fbcb24cd: finalizeYAMLWithDB reads plan_feedback approvals+amendments, applies them to plan YAML, regenerates HTML, creates track+features idempotently. Regression tests validate approval reconciliation and recovery from pre-finalized state. All quality gates pass (build, vet, cmd/wipnote tests, full suite).</p>
         </section>

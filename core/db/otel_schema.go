@@ -317,6 +317,18 @@ func CreateOtelIndexes(db *sql.DB) error {
 		// them need at-most-one-row, and each carries its own discriminator.
 		"CREATE INDEX IF NOT EXISTS idx_otel_span_id      ON otel_signals(span_id) WHERE span_id IS NOT NULL",
 
+		// Serves pruneMetricSignals, which runs once per metric signal and was
+		// the dominant ingest cost before this index existed (bug-129bf18d).
+		// Both its DELETE and its keep-the-newest-N subquery filter on
+		// (session_id, kind); with only session_id indexed they degraded into a
+		// walk of every row in the session, making ingest quadratic in session
+		// size. The trailing DESC columns match the subquery's ORDER BY exactly,
+		// which turns the plan into a covering-index search with no temp B-tree:
+		// 33.8ms -> 1.7ms per call, and 5.5x faster end-to-end replay on a real
+		// shard. Keep the column order and the DESC qualifiers — dropping them
+		// costs half the gain (measured: 3.4ms per call without them).
+		"CREATE INDEX IF NOT EXISTS idx_otel_session_kind_ts ON otel_signals(session_id, kind, ts_micros DESC, created_at DESC, signal_id DESC)",
+
 		"CREATE INDEX IF NOT EXISTS idx_pending_subagent_session ON pending_subagent_starts(session_id)",
 	}
 	for _, idx := range indexes {

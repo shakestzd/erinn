@@ -13,6 +13,13 @@ import (
 	sqls "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 )
 
+// spanIDRepairStepVersion is the schema version of
+// 022_otel_span_id_index_not_unique, the step that drops the UNIQUE index and
+// arms the re-ingest marker. Tests that simulate a pre-repair database must
+// roll back to below THIS, not to "current minus one" — later migrations move
+// the current version and would leave the repair step already applied.
+const spanIDRepairStepVersion = 22
+
 // sharedSpanLines builds NDJSON in the real shape: one span plus several log
 // records correlated to it, all carrying the same span_id. This is what
 // bug-0fc17d53's unique index collapsed to a single row.
@@ -104,7 +111,11 @@ func TestExistingInstallRecoversDroppedRows(t *testing.T) {
 	if _, err := admin.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_otel_span_id_unique ON otel_signals(span_id) WHERE span_id IS NOT NULL`); err != nil {
 		t.Fatalf("recreate pre-fix index: %v", err)
 	}
-	if _, err := admin.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, db.CurrentSchemaVersion()-1)); err != nil {
+	// Roll back to BELOW the repair step, not merely one version back. The
+	// repair step is what arms the re-ingest marker, so "current minus one"
+	// silently stops testing anything the moment a later migration is added —
+	// which is exactly what happened when 023 landed.
+	if _, err := admin.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, spanIDRepairStepVersion-1)); err != nil {
 		t.Fatalf("roll back user_version: %v", err)
 	}
 	if _, err := admin.Exec(`DELETE FROM metadata WHERE key = ?`, db.OtelReingestMetadataKey); err != nil {
@@ -139,6 +150,16 @@ func TestExistingInstallRecoversDroppedRows(t *testing.T) {
 	}
 	if err := db.RunMigrations(upgradeDB); err != nil {
 		t.Fatalf("RunMigrations: %v", err)
+	}
+	// Assert the precondition for recovery directly, so a future change that
+	// stops the repair step from running fails HERE with the cause named,
+	// rather than downstream as an unexplained row shortfall.
+	if pending, _, err := db.OtelReingestPending(upgradeDB); err != nil {
+		t.Fatal(err)
+	} else if !pending {
+		t.Fatalf("migrations ran but the re-ingest marker is not armed — the repair step "+
+			"(v%d) did not apply. Check the user_version this test rolls back to.",
+			spanIDRepairStepVersion)
 	}
 	upgradeDB.Close()
 

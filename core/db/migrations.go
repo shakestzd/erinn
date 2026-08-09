@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 22
+const currentSchemaVersion = 23
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -152,6 +152,11 @@ var migrations = []migrationStep{
 		version: 22,
 		name:    "022_otel_span_id_index_not_unique",
 		apply:   stepOtelSpanIDIndexNotUnique,
+	},
+	{
+		version: 23,
+		name:    "023_otel_session_kind_index",
+		apply:   stepOtelSessionKindIndex,
 	},
 }
 
@@ -727,6 +732,45 @@ func stepOtelSpanIDIndexNotUnique(db *sql.DB) error {
 		if err := SetOtelReingestRequired(db, "022_otel_span_id_index_not_unique"); err != nil {
 			return fmt.Errorf("flag otel re-ingest: %w", err)
 		}
+	}
+	return nil
+}
+
+// stepOtelSessionKindIndex adds the index that makes pruneMetricSignals
+// selective instead of a per-session table walk (bug-129bf18d).
+//
+// pruneMetricSignals runs once per metric signal. Its DELETE and its
+// keep-the-newest-N subquery both filter on (session_id, kind), but only
+// session_id was indexed, so each call walked every row belonging to the
+// session — including the non-metric rows, which are the large majority.
+// Cost per metric signal therefore grew with session size, making ingest
+// quadratic. That is what made the bug-0fc17d53 recovery replay expensive.
+//
+// The DESC columns are not decoration: they match the subquery's ORDER BY, so
+// the plan becomes a covering-index search with no temporary B-tree. Measured
+// on a real shard, per-call cost fell 33.8ms -> 1.7ms, and replaying 28,000
+// real signals fell from 63.6s to 11.6s. Without the DESC tail the same index
+// still helps but only reaches 3.4ms per call and 15.2s overall.
+//
+// Deliberately NOT added here: an index on (session_id, canonical) for
+// tryReattributeParent's Strategy B scan. Its query plan improves exactly as
+// you would predict, and end-to-end it made replay 19-22% SLOWER, because the
+// scan fires for only about 1% of spans on real data (a span's parent is
+// rarely an interaction span) while the index is maintained on every insert.
+// Do not re-add it on the strength of an EXPLAIN alone.
+func stepOtelSessionKindIndex(db *sql.DB) error {
+	exists, err := tableExists(db, "otel_signals")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	if _, err := db.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_otel_session_kind_ts
+		 ON otel_signals(session_id, kind, ts_micros DESC, created_at DESC, signal_id DESC)`,
+	); err != nil {
+		return fmt.Errorf("create idx_otel_session_kind_ts: %w", err)
 	}
 	return nil
 }

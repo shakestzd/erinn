@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Subagents inherit non-YOLO permission mode — Edit/Write blocked despite parent in YOLO</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-05T15:02:22.221477"
-             data-updated="2026-05-05T16:18:51.208801" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:15.727745" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-8ff540a7.html,.htmlgraph/features/feat-060b396d.html,.htmlgraph/features/feat-36d7c985.html,.htmlgraph/features/feat-72876845.html,internal/hooks/tooluse_shared.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go">
 
         <header>
             <h1>Subagents inherit non-YOLO permission mode — Edit/Write blocked despite parent in YOLO</h1>
@@ -27,7 +27,7 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:02:22.249703">trk-cb36e595</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T15:02:22.249703">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
@@ -36,9 +36,9 @@
             <h3>Description</h3>
             <p>Mirror of GitHub issue #90 (https://github.com/shakestzd/htmlgraph/issues/90).
 
-When the parent Claude Code session is in YOLO mode (permission prompts disabled, full quality enforcement), subagents spawned via Agent({isolation:'worktree'}) do NOT inherit YOLO mode. They run with the default permission posture — combined with htmlgraph hooks that gate Edit/Write on YOLO mode, subagents are blocked outright. Subagent burns its tool budget bouncing off the permission gate.
+When the parent Claude Code session is in YOLO mode (permission prompts disabled, full quality enforcement), subagents spawned via Agent({isolation:&#39;worktree&#39;}) do NOT inherit YOLO mode. They run with the default permission posture — combined with htmlgraph hooks that gate Edit/Write on YOLO mode, subagents are blocked outright. Subagent burns its tool budget bouncing off the permission gate.
 
-Same family as bug-0413c3c4 (#87, attribution claim session-ID mismatch) and bug-730c0f19 (#88, commit-to-main isolation). The pattern is identical: hook check uses sub-agent's session ID directly instead of walking the parent chain to find the orchestrator's posture.
+Same family as bug-0413c3c4 (#87, attribution claim session-ID mismatch) and bug-730c0f19 (#88, commit-to-main isolation). The pattern is identical: hook check uses sub-agent&#39;s session ID directly instead of walking the parent chain to find the orchestrator&#39;s posture.
 
 Suggested fix (from issue, in order of decreasing invasiveness):
 1. Propagate YOLO mode through Agent subagent spawns (env/config injection)
@@ -47,7 +47,7 @@ Suggested fix (from issue, in order of decreasing invasiveness):
 
 Recommended: option 2. Reuses the parent-session-chain walker introduced in plan-ff425b9f slice 1. This bug becomes a small slice 3 of that plan: apply the same getSessionAndParent walk pattern at the YOLO-check site.
 
-Observed in: jobsmith track trk-9a3c622d during /htmlgraph:execute wave 1 dispatch. Two parallel htmlgraph:sonnet-coder agents both blocked. One reported (verbatim): 'this session has Feature: feat-1e74e244 as its primary feature but isn't YOLO mode. The hook is enforcing that Edit/Write tools require YOLO mode. Let me look at the hook source...' — agent burned 50 tool calls investigating the hook instead of implementing.</p>
+Observed in: jobsmith track trk-9a3c622d during /htmlgraph:execute wave 1 dispatch. Two parallel htmlgraph:sonnet-coder agents both blocked. One reported (verbatim): &#39;this session has Feature: feat-1e74e244 as its primary feature but isn&#39;t YOLO mode. The hook is enforcing that Edit/Write tools require YOLO mode. Let me look at the hook source...&#39; — agent burned 50 tool calls investigating the hook instead of implementing.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-15T07:43:17.225645"
-             data-updated="2026-05-15T07:44:24.279496" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-6-g9d56d99eb">
+             data-updated="2026-08-09T20:42:14.18393" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-6-g9d56d99eb" data-affected_files=".wipnote/bugs/bug-855a6844.html,cmd/wipnote/codex.go">
 
         <header>
             <h1>Codex: loud-fail on marketplace-add failure &#43; correct cap docs</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T07:43:17.238203">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T07:43:18.619207">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                    <li><a href="../sessions/08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T07:43:18.619207">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T07:43:17.238203">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Audit (2026-05-15) found two issues in wipnote codex integration. (1) launchCodexDefault at cmd/wipnote/codex.go:865-872 silently continues when 'codex plugin marketplace add' fails — user gets a bare Codex session with no wipnote agents and no clear error. Should be fatal or at minimum loud. (2) Project docs misclaim that Codex's job_max_runtime_seconds (default 1800s) caps interactive agent sessions; per https://developers.openai.com/codex/config-reference that setting only applies to spawn_agents_on_csv batch jobs, NOT interactive agents. Codex has no native interactive cap at all.</p>
+            <p>Audit (2026-05-15) found two issues in wipnote codex integration. (1) launchCodexDefault at cmd/wipnote/codex.go:865-872 silently continues when &#39;codex plugin marketplace add&#39; fails — user gets a bare Codex session with no wipnote agents and no clear error. Should be fatal or at minimum loud. (2) Project docs misclaim that Codex&#39;s job_max_runtime_seconds (default 1800s) caps interactive agent sessions; per https://developers.openai.com/codex/config-reference that setting only applies to spawn_agents_on_csv batch jobs, NOT interactive agents. Codex has no native interactive cap at all.</p>
         </section>
     </article>
 </body>

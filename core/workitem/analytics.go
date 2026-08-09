@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/shakestzd/wipnote/core/graph"
@@ -17,6 +18,11 @@ type Bottleneck struct {
 	Type     string // "track" or item type
 	Reason   string // human-readable explanation
 	Duration time.Duration
+	// Rollup is the item's outcome signal (feat-7ee73444), nil for track-type
+	// bottlenecks (tracks carry no rollup of their own) and for item
+	// bottlenecks whose rollup was never measured. A caller must treat nil
+	// as "unmeasured", never as "clean" — see ItemRollupSignal.
+	Rollup *ItemRollupSignal
 }
 
 // Recommendation describes a suggested next work item.
@@ -26,6 +32,12 @@ type Recommendation struct {
 	TrackID  string
 	Priority string
 	Reason   string
+	// Rollup is set only when the item itself carries a measured outcome
+	// rollup (feat-7ee73444) — in practice a todo item that was previously
+	// completed and reopened, since Complete is the only path that writes
+	// one. nil means unmeasured and must never be treated as a clean/healthy
+	// signal, nor does its absence penalise the item; see ItemRollupSignal.
+	Rollup *ItemRollupSignal
 }
 
 // ParallelSet groups items that can be worked on simultaneously.
@@ -51,9 +63,11 @@ func FindBottlenecks(projectDir string) ([]Bottleneck, error) {
 // second full corpus parse (bug-1a51ab15).
 func FindBottlenecksIn(nodes []*models.Node) []Bottleneck {
 	stale := staleBottlenecks(nodes)
+	thrashing := thrashBottlenecks(nodes)
 	overloaded := overloadedTrackBottlenecks(nodes)
 
-	return append(stale, overloaded...)
+	out := append(stale, thrashing...)
+	return append(out, overloaded...)
 }
 
 // RecommendNextWork returns up to 5 suggested todo items, ordered by track
@@ -67,6 +81,16 @@ func RecommendNextWork(projectDir string) ([]Recommendation, error) {
 }
 
 // RecommendNextWorkIn is RecommendNextWork over an already-loaded node set.
+//
+// A todo item normally carries no rollup — Complete is the only path that
+// writes one (core/workitem/rollup.go), so the common case is "never
+// measured" and this function must not reward or punish that absence either
+// way. The one real case a todo item DOES carry a rollup is a reopen that
+// was later reset back to todo (e.g. `wipnote feature reset`): the item was
+// completed once, thrashed, and is now back up for grabs. That history is
+// real and is surfaced in Reason and used to sort the item behind its
+// same-tier, unmeasured-or-clean peers rather than silently ranking level
+// with them (feat-f9118b9c).
 func RecommendNextWorkIn(nodes []*models.Node) []Recommendation {
 	trackPriority := buildTrackPriorityMap(nodes)
 	var recs []Recommendation
@@ -75,13 +99,22 @@ func RecommendNextWorkIn(nodes []*models.Node) []Recommendation {
 		if n.Status != models.StatusTodo || n.Type == "track" {
 			continue
 		}
+		sig := RollupSignalFor(n)
 		reason := recommendationReason(n, trackPriority)
+		var rollup *ItemRollupSignal
+		if sig.Measured {
+			rollup = &sig
+			if note := thrashNote(sig); note != "" {
+				reason = "prior-run thrash: " + note + " — " + reason
+			}
+		}
 		recs = append(recs, Recommendation{
 			ItemID:   n.ID,
 			Title:    n.Title,
 			TrackID:  n.TrackID,
 			Priority: string(n.Priority),
 			Reason:   reason,
+			Rollup:   rollup,
 		})
 	}
 
@@ -158,12 +191,26 @@ func staleBottlenecks(nodes []*models.Node) []Bottleneck {
 		if age < staleThreshold {
 			continue
 		}
+		reason := fmt.Sprintf("in-progress for %.0f hours without update", age.Hours())
+		var rollup *ItemRollupSignal
+		// A stale item can be a reopen of previously-completed work (Start
+		// does not touch rollup properties — core/workitem/collection.go), in
+		// which case it still carries the outcome from its last completion.
+		// Surface it as extra context on the stale reason rather than a
+		// second bottleneck entry.
+		if sig := RollupSignalFor(n); sig.Measured {
+			rollup = &sig
+			if note := thrashNote(sig); note != "" {
+				reason += "; previously " + note
+			}
+		}
 		out = append(out, Bottleneck{
 			ItemID:   n.ID,
 			Title:    n.Title,
 			Type:     n.Type,
-			Reason:   fmt.Sprintf("in-progress for %.0f hours without update", age.Hours()),
+			Reason:   reason,
 			Duration: age,
+			Rollup:   rollup,
 		})
 	}
 
@@ -171,6 +218,62 @@ func staleBottlenecks(nodes []*models.Node) []Bottleneck {
 		return out[i].Duration > out[j].Duration
 	})
 	return out
+}
+
+// thrashBottlenecks flags in-progress items whose rollup (feat-7ee73444)
+// already carries a nonzero outcome signal from an earlier completion, even
+// when the item is too fresh to be stale. Start leaves rollup properties
+// alone (core/workitem/collection.go), so a reopened item keeps the numbers
+// its last Complete wrote: a measured failure rate, a retry, or edit churn is
+// real history that predates this run, not something inferred from staleness.
+// Absence of a rollup here means unmeasured and is never flagged either way.
+func thrashBottlenecks(nodes []*models.Node) []Bottleneck {
+	var out []Bottleneck
+	for _, n := range nodes {
+		if n.Status != models.StatusInProgress {
+			continue
+		}
+		age := time.Now().UTC().Sub(n.UpdatedAt)
+		if age >= staleThreshold {
+			continue // already reported (with the same rollup context) by staleBottlenecks
+		}
+		sig := RollupSignalFor(n)
+		note := thrashNote(sig)
+		if note == "" {
+			continue
+		}
+		rollup := sig
+		out = append(out, Bottleneck{
+			ItemID: n.ID,
+			Title:  n.Title,
+			Type:   n.Type,
+			Reason: "prior-run thrash: " + note,
+			Rollup: &rollup,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].ItemID < out[j].ItemID
+	})
+	return out
+}
+
+// thrashNote renders the distinct, individually-sourced signals that fired on
+// sig into one human-readable clause, or "" when none did. It never blends
+// the metrics into a single number — each clause names its own value and
+// coverage — matching feat-7ee73444's per-metric provenance rule.
+func thrashNote(sig ItemRollupSignal) string {
+	var parts []string
+	if sig.HasFailureRate && sig.FailureRate > 0 {
+		parts = append(parts, fmt.Sprintf("failure rate %.1f%% (%s, %s)",
+			sig.FailureRate*100, sig.FailureRateCoverage, sig.FailureRateSource))
+	}
+	if sig.HasRetries && sig.Retries > 0 {
+		parts = append(parts, fmt.Sprintf("%d retries (%s)", sig.Retries, sig.RetriesCoverage))
+	}
+	if sig.HasChurnFiles && sig.ChurnFiles > 0 {
+		parts = append(parts, fmt.Sprintf("%d churned files (%s)", sig.ChurnFiles, sig.ChurnFilesCoverage))
+	}
+	return strings.Join(parts, "; ")
 }
 
 func overloadedTrackBottlenecks(nodes []*models.Node) []Bottleneck {
@@ -248,6 +351,13 @@ func recommendationReason(n *models.Node, trackPriority map[string]int) string {
 	return "next available todo"
 }
 
+// recThrashed reports whether r's own rollup (if any) shows prior-run
+// thrash. Absence of a rollup is never treated as thrashed — it is simply
+// not a tiebreak factor, consistent with "unmeasured is not unhealthy".
+func recThrashed(r Recommendation) bool {
+	return r.Rollup != nil && r.Rollup.Thrashed()
+}
+
 func sortRecommendations(recs []Recommendation, trackPriority map[string]int) {
 	sort.Slice(recs, func(i, j int) bool {
 		ti := trackPriority[recs[i].TrackID]
@@ -257,7 +367,22 @@ func sortRecommendations(recs []Recommendation, trackPriority map[string]int) {
 		}
 		pi := priorityScore(models.Priority(recs[i].Priority))
 		pj := priorityScore(models.Priority(recs[j].Priority))
-		return pi > pj
+		if pi != pj {
+			return pi > pj
+		}
+		// Same track tier, same priority: an item with measured prior-run
+		// thrash (feat-f9118b9c) sorts after an item with no such signal —
+		// clean and unmeasured items are treated identically and both rank
+		// ahead of a demonstrated thrasher. Compared as ints (not the raw
+		// bools) so the less-function stays a strict, consistent ordering.
+		ti2, tj2 := 0, 0
+		if recThrashed(recs[i]) {
+			ti2 = 1
+		}
+		if recThrashed(recs[j]) {
+			tj2 = 1
+		}
+		return ti2 < tj2
 	})
 }
 

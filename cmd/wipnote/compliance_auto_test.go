@@ -16,6 +16,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 // --- helpers -----------------------------------------------------------
@@ -164,16 +165,92 @@ func TestTruncateDiff_AboveLimit(t *testing.T) {
 	}
 }
 
-// TestBuildPrompt verifies the prompt structure includes spec and diff.
+// TestBuildPrompt verifies the prompt structure includes spec, diff, and
+// outcome evidence (feat-f9118b9c).
 func TestBuildPrompt(t *testing.T) {
 	spec := "## Acceptance Criteria\n- [ ] Feature works"
 	diff := "diff --git a/main.go b/main.go\n+++ new code"
-	prompt := buildComplianceUserPrompt(spec, diff)
+	evidence := "Gate history: 2 passed / 1 failed (3 runs recorded).\n"
+	prompt := buildComplianceUserPrompt(spec, diff, evidence)
 	if !strings.Contains(prompt, spec) {
 		t.Error("prompt does not contain spec")
 	}
 	if !strings.Contains(prompt, diff) {
 		t.Error("prompt does not contain diff")
+	}
+	if !strings.Contains(prompt, evidence) {
+		t.Error("prompt does not contain outcome evidence")
+	}
+}
+
+// --- Outcome evidence (feat-f9118b9c) -----------------------------------
+
+// TestBuildOutcomeEvidence_Unmeasured is the absence case: no gate history
+// and no rollup at all must render as explicit "unmeasured" text, never as
+// a fabricated clean/passing result — this is the text an LLM grader reads,
+// so its exact wording is load-bearing.
+func TestBuildOutcomeEvidence_Unmeasured(t *testing.T) {
+	evidence := buildOutcomeEvidence(workitem.ItemRollupSignal{}, 0, 0)
+	if !strings.Contains(evidence, "no gate runs recorded") {
+		t.Errorf("expected explicit no-gate-history text, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, "do not treat as passing") {
+		t.Errorf("expected an explicit do-not-treat-as-passing caveat, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, "unmeasured") {
+		t.Errorf("expected the runtime outcome to read as unmeasured, got: %q", evidence)
+	}
+	if strings.Contains(evidence, "%") {
+		t.Errorf("unmeasured evidence must not fabricate a failure-rate percentage: %q", evidence)
+	}
+}
+
+// TestBuildOutcomeEvidence_MeasuredThrash is the positive case: a real
+// measured failure rate, retries, and gate failures must all appear with
+// their own provenance, and must never be described as unmeasured.
+func TestBuildOutcomeEvidence_MeasuredThrash(t *testing.T) {
+	sig := workitem.ItemRollupSignal{
+		Measured:            true,
+		HasFailureRate:      true,
+		FailureRate:         0.1538,
+		FailureRateSource:   workitem.SourceOtelSuccess,
+		FailureRateCoverage: "13/575",
+		HasRetries:          true,
+		Retries:             3,
+		RetriesCoverage:     "250/1507",
+	}
+	evidence := buildOutcomeEvidence(sig, 1, 2)
+
+	if !strings.Contains(evidence, "1 passed / 2 failed") {
+		t.Errorf("expected gate tally, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, "15.38%") {
+		t.Errorf("expected the measured failure rate, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, "13/575") {
+		t.Errorf("expected failure-rate coverage, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, workitem.SourceOtelSuccess) {
+		t.Errorf("expected failure-rate source, got: %q", evidence)
+	}
+	if !strings.Contains(evidence, "Retries observed: 3") {
+		t.Errorf("expected retries, got: %q", evidence)
+	}
+	if strings.Contains(evidence, "unmeasured") {
+		t.Errorf("measured evidence incorrectly describes itself as unmeasured: %q", evidence)
+	}
+}
+
+// TestBuildOutcomeEvidence_NeverConsumesCost pins the "do not consume a
+// degraded metric" requirement: even if a caller mistakenly tried to smuggle
+// cost information into the evidence text, ItemRollupSignal has no cost
+// field to read it from — this test documents that omission is structural,
+// not a matter of remembering to strip a field before formatting.
+func TestBuildOutcomeEvidence_NeverConsumesCost(t *testing.T) {
+	sig := workitem.ItemRollupSignal{Measured: true, HasFailureRate: true, FailureRateSource: workitem.SourceOtelSuccess}
+	evidence := buildOutcomeEvidence(sig, 0, 0)
+	if strings.Contains(strings.ToLower(evidence), "cost") {
+		t.Errorf("outcome evidence must never mention cost: %q", evidence)
 	}
 }
 
@@ -616,6 +693,191 @@ func TestComplianceAuto_SuccessPath(t *testing.T) {
 	summary := outBuf.String()
 	if !strings.Contains(summary, "compliance feat-success score=90") {
 		t.Errorf("expected summary line; got: %q", summary)
+	}
+}
+
+// TestComplianceAuto_IncludesOutcomeEvidenceInPrompt is the full-pipeline
+// check for feat-f9118b9c's compliance half: a feature whose canonical HTML
+// already carries a feat-7ee73444 rollup, plus gate history in the read
+// index, must have BOTH surfaced in the exact prompt sent to the grading
+// LLM — not just computed and discarded — and the gate tally must also land
+// on the written compliance-findings section as durable evidence.
+// NOTE: Cannot call t.Parallel() — headlessInvoker and diffBuilderFn are
+// global vars.
+func TestComplianceAuto_IncludesOutcomeEvidenceInPrompt(t *testing.T) {
+	tmpDir := t.TempDir()
+	featureID := "feat-outcome"
+
+	setupTempGitRepo(t, tmpDir, map[string]string{"main.go": "package main\nfunc main(){}"})
+
+	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
+	featuresDir := filepath.Join(wipnoteDir, "features")
+	if err := os.MkdirAll(featuresDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// A realistic feature HTML carrying a real feat-7ee73444 rollup: a
+	// measured, nonzero failure rate with its source and coverage siblings
+	// on the <article> element, exactly as ApplyRollup writes it.
+	featureHTML := `<!DOCTYPE html>
+<html><head><title>` + featureID + `</title></head>
+<body>
+<article id="` + featureID + `" data-type="feature" data-status="done"
+  data-rollup-failure-rate="0.5000"
+  data-rollup-failure-rate-source="otel_success"
+  data-rollup-failure-rate-coverage="1/2"
+  data-rollup-computed-at="2026-08-09T00:00:00Z">
+<header><h1>Outcome feature</h1></header>
+<section class="spec">## Acceptance Criteria
+- [ ] Feature works</section>
+</article>
+</body></html>`
+	featurePath := filepath.Join(featuresDir, featureID+".html")
+	if err := os.WriteFile(featurePath, []byte(featureHTML), 0o644); err != nil {
+		t.Fatalf("write feature HTML: %v", err)
+	}
+
+	dbPath := filepath.Join(tmpDir, "test-wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	db, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	if err := dbpkg.InsertGateRecord(db, &dbpkg.GateRecord{
+		SessionID: "sess-1", WorkItemID: featureID, ProjectType: "go",
+		GateCommand: "go test ./...", Status: "fail", Source: "check",
+	}); err != nil {
+		t.Fatalf("seed gate record: %v", err)
+	}
+
+	stubDiffBuilder(t, "diff --git a/main.go b/main.go\n+package main")
+
+	var capturedPrompt string
+	origInvoker := headlessInvoker
+	headlessInvoker = func(_ context.Context, req headlessRequest) (*headlessResult, error) {
+		capturedPrompt = req.userPrompt
+		return &headlessResult{text: validFindingJSON(40), costUSD: 0.01}, nil
+	}
+	defer func() { headlessInvoker = origInvoker }()
+
+	origProjectDir := projectDirFlag
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = origProjectDir }()
+
+	// Capture stdout so the summary line doesn't leak into test output.
+	r, w, _ := os.Pipe()
+	origStdout := os.Stdout
+	os.Stdout = w
+
+	flags := complianceAutoFlags{
+		model: "claude-sonnet-4-6", effort: "medium",
+		maxDiffChars: 50000, maxTurns: 5, maxWallClock: 5 * time.Minute,
+	}
+	runErr := runComplianceAuto(context.Background(), featureID, flags)
+
+	w.Close()
+	var outBuf bytes.Buffer
+	io.Copy(&outBuf, r)
+	os.Stdout = origStdout
+
+	if runErr != nil {
+		t.Fatalf("runComplianceAuto: %v", runErr)
+	}
+
+	if !strings.Contains(capturedPrompt, "50.00%") {
+		t.Errorf("prompt does not carry the measured failure rate: %q", capturedPrompt)
+	}
+	if !strings.Contains(capturedPrompt, "1/2") {
+		t.Errorf("prompt does not carry failure-rate coverage: %q", capturedPrompt)
+	}
+	if !strings.Contains(capturedPrompt, "0 passed / 1 failed") {
+		t.Errorf("prompt does not carry gate history: %q", capturedPrompt)
+	}
+
+	featureContent := readFeatureHTML(t, featurePath)
+	if !strings.Contains(featureContent, `data-gate-pass="0"`) {
+		t.Errorf("expected data-gate-pass=\"0\"; content: %s", featureContent)
+	}
+	if !strings.Contains(featureContent, `data-gate-fail="1"`) {
+		t.Errorf("expected data-gate-fail=\"1\"; content: %s", featureContent)
+	}
+}
+
+// TestComplianceAuto_UnmeasuredFeatureGetsNoFabricatedOutcome is the absence
+// counterpart: a feature with no rollup and no gate history at all must get
+// prompt text that explicitly says so, never a fabricated clean/zero
+// reading. This is what makes the previous test non-vacuous — a code path
+// that always emitted "0 passed / 0 failed, 0.00% failure rate" for every
+// feature would satisfy neither test's exact-string checks on its own, but
+// could still silently promote absence to health without this check.
+func TestComplianceAuto_UnmeasuredFeatureGetsNoFabricatedOutcome(t *testing.T) {
+	tmpDir := t.TempDir()
+	featureID := "feat-unmeasured"
+
+	setupTempGitRepo(t, tmpDir, map[string]string{"main.go": "package main\nfunc main(){}"})
+	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
+	featuresDir := filepath.Join(wipnoteDir, "features")
+	if err := os.MkdirAll(featuresDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	specContent := "## Acceptance Criteria\n- [ ] Feature works"
+	featurePath := filepath.Join(featuresDir, featureID+".html")
+	if err := os.WriteFile(featurePath, []byte(minimalFeatureHTML(featureID, specContent, "")), 0o644); err != nil {
+		t.Fatalf("write feature HTML: %v", err)
+	}
+
+	dbPath := filepath.Join(tmpDir, "test-wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	db, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	stubDiffBuilder(t, "diff --git a/main.go b/main.go\n+package main")
+
+	var capturedPrompt string
+	origInvoker := headlessInvoker
+	headlessInvoker = func(_ context.Context, req headlessRequest) (*headlessResult, error) {
+		capturedPrompt = req.userPrompt
+		return &headlessResult{text: validFindingJSON(50), costUSD: 0.01}, nil
+	}
+	defer func() { headlessInvoker = origInvoker }()
+
+	origProjectDir := projectDirFlag
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = origProjectDir }()
+
+	r, w, _ := os.Pipe()
+	origStdout := os.Stdout
+	os.Stdout = w
+
+	flags := complianceAutoFlags{
+		model: "claude-sonnet-4-6", effort: "medium",
+		maxDiffChars: 50000, maxTurns: 5, maxWallClock: 5 * time.Minute,
+	}
+	runErr := runComplianceAuto(context.Background(), featureID, flags)
+
+	w.Close()
+	var outBuf bytes.Buffer
+	io.Copy(&outBuf, r)
+	os.Stdout = origStdout
+
+	if runErr != nil {
+		t.Fatalf("runComplianceAuto: %v", runErr)
+	}
+
+	if !strings.Contains(capturedPrompt, "no gate runs recorded") {
+		t.Errorf("prompt does not disclose absent gate history: %q", capturedPrompt)
+	}
+	if !strings.Contains(capturedPrompt, "unmeasured") {
+		t.Errorf("prompt does not disclose unmeasured runtime outcome: %q", capturedPrompt)
+	}
+	if strings.Contains(capturedPrompt, "0.00%") {
+		t.Errorf("prompt fabricated a 0%% failure rate for an unmeasured item: %q", capturedPrompt)
 	}
 }
 

@@ -182,6 +182,46 @@ func MostRecentInProgressWorkItem(database *sql.DB) string {
 	return id
 }
 
+// GateRecordCountsForWorkItem returns the number of pass and fail gate runs
+// recorded for workItemID, across every session that ever ran one. It is the
+// outcome-evidence source `compliance auto` (feat-f9118b9c) joins against the
+// spec/diff comparison, so a compliance verdict can reflect whether the
+// item's own quality gates ever failed, not only whether the diff matches
+// the spec.
+//
+// The two counts are complete by construction — every gate_records row for
+// this item is counted, not sampled — so (0, 0) is a genuine "no gate runs
+// recorded" rather than a coverage gap. Callers must still not read (0, 0)
+// as "passed": it means no evidence, and feat-f9118b9c requires that
+// absence never be promoted to a passing signal.
+func GateRecordCountsForWorkItem(database *sql.DB, workItemID string) (pass, fail int, err error) {
+	if database == nil || strings.TrimSpace(workItemID) == "" {
+		return 0, 0, nil
+	}
+	rows, err := database.Query(
+		`SELECT status, COUNT(*) FROM gate_records WHERE work_item_id = ? GROUP BY status`,
+		workItemID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count gate records for %s: %w", workItemID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return 0, 0, fmt.Errorf("scan gate record count: %w", err)
+		}
+		switch status {
+		case "pass":
+			pass = count
+		case "fail":
+			fail = count
+		}
+	}
+	return pass, fail, rows.Err()
+}
+
 func CountGateRecords(database *sql.DB, sessionID string) (int, error) {
 	if database == nil {
 		return 0, nil

@@ -41,6 +41,12 @@ type wipRow struct {
 	ID    string `json:"id"`
 	Type  string `json:"type"`
 	Title string `json:"title"`
+	// Rollup surfaces the item's outcome signal (feat-7ee73444) — set only
+	// when a rollup was actually measured for this item, most commonly a
+	// reopen of previously-completed work (Start does not touch rollup
+	// properties). nil means unmeasured, not clean, and a caller must not
+	// read the omission either way (feat-f9118b9c).
+	Rollup *workitem.ItemRollupSignal `json:"rollup,omitempty"`
 }
 
 type parallelSetSummary struct {
@@ -157,7 +163,16 @@ func printRecommendText(
 	}
 	fmt.Printf("WIP: %d/%d [%s]\n", len(wipItems), wipGlobalAdvisoryLimit, wipStatus)
 	for _, n := range wipItems {
-		fmt.Printf("  %-20s  %-8s  %s\n", n.ID, n.Type, truncate(n.Title, 44))
+		note := ""
+		// A WIP item can carry a rollup left by an earlier completion (Start
+		// does not touch rollup properties — core/workitem/collection.go),
+		// most commonly a reopen of previously-done work. Flag it inline;
+		// `wipnote recommend` Bottlenecks already carries the itemized
+		// failure-rate/retries/churn detail (feat-f9118b9c).
+		if sig := workitem.RollupSignalFor(n); sig.Measured && sig.Thrashed() {
+			note = "  [prior-run thrash]"
+		}
+		fmt.Printf("  %-20s  %-8s  %s%s\n", n.ID, n.Type, truncate(n.Title, 44), note)
 	}
 	fmt.Println()
 
@@ -202,7 +217,15 @@ func printRecommendJSON(
 ) error {
 	wip := wipSummary{Count: len(wipItems), AdvisoryLimit: wipGlobalAdvisoryLimit, PerSessionSoftLimit: wipPerSessionSoftLimit}
 	for _, n := range wipItems {
-		wip.Items = append(wip.Items, wipRow{ID: n.ID, Type: n.Type, Title: n.Title})
+		row := wipRow{ID: n.ID, Type: n.Type, Title: n.Title}
+		// Only attach a rollup when one was actually measured (feat-f9118b9c)
+		// — omitting the field for an unmeasured item, rather than emitting
+		// a zero-valued ItemRollupSignal, is what keeps "no rollup" from
+		// being indistinguishable from "measured clean" in the JSON output.
+		if sig := workitem.RollupSignalFor(n); sig.Measured {
+			row.Rollup = &sig
+		}
+		wip.Items = append(wip.Items, row)
 	}
 
 	var parallel []parallelSetSummary

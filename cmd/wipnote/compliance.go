@@ -45,7 +45,7 @@ func writeComplianceSection(featurePath string, attrs map[string]string, body st
 
 // buildComplianceSectionHTML constructs the <section class="compliance-findings"> element.
 func buildComplianceSectionHTML(attrs map[string]string, body string) string {
-	attrOrder := []string{"score", "cost-usd", "model", "spec-hash", "timestamp", "diff-truncated"}
+	attrOrder := []string{"score", "cost-usd", "model", "spec-hash", "timestamp", "diff-truncated", "gate-pass", "gate-fail"}
 	var sb strings.Builder
 	sb.WriteString(`<section class="compliance-findings"`)
 	for _, k := range attrOrder {

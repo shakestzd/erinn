@@ -35,6 +35,8 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 
@@ -221,9 +223,31 @@ func runComplianceAuto(ctx context.Context, featureID string, flags complianceAu
 		return nil
 	}
 
+	// Step 6.5: Gather outcome evidence (feat-f9118b9c). Up to this point
+	// compliance auto has only ever compared the diff against the spec — it
+	// has never asked whether the result actually worked. rollupSig reads
+	// the data-rollup-* attributes feat-7ee73444 persists directly onto this
+	// same feature HTML (re-parsed from the featureHTML bytes already read
+	// in step 3, no extra disk I/O); gatePass/gateFail come from this item's
+	// own quality-gate history. Both sources degrade to "no evidence" rather
+	// than aborting the run — a feature file that predates the <article>
+	// convention, or a gate query error, must not block grading — and
+	// buildOutcomeEvidence says so explicitly in the prompt text rather than
+	// letting an absence read as a clean result.
+	var rollupSig workitem.ItemRollupSignal
+	if node, parseErr := htmlparse.ParseString(string(featureHTML)); parseErr == nil {
+		rollupSig = workitem.RollupSignalFor(node)
+	}
+	gatePass, gateFail, gateErr := dbpkg.GateRecordCountsForWorkItem(database, featureID)
+	if gateErr != nil {
+		fmt.Fprintf(os.Stderr, "wipnote: compliance %s: gate history unavailable: %v\n", featureID, gateErr)
+		gatePass, gateFail = 0, 0
+	}
+	outcomeEvidence := buildOutcomeEvidence(rollupSig, gatePass, gateFail)
+
 	// Step 7: Build prompt.
 	systemPrompt := buildComplianceSystemPrompt()
-	userPrompt := buildComplianceUserPrompt(specContent, diffBlob)
+	userPrompt := buildComplianceUserPrompt(specContent, diffBlob, outcomeEvidence)
 
 	// Step 8: --dry-run: print prompt, exit 0.
 	if flags.dryRun {
@@ -255,6 +279,8 @@ func runComplianceAuto(ctx context.Context, featureID string, flags complianceAu
 				"spec-hash":      specHash,
 				"timestamp":      time.Now().UTC().Format(time.RFC3339),
 				"diff-truncated": strconv.FormatBool(diffTruncated),
+				"gate-pass":      strconv.Itoa(gatePass),
+				"gate-fail":      strconv.Itoa(gateFail),
 			}
 			body := renderFindingsHTML(&autoComplianceFinding{
 				Summary: "compliance error: budget exceeded",
@@ -275,6 +301,8 @@ func runComplianceAuto(ctx context.Context, featureID string, flags complianceAu
 				"spec-hash":      specHash,
 				"timestamp":      time.Now().UTC().Format(time.RFC3339),
 				"diff-truncated": strconv.FormatBool(diffTruncated),
+				"gate-pass":      strconv.Itoa(gatePass),
+				"gate-fail":      strconv.Itoa(gateFail),
 			}
 			body := renderFindingsHTML(&autoComplianceFinding{
 				Summary: "compliance error: wall-clock timeout",
@@ -301,6 +329,8 @@ func runComplianceAuto(ctx context.Context, featureID string, flags complianceAu
 			"spec-hash":      specHash,
 			"timestamp":      time.Now().UTC().Format(time.RFC3339),
 			"diff-truncated": strconv.FormatBool(diffTruncated),
+			"gate-pass":      strconv.Itoa(gatePass),
+			"gate-fail":      strconv.Itoa(gateFail),
 		}
 		failFinding := &autoComplianceFinding{
 			Summary: "compliance error: parse failure",
@@ -323,6 +353,8 @@ func runComplianceAuto(ctx context.Context, featureID string, flags complianceAu
 		"spec-hash":      specHash,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
 		"diff-truncated": strconv.FormatBool(diffTruncated),
+		"gate-pass":      strconv.Itoa(gatePass),
+		"gate-fail":      strconv.Itoa(gateFail),
 	}
 	body := renderFindingsHTML(finding)
 
@@ -587,8 +619,56 @@ func buildComplianceSystemPrompt() string {
 Schema: {"summary": string, "criteria": [{"text": string, "status": "pass"|"fail"|"unclear", "evidence": string}], "score": 0-100, "notes": string}`
 }
 
-// buildComplianceUserPrompt builds the user prompt embedding spec and diff.
-func buildComplianceUserPrompt(specContent, diffBlob string) string {
+// buildOutcomeEvidence renders the per-item outcome facts available at
+// grading time into a plain-text block for the compliance prompt
+// (feat-f9118b9c): this item's own gate pass/fail history, plus — when a
+// feat-7ee73444 rollup exists — its measured failure rate, retries, and edit
+// churn. Absence is written out explicitly rather than omitted, because an
+// LLM grader that sees only "matched spec" text for an unmeasured item has no
+// way to distinguish that from "measured and clean" unless told so — that
+// conflation is exactly what this evidence block exists to prevent. Cost is
+// deliberately never included: it ships degraded
+// (workitem.SourceOtelCost) and a grading signal cannot represent that
+// caveat, so it is left out rather than silently promoted.
+func buildOutcomeEvidence(sig workitem.ItemRollupSignal, gatePass, gateFail int) string {
+	var b strings.Builder
+
+	if gatePass+gateFail == 0 {
+		b.WriteString("Gate history: no gate runs recorded for this item (unmeasured — do not treat as passing).\n")
+	} else {
+		b.WriteString(fmt.Sprintf("Gate history: %d passed / %d failed (%d runs recorded).\n",
+			gatePass, gateFail, gatePass+gateFail))
+	}
+
+	if !sig.Measured {
+		b.WriteString("Runtime outcome: unmeasured — no telemetry rollup exists for this item (do not treat as healthy).\n")
+		return b.String()
+	}
+
+	if sig.HasFailureRate {
+		b.WriteString(fmt.Sprintf("Measured failure rate: %.2f%% (%s, source %s).\n",
+			sig.FailureRate*100, sig.FailureRateCoverage, sig.FailureRateSource))
+	} else {
+		b.WriteString("Measured failure rate: unmeasured for this item.\n")
+	}
+	if sig.HasRetries {
+		b.WriteString(fmt.Sprintf("Retries observed: %d (%s).\n", sig.Retries, sig.RetriesCoverage))
+	}
+	if sig.HasChurnFiles {
+		b.WriteString(fmt.Sprintf("Files edited more than once: %d (%s).\n", sig.ChurnFiles, sig.ChurnFilesCoverage))
+	}
+	if sig.TelemetryUnavailable {
+		b.WriteString("Telemetry: unavailable for this item's harness (do not treat as clean).\n")
+	}
+
+	return b.String()
+}
+
+// buildComplianceUserPrompt builds the user prompt embedding spec, diff, and
+// outcome evidence (feat-f9118b9c) — the join that lets a compliance verdict
+// reflect whether the result worked, not only whether the diff matched the
+// spec.
+func buildComplianceUserPrompt(specContent, diffBlob, outcomeEvidence string) string {
 	return fmt.Sprintf(`You are a code compliance reviewer. Compare the feature spec against the implementation diff.
 
 ## Feature Spec
@@ -599,9 +679,14 @@ func buildComplianceUserPrompt(specContent, diffBlob string) string {
 
 %s
 
+## Outcome Evidence
+
+%s
+Absence of evidence above means the outcome is UNMEASURED, not passing. Do not treat missing runtime or gate data as a clean result. A high measured failure rate or a majority of failed gate runs should weigh against the score even when the diff otherwise looks complete.
+
 ## Instructions
 
-For each acceptance criterion in the spec, determine if the diff shows it was implemented (pass), explicitly not implemented (fail), or uncertain (unclear). Return your assessment as JSON matching the schema.`, specContent, diffBlob)
+For each acceptance criterion in the spec, determine if the diff shows it was implemented (pass), explicitly not implemented (fail), or uncertain (unclear). Weigh the outcome evidence above alongside the diff: a criterion whose code looks right but whose gate or runtime evidence shows failure should not be scored as a clean pass. Return your assessment as JSON matching the schema.`, specContent, diffBlob, outcomeEvidence)
 }
 
 // parseComplianceFinding parses the LLM's JSON response into an autoComplianceFinding.

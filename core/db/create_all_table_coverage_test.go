@@ -163,6 +163,174 @@ func TestCreateAllTables_EveryTableHasMigrationCoverage(t *testing.T) {
 	}
 }
 
+// createIndexNameRE extracts the index name from a
+// `CREATE [UNIQUE] INDEX IF NOT EXISTS <name>` DDL literal.
+var createIndexNameRE = regexp.MustCompile(`(?i)CREATE\s+(?:UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+(\w+)`)
+
+// indexCarrierFuncs are the functions that versioned step 002_create_indexes
+// applies. An index declared in either of them reaches every database, because
+// step 002 runs for any database below version 2 and CREATE INDEX IF NOT
+// EXISTS is idempotent for the rest.
+var indexCarrierFuncs = map[string]map[string]bool{
+	"schema.go":      {"CreateAllIndexes": true},
+	"otel_schema.go": {"CreateOtelIndexes": true},
+}
+
+// TestCreateAllTables_EveryIndexHasMigrationCoverage is the index-level twin of
+// the table guard above, added for bug-0fc17d53.
+//
+// The table guard parses CREATE TABLE only, so an INDEX added to the create-all
+// path slipped straight through it — which is exactly how the UNIQUE index on
+// otel_signals(span_id) landed inside CreateOtelTables. That placement is the
+// same defect one level down: the create-all path is reachable only from step 1,
+// which runs once, on a database going from user_version 0 to current. An index
+// added there never reaches a database that has already migrated.
+//
+// For that particular index the consequence was worse than absence. It DID get
+// created on every database that ran the create-all path, and because span_id is
+// not a signal identity, it silently discarded 56% of all telemetry through the
+// writer's INSERT OR IGNORE. The guard therefore protects against both halves:
+// an index that never arrives, and an index that arrives only somewhere.
+func TestCreateAllTables_EveryIndexHasMigrationCoverage(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed — cannot locate this package's source directory")
+	}
+	dir := filepath.Dir(thisFile)
+
+	// The guard's premise: step 002 really does apply the two carrier
+	// functions. If that wiring is ever removed, indexes declared in them
+	// stop being covered and this test would silently start passing for the
+	// wrong reason.
+	assertStepCreateIndexesCalls(t, filepath.Join(dir, "migrations.go"),
+		[]string{"CreateAllIndexes", "CreateOtelIndexes"})
+
+	// 1. Indexes declared by the create-all path.
+	declared := make(map[string]bool)
+	mergeTableNames(t, declared, extractIndexNamesInFuncs(t,
+		filepath.Join(dir, "schema.go"), map[string]bool{"CreateAllTables": true}))
+	mergeTableNames(t, declared, extractIndexNamesInFuncs(t,
+		filepath.Join(dir, "otel_schema.go"), map[string]bool{"CreateOtelTables": true}))
+
+	// 2. Indexes covered by a versioned step — the two carrier functions step
+	// 002 applies, plus any index a later step creates directly.
+	covered := make(map[string]bool)
+	for file, funcs := range indexCarrierFuncs {
+		mergeTableNames(t, covered, extractIndexNamesInFuncs(t, filepath.Join(dir, file), funcs))
+	}
+	baseTablesFuncPtr := reflect.ValueOf(stepCreateBaseTables).Pointer()
+	for _, step := range migrations {
+		if step.version <= 1 {
+			continue
+		}
+		fnVal := reflect.ValueOf(step.apply)
+		if fnVal.Pointer() == baseTablesFuncPtr {
+			continue
+		}
+		rtFn := runtime.FuncForPC(fnVal.Pointer())
+		if rtFn == nil {
+			t.Fatalf("step %q (v%d): runtime.FuncForPC returned nil", step.name, step.version)
+		}
+		file, _ := rtFn.FileLine(fnVal.Pointer())
+		fullName := rtFn.Name()
+		short := fullName[strings.LastIndex(fullName, ".")+1:]
+		mergeTableNames(t, covered, extractIndexNamesInFuncs(t, file, map[string]bool{short: true}))
+	}
+
+	var uncovered []string
+	for index := range declared {
+		if !covered[index] {
+			uncovered = append(uncovered, index)
+		}
+	}
+	if len(uncovered) > 0 {
+		sort.Strings(uncovered)
+		t.Fatalf("index(es) declared in CreateAllTables/CreateOtelTables have no versioned migration "+
+			"coverage: %v\n\n"+
+			"The create-all path runs only for a database going from user_version 0 to current, so an "+
+			"index declared there reaches fresh installs and nothing else — and an index that exists on "+
+			"some databases but not others changes what writes succeed, not just what queries cost "+
+			"(bug-0fc17d53). Fix: declare it in CreateAllIndexes / CreateOtelIndexes, and if existing "+
+			"databases need it too, add a versioned step that issues the same CREATE INDEX IF NOT EXISTS.",
+			uncovered)
+	}
+}
+
+// assertStepCreateIndexesCalls verifies stepCreateIndexes still calls each of
+// wantCalls, so the coverage argument above stays true.
+func assertStepCreateIndexesCalls(t *testing.T, migrationsFile string, wantCalls []string) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, migrationsFile, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", migrationsFile, err)
+	}
+	called := make(map[string]bool)
+	found := false
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil || fn.Name.Name != "stepCreateIndexes" {
+			continue
+		}
+		found = true
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			if id, ok := call.Fun.(*ast.Ident); ok {
+				called[id.Name] = true
+			}
+			return true
+		})
+	}
+	if !found {
+		t.Fatalf("stepCreateIndexes not found in %s — the index-coverage guard's premise is gone", migrationsFile)
+	}
+	for _, want := range wantCalls {
+		if !called[want] {
+			t.Fatalf("stepCreateIndexes no longer calls %s(); indexes declared there are no longer "+
+				"applied by a versioned step, so the index-coverage guard would pass vacuously", want)
+		}
+	}
+}
+
+// extractIndexNamesInFuncs is extractTableNamesInFuncs for CREATE INDEX.
+func extractIndexNamesInFuncs(t *testing.T, path string, wantFuncs map[string]bool) map[string]bool {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	found := make(map[string]bool)
+	matchedAny := make(map[string]bool)
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil || !wantFuncs[fn.Name.Name] {
+			continue
+		}
+		matchedAny[fn.Name.Name] = true
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			lit, ok := n.(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
+				return true
+			}
+			for _, m := range createIndexNameRE.FindAllStringSubmatch(lit.Value, -1) {
+				found[m[1]] = true
+			}
+			return true
+		})
+	}
+	for name := range wantFuncs {
+		if !matchedAny[name] {
+			t.Fatalf("function %q not found (or has no body) in %s — extractor cannot verify index coverage", name, path)
+		}
+	}
+	return found
+}
+
 // mergeTableNames copies every key of src into dst.
 func mergeTableNames(t *testing.T, dst, src map[string]bool) {
 	t.Helper()

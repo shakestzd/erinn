@@ -973,9 +973,17 @@ func tryReattributeParent(
 	}
 
 	// Check that the current parent is indeed an interaction canonical.
+	//
+	// span_id is not unique (bug-0fc17d53): the row that IS the span shares
+	// its id with every log record and metric correlated to it. Prefer the
+	// span row and break ties deterministically, so this lookup answers "what
+	// is that span" rather than "whichever row for that span the storage
+	// engine happened to return first".
 	var parentCanonical sql.NullString
 	if err := conn.QueryRowContext(ctx,
-		`SELECT canonical FROM otel_signals WHERE span_id = ?`, s.ParentSpan,
+		`SELECT canonical FROM otel_signals WHERE span_id = ?
+		 ORDER BY (kind = 'span') DESC, ts_micros ASC, signal_id ASC
+		 LIMIT 1`, s.ParentSpan,
 	).Scan(&parentCanonical); err != nil || parentCanonical.String != otel.CanonicalInteraction {
 		return "", ""
 	}
@@ -1072,9 +1080,17 @@ func resolveSignalAgentID(ctx context.Context, conn dbExecer, s *otel.UnifiedSig
 	if aid, ok := agentIDByOwnSpan[s.ParentSpan]; ok {
 		return aid
 	}
+	// span_id is not unique (bug-0fc17d53), so restrict to rows that actually
+	// carry an agent_id and prefer the span row itself. This mirrors what
+	// agentIDByOwnSpan does for the in-batch case — any signal on that span
+	// that reports an agent_id answers the question — while staying
+	// deterministic when several do.
 	var v sql.NullString
 	_ = conn.QueryRowContext(ctx,
-		`SELECT json_extract(attrs_json, '$.agent_id') FROM otel_signals WHERE span_id = ?`,
+		`SELECT json_extract(attrs_json, '$.agent_id') FROM otel_signals
+		 WHERE span_id = ? AND json_extract(attrs_json, '$.agent_id') IS NOT NULL
+		 ORDER BY (kind = 'span') DESC, ts_micros ASC, signal_id ASC
+		 LIMIT 1`,
 		s.ParentSpan,
 	).Scan(&v)
 	return v.String

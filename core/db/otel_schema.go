@@ -169,18 +169,11 @@ func CreateOtelTables(db *sql.DB) error {
 	if _, err := db.Exec(`ALTER TABLE pending_subagent_starts ADD COLUMN agent_span_id TEXT`); err != nil {
 		// Ignore "duplicate column" errors — the column is already there.
 	}
-	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_pending_subagent_session ON pending_subagent_starts(session_id)`); err != nil {
-		// Index creation is non-critical; continue.
-	}
-
-	// Unique index on span_id (where not null) allows the writer to detect
-	// placeholder rows keyed on span_id and upgrade them when the real Agent
-	// span arrives. Added as an idempotent migration so existing DBs pick it up.
-	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_otel_span_id_unique ON otel_signals(span_id) WHERE span_id IS NOT NULL`); err != nil {
-		// Non-fatal: may fail on existing DBs with duplicate span_ids from before
-		// this migration. The placeholder feature degrades gracefully without it.
-		_ = err
-	}
+	// Index creation lives in CreateOtelIndexes, which is what the versioned
+	// step 002_create_indexes actually applies. Creating an index here instead
+	// reaches only databases that run the create-all path (step 1, once, on a
+	// v0 database) — the same defect shape TestCreateAllTables_..._MigrationCoverage
+	// guards for tables. bug-0fc17d53 landed exactly that way.
 
 	return nil
 }
@@ -311,6 +304,20 @@ func CreateOtelIndexes(db *sql.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_otel_tool         ON otel_signals(session_id, tool_name, ts_micros)",
 		"CREATE INDEX IF NOT EXISTS idx_otel_harness      ON otel_signals(harness, ts_micros DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_otel_model_ts     ON otel_signals(model, ts_micros) WHERE model IS NOT NULL",
+
+		// span_id is indexed but NOT unique, and must never become unique
+		// again (bug-0fc17d53). A span_id identifies a span, not a signal:
+		// in OTel every log record and metric correlated to a span carries
+		// that span's id, and Claude Code hangs many of them off one
+		// interaction span. A UNIQUE index here combined with the writer's
+		// INSERT OR IGNORE silently discarded every signal after the first
+		// for each span — 86,758 rows, 56% of the corpus it was measured on,
+		// with no error and no log line. The index exists only so the
+		// placeholder-upgrade lookups (WHERE span_id = ?) stay cheap; none of
+		// them need at-most-one-row, and each carries its own discriminator.
+		"CREATE INDEX IF NOT EXISTS idx_otel_span_id      ON otel_signals(span_id) WHERE span_id IS NOT NULL",
+
+		"CREATE INDEX IF NOT EXISTS idx_pending_subagent_session ON pending_subagent_starts(session_id)",
 	}
 	for _, idx := range indexes {
 		if _, err := db.Exec(idx); err != nil {

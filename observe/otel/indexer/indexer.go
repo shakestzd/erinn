@@ -55,6 +55,11 @@ type Indexer struct {
 	writeDB    *sql.DB           // optional; writable handle used for prompt-ID bridge when no queue
 	queue      *writequeue.Queue // optional; when set, prompt-ID bridge goes through the queue
 
+	// reingestOnce gates the pending-re-ingest check to the first pass of
+	// this Indexer's life. The marker is cleared when consumed, so a second
+	// check would be a wasted query on every subsequent poll.
+	reingestOnce sync.Once
+
 	mu     sync.RWMutex
 	status map[string]FileInfo
 }
@@ -140,6 +145,8 @@ func (idx *Indexer) RunOnce(ctx context.Context) {
 
 // runOnce discovers all sessions and processes any new data.
 func (idx *Indexer) runOnce(ctx context.Context) {
+	idx.maybeReingest()
+
 	sessions, err := idx.discoverSessions()
 	if err != nil {
 		log.Printf("indexer: discover sessions: %v", err)
@@ -154,6 +161,30 @@ func (idx *Indexer) runOnce(ctx context.Context) {
 			idx.recordError(sid, err)
 		}
 	}
+}
+
+// maybeReingest consumes a pending re-ingest marker once per Indexer.
+//
+// It runs here, at the top of the first pass, rather than in New, so it uses
+// whichever database handle the caller attached afterwards and so a caller
+// that never runs a pass never pays for the query. The writable handle is
+// preferred: consuming the marker deletes a metadata row.
+func (idx *Indexer) maybeReingest() {
+	idx.reingestOnce.Do(func() {
+		database := idx.writeDB
+		if database == nil {
+			database = idx.database
+		}
+		cleared, err := EnsureReingest(idx.wipnoteDir, database)
+		if err != nil {
+			log.Printf("indexer: re-ingest check: %v", err)
+			return
+		}
+		if cleared > 0 {
+			log.Printf("indexer: cleared %d NDJSON checkpoint(s) for a full re-ingest "+
+				"— the derived OTel index is being rebuilt from canonical shards", cleared)
+		}
+	})
 }
 
 // discoverSessions returns session IDs that have an events.ndjson file.

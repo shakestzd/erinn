@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 21
+const currentSchemaVersion = 22
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -147,6 +147,11 @@ var migrations = []migrationStep{
 		version: 21,
 		name:    "021_claim_episodes_table",
 		apply:   stepClaimEpisodesTable,
+	},
+	{
+		version: 22,
+		name:    "022_otel_span_id_index_not_unique",
+		apply:   stepOtelSpanIDIndexNotUnique,
 	},
 }
 
@@ -657,6 +662,88 @@ func stepClaimEpisodesTable(db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+// stepOtelSpanIDIndexNotUnique replaces the UNIQUE index on
+// otel_signals(span_id) with a plain one, and flags the derived OTel index for
+// a full re-ingest (bug-0fc17d53).
+//
+// WHY THE UNIQUE INDEX WAS WRONG: a span_id identifies a span, not a signal.
+// Every OTel log record and metric correlated to a span carries that span's
+// id, and Claude Code emits many of them against a single interaction span.
+// The unique index therefore permitted at most one row per span, and because
+// the writer inserts with INSERT OR IGNORE, every later signal sharing a
+// span_id was discarded with no error, no log line, and a checkpoint that
+// advanced as if the data had been stored. On the corpus this was measured
+// against that was 86,758 of 155,855 signals.
+//
+// WHY THE INDEX DROP ALONE FIXES NOTHING: the NDJSON indexer records a byte
+// offset per shard, and those offsets already sit at end-of-file on every
+// existing install. Dropping the index stops future loss but leaves the
+// historical hole untouched — a fresh database would look perfect while every
+// upgraded one stayed 56% empty. So this step also sets the re-ingest marker
+// that indexer.EnsureReingest consumes, which clears the per-shard checkpoints
+// exactly once so the canonical NDJSON is replayed in full.
+//
+// Replay is safe and non-destructive: inserts are keyed on signal_id, so rows
+// already present are skipped, and rows whose NDJSON has since been swept by
+// retention are left alone rather than deleted and not re-derived.
+func stepOtelSpanIDIndexNotUnique(db *sql.DB) error {
+	// DROP INDEX IF EXISTS is safe on a database without the table.
+	if _, err := db.Exec(`DROP INDEX IF EXISTS idx_otel_span_id_unique`); err != nil {
+		return fmt.Errorf("drop idx_otel_span_id_unique: %w", err)
+	}
+
+	// CREATE INDEX is not safe on a missing table, and a partially-built
+	// legacy database can reach this step without one — same guard the
+	// gate_records and plan_feedback steps use.
+	indexes := map[string]string{
+		"otel_signals": `CREATE INDEX IF NOT EXISTS idx_otel_span_id ON otel_signals(span_id) WHERE span_id IS NOT NULL`,
+		// Also declared in CreateOtelIndexes. It previously lived in the
+		// create-all path, which never reaches a database past version 1, so
+		// create it here too rather than assume every install has it.
+		"pending_subagent_starts": `CREATE INDEX IF NOT EXISTS idx_pending_subagent_session ON pending_subagent_starts(session_id)`,
+	}
+	for table, stmt := range indexes {
+		exists, err := tableExists(db, table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create index on %s: %w", table, err)
+		}
+	}
+
+	// The marker lives in metadata; a partially-built legacy database may not
+	// have that table either. Nothing to recover on such a database anyway.
+	hasMetadata, err := tableExists(db, "metadata")
+	if err != nil {
+		return err
+	}
+	if hasMetadata {
+		if err := SetOtelReingestRequired(db, "022_otel_span_id_index_not_unique"); err != nil {
+			return fmt.Errorf("flag otel re-ingest: %w", err)
+		}
+	}
+	return nil
+}
+
+// tableExists reports whether a table of that name is present.
+func tableExists(db *sql.DB, table string) (bool, error) {
+	var name string
+	err := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
+	).Scan(&name)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check %s existence: %w", table, err)
+	}
+	return true, nil
 }
 
 // stepArchCards creates the arch_cards read-index table and its indexes.

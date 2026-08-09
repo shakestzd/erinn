@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote check runs its Go gates in a directory that does not exist</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-751e31b2"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-09T15:35:36.462098"
+             data-updated="2026-08-09T15:35:36.475821" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>wipnote check runs its Go gates in a directory that does not exist</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-09T15:35:36.475745">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The Go gate runner resolves its working directory to a packages subdirectory named go beneath the repository root, and checks for a module file there. That path does not exist in this repository — the packages directory contains only the plugin-core tree, and the Go modules live at the root and in four nested directories. Consequence: a bare invocation of the check command reports failure for build, vet and test unconditionally, regardless of the tree&#39;s actual state. It is not detecting a problem; it is failing to find anything to run. The guard-profile path used during work-item completion resolves correctly and is unaffected, which is why this has gone unnoticed — the failing surface is the one a human types, and the passing surface is the one automation uses. Fix by resolving the module set the way the rest of the tooling does, covering the root plus the nested modules, rather than assuming a single packaged Go directory. Note the failure shape: a gate that always fails carries no information, which trains people to ignore it, the same erosion as a test that fails by calendar.</p>
+        </section>
+    </article>
+</body>
+</html>

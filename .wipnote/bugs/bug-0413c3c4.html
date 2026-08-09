@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Subagent feature attribution hook blocks file writes — claim ownership tied to wrong session ID</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-05T03:47:55.945414"
-             data-updated="2026-05-05T16:04:47.951087" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:41:35.773878" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files="internal/hooks/pretooluse.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go">
 
         <header>
             <h1>Subagent feature attribution hook blocks file writes — claim ownership tied to wrong session ID</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T03:47:55.969043">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-d2d2be20.html" data-relationship="caused_by" data-since="2026-05-05T03:47:55.961865">feat-d2d2be20</a></li>
+                    <li><a href="../features/feat-d2d2be20.html" data-relationship="caused_by" data-since="2026-05-05T03:47:55.961865">feat-d2d2be20</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-05T03:47:55.969043">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
@@ -42,9 +42,9 @@
             <h3>Description</h3>
             <p>Mirror of GitHub issue #87 (https://github.com/shakestzd/htmlgraph/issues/87).
 
-When the orchestrator runs htmlgraph feature start  then dispatches a sub-agent (Agent with isolation:worktree), the PreToolUse hook blocks the sub-agent from editing files. Block reason: 'feature claim is owned by session af03332e... but my session is 7a2e7c3e...'.
+When the orchestrator runs htmlgraph feature start  then dispatches a sub-agent (Agent with isolation:worktree), the PreToolUse hook blocks the sub-agent from editing files. Block reason: &#39;feature claim is owned by session af03332e... but my session is 7a2e7c3e...&#39;.
 
-Root cause: the orchestrator's feature start creates a claim under the orchestrator's session ID. The sub-agent runs under a different session ID. The hook's claim lookup uses the sub-agent's own session, sees claim=none, and refuses Write/Edit/MultiEdit. Re-running feature start from inside the sub-agent doesn't fix it — it creates yet another claim under yet another session.
+Root cause: the orchestrator&#39;s feature start creates a claim under the orchestrator&#39;s session ID. The sub-agent runs under a different session ID. The hook&#39;s claim lookup uses the sub-agent&#39;s own session, sees claim=none, and refuses Write/Edit/MultiEdit. Re-running feature start from inside the sub-agent doesn&#39;t fix it — it creates yet another claim under yet another session.
 
 Impact: in a /htmlgraph:execute parallel dispatch of 8 features, 6 of 8 sub-agents got stuck investigating the hook instead of doing the work. Each spent 30-50 tool turns reading hook source, looking at agent_events tables, trying to release-and-reacquire claims. None unblocked. Orchestrator had to abort and complete the work itself.
 
@@ -61,7 +61,7 @@ Suggested fix directions (from issue):
 2. Make htmlgraph feature start from a sub-agent transfer the claim from parent session to sub-agent session if parent owns it.
 3. Add htmlgraph feature claim --session= command for programmatic handoff during dispatch.
 
-Recommended: option 1 (walk parent chain). Lowest blast radius, matches existing pattern, doesn't require new commands, transparent to users.
+Recommended: option 1 (walk parent chain). Lowest blast radius, matches existing pattern, doesn&#39;t require new commands, transparent to users.
 
 Why this matters: /htmlgraph:execute parallel dispatch is non-functional without this fix. Every dispatch becomes a debugging session for the hook itself.</p>
         </section>

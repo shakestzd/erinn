@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>YOLO test guard error message hardcodes both Go and Python commands instead of project-aware</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-11T09:37:51.224451"
-             data-updated="2026-04-11T10:00:08.607414" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:43.088806" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files="cmd/htmlgraph/agent_init.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go,internal/paths/projecttype.go,internal/paths/projecttype_test.go">
 
         <header>
             <h1>YOLO test guard error message hardcodes both Go and Python commands instead of project-aware</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T09:37:51.226629">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T09:37:55.574806">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                    <li><a href="../sessions/8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T09:37:55.574806">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T09:37:51.226629">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>When YOLO mode blocks a commit for failing tests in a Python (or any non-Go) project, the error message says: 'YOLO mode requires tests to pass before committing. Run: go test ./... or uv run pytest'. The message is constant and shows BOTH commands regardless of project type, confusing users in single-language projects. Source: internal/hooks/yolo_guard.go:242-243. Should detect project type from manifest files (go.mod, pyproject.toml, package.json, Cargo.toml) and emit only the relevant test command. Same project-type detection pattern is documented in the orchestrator system prompt.</p>
+            <p>When YOLO mode blocks a commit for failing tests in a Python (or any non-Go) project, the error message says: &#39;YOLO mode requires tests to pass before committing. Run: go test ./... or uv run pytest&#39;. The message is constant and shows BOTH commands regardless of project type, confusing users in single-language projects. Source: internal/hooks/yolo_guard.go:242-243. Should detect project type from manifest files (go.mod, pyproject.toml, package.json, Cargo.toml) and emit only the relevant test command. Same project-type detection pattern is documented in the orchestrator system prompt.</p>
         </section>
     </article>
 </body>

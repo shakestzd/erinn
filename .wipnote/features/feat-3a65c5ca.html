@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Extract SignalSink interface; add NDJSONSink implementation</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T22:29:21.240928"
-             data-updated="2026-04-24T23:56:00.893658" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:43:00.4437" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/serve_child.go,internal/otel/receiver/http.go,internal/otel/receiver/http_test.go,internal/otel/receiver/receiver.go,internal/otel/receiver/receiver_test.go,internal/otel/sink/ndjson/ndjson.go,internal/otel/sink/ndjson/ndjson_test.go,internal/otel/sink/ndjson/overflow.go,internal/otel/sink/sink.go,internal/otel/sink/sink_test.go,internal/otel/sink/sqlite/sqlite.go">
 
         <header>
             <h1>Extract SignalSink interface; add NDJSONSink implementation</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/c95933d1-92d9-4aed-9abe-be5b24d902e3.html" data-relationship="implemented_in" data-since="2026-04-24T23:27:19.251915">session c95933d1-92d9-4aed-9abe-be5b24d902e3</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-24T22:29:21.247387">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-24T22:29:21.247387">trk-c4615ad2</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-24T22:29:21.251355">plan-1cd284e0</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="c95933d1-92d9-4aed-9abe-be5b24d902e3.html" data-relationship="implemented_in" data-since="2026-04-24T23:27:19.251915">session c95933d1-92d9-4aed-9abe-be5b24d902e3</a></li>
+                    <li><a href="../plans/plan-1cd284e0.html" data-relationship="planned_in" data-since="2026-04-24T22:29:21.251355">plan-1cd284e0</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Refactor internal/otel/receiver/writer.go to depend on a SignalSink interface. The interface method signature matches the existing Writer's WriteBatch exactly: WriteBatch(ctx context.Context, harness otel.Harness, resourceAttrs map[string]any, signals []otel.UnifiedSignal) error. Keep the current SQLite-backed writer as the first concrete implementation under internal/otel/sink/sqlite/, preserving its placeholder/upgrade span re-parenting logic (writer.go:300-336) intact — that logic requires cross-table DB queries and stays with the SQLite implementation. Add internal/otel/sink/ndjson/ that opens .htmlgraph/sessions//events.ndjson (layout per Q1) in O_APPEND mode and serializes each UnifiedSignal as one JSON line. NDJSONSink does NOT implement placeholder/upgrade — it is append-only over raw signals; the indexer (slice 5) re-runs upgrade logic when replaying. Oversize payloads are handled per the strategy chosen in Q4. Both sinks are constructable behind the same interface; internal/otel/receiver/receiver.go's New() accepts a SignalSink rather than opening a *sql.DB directly. The existing http.go:162 call site is updated to pass the selected sink.
+            <p>Refactor internal/otel/receiver/writer.go to depend on a SignalSink interface. The interface method signature matches the existing Writer&#39;s WriteBatch exactly: WriteBatch(ctx context.Context, harness otel.Harness, resourceAttrs map[string]any, signals []otel.UnifiedSignal) error. Keep the current SQLite-backed writer as the first concrete implementation under internal/otel/sink/sqlite/, preserving its placeholder/upgrade span re-parenting logic (writer.go:300-336) intact — that logic requires cross-table DB queries and stays with the SQLite implementation. Add internal/otel/sink/ndjson/ that opens .htmlgraph/sessions//events.ndjson (layout per Q1) in O_APPEND mode and serializes each UnifiedSignal as one JSON line. NDJSONSink does NOT implement placeholder/upgrade — it is append-only over raw signals; the indexer (slice 5) re-runs upgrade logic when replaying. Oversize payloads are handled per the strategy chosen in Q4. Both sinks are constructable behind the same interface; internal/otel/receiver/receiver.go&#39;s New() accepts a SignalSink rather than opening a *sql.DB directly. The existing http.go:162 call site is updated to pass the selected sink.
 
 
 ## Why
@@ -59,7 +59,7 @@ Today writer.go is deeply SQLite-coupled: five prepared statements, BEGIN IMMEDI
 - NDJSON sink is raw-append only: it writes one JSON line per UnifiedSignal and does not query any external state. A unit test asserts NDJSON sink does not open a DB connection.
 - internal/otel/receiver/receiver.go constructor accepts a SignalSink, not a *sql.DB; http.go:162 call site is updated to pass the configured sink.
 - NDJSON sink correctly applies the oversize strategy chosen in Q4. If flock-all-writes (recommended): every append acquires syscall.Flock(LOCK_EX) on the session NDJSON file using the same pattern as session_html.go:147.
-- go build ./... && go vet ./... && go test ./internal/otel/... all green.</p>
+- go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./internal/otel/... all green.</p>
         </section>
     </article>
 </body>

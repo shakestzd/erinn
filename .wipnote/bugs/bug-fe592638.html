@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-20T17:56:27.792251"
-             data-updated="2026-05-20T18:00:21.011746" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4">
+             data-updated="2026-08-09T20:42:45.264547" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4" data-affected_files=".wipnote/bugs/bug-fe592638.html,packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md,packages/gemini-extension/skills/orchestrator-directives-skill/SKILL.md,plugin/.claude-plugin/system-prompt-default.md,plugin/skills/orchestrator-directives-skill/SKILL.md,skills/orchestrator-directives-skill/SKILL.md">
 
         <header>
             <h1>Stale model-named agent references (sonnet-coder, haiku-coder, gemini-spawner) leak into Codex/Gemini sessions</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T17:56:27.807453">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T17:57:03.694167">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                    <li><a href="../sessions/ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T17:57:03.694167">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T17:56:27.807453">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Reproduction: a Gemini CLI session running wipnote tries to spawn a subagent named 'sonnet-coder' with model 'sonnet', and Gemini errors 'Model sonnet was not found'. Root cause: pre-rename references (commit e0621e083 separated roles from models) still live in active plugin source: (1) plugin/.claude-plugin/system-prompt-default.md lines 6-8 reference wipnote:haiku-coder / wipnote:sonnet-coder. (2) plugin/skills/orchestrator-directives-skill/SKILL.md line 260 references wipnote:gemini-spawner; line 392 uses workflow=sonnet. Orchestrator-directives ships to ALL harnesses (Claude/Codex/Gemini), so the LLM reads the example literally and tries to invoke non-existent agents. Secondary cause: wipnote has codex stale-agent cleanup (cmd/wipnote/codex_test.go:704) but no equivalent for ~/.gemini/agents, so a pre-rename sonnet-coder.md may linger from older installs. Fix: scrub model-named references from plugin/.claude-plugin/system-prompt-default.md and plugin/skills/orchestrator-directives-skill/SKILL.md, replacing with capability names (patch-coder/feature-coder/architect-coder). Optionally add gemini stale-agent cleanup mirroring the codex behavior.
+            <p>Reproduction: a Gemini CLI session running wipnote tries to spawn a subagent named &#39;sonnet-coder&#39; with model &#39;sonnet&#39;, and Gemini errors &#39;Model sonnet was not found&#39;. Root cause: pre-rename references (commit e0621e083 separated roles from models) still live in active plugin source: (1) plugin/.claude-plugin/system-prompt-default.md lines 6-8 reference wipnote:haiku-coder / wipnote:sonnet-coder. (2) plugin/skills/orchestrator-directives-skill/SKILL.md line 260 references wipnote:gemini-spawner; line 392 uses workflow=sonnet. Orchestrator-directives ships to ALL harnesses (Claude/Codex/Gemini), so the LLM reads the example literally and tries to invoke non-existent agents. Secondary cause: wipnote has codex stale-agent cleanup (cmd/wipnote/codex_test.go:704) but no equivalent for ~/.gemini/agents, so a pre-rename sonnet-coder.md may linger from older installs. Fix: scrub model-named references from plugin/.claude-plugin/system-prompt-default.md and plugin/skills/orchestrator-directives-skill/SKILL.md, replacing with capability names (patch-coder/feature-coder/architect-coder). Optionally add gemini stale-agent cleanup mirroring the codex behavior.
 [2026-05-20 17:59 claude-code] accepted-advisory (provenance override): Implementation committed in 42dd53783; stale model-named references (sonnet-coder, haiku-coder, gemini-spawner) scrubbed from system prompt and orchestrator-directives skill; regenerated plugin ports; all quality gates pass</p>
         </section>
     </article>

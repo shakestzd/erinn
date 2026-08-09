@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-10T05:00:18.781602"
-             data-updated="2026-06-10T06:22:55.568488" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-08-09T20:43:38.534083" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4" data-affected_files=".wipnote/features/feat-cecb2f2b.html,cmd/wipnote/check.go,cmd/wipnote/check_gate_support.go,cmd/wipnote/check_gate_test.go,core/db/gate_records.go,core/db/gate_records_workitem_test.go,plugin/agents/architect-coder.md,plugin/agents/feature-coder.md,plugin/agents/patch-coder.md,plugin/agents/researcher.md,plugin/agents/test-runner.md,wipnote">
 
         <header>
             <h1>Fix completion-gate record staleness that forces redundant full re-runs</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T05:00:18.806512">trk-757c1c9f</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T05:37:23.604073">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T05:37:23.604073">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T05:00:18.806512">trk-757c1c9f</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>DIAGNOSED 2026-06-10 (researcher, confidence 8/10). NOT signature drift — ComputeSignature only hashes immutable DB-row fields and round-trips cleanly. Real root cause: session-identity race across separate CLI subprocesses. (1) Each orchestrator Bash call lacks WIPNOTE_SESSION_ID so EnvSessionID falls back to .wipnote/.active-session, which concurrent agents' SessionStart hooks overwrite — check --gate resolves session A, feature complete resolves session B. (2) check --gate stores work_item_id EMPTY because activeWorkItemForGate(sessionA) finds no attribution, so LatestPassingGateRecordForWorkItem (the bug-35857288 cross-session fallback queried with the explicit CLI work-item id) cannot match the record either. Chained '&&' works because one process tree = one session resolution, no hook fires between. FIX: make gate records always carry a non-empty work_item_id — add optional --work-item  flag to wipnote check --gate (validate the id exists); when absent keep activeWorkItemForGate but fall back to most-recent in-progress item; completion path unchanged, HEAD re-gate semantics preserved. Confirming experiment: run check --gate then sqlite3 query gate_records for empty work_item_id; compare session ids printed by two separate invocations. Key sites: cmd/wipnote/check.go ~67, check_gate_support.go runSessionGate/persistGateRecord/validateCompletionGateRecord ~267-592, core/hooks/runner.go EnvSessionID ~305.</p>
+            <p>DIAGNOSED 2026-06-10 (researcher, confidence 8/10). NOT signature drift — ComputeSignature only hashes immutable DB-row fields and round-trips cleanly. Real root cause: session-identity race across separate CLI subprocesses. (1) Each orchestrator Bash call lacks WIPNOTE_SESSION_ID so EnvSessionID falls back to .wipnote/.active-session, which concurrent agents&#39; SessionStart hooks overwrite — check --gate resolves session A, feature complete resolves session B. (2) check --gate stores work_item_id EMPTY because activeWorkItemForGate(sessionA) finds no attribution, so LatestPassingGateRecordForWorkItem (the bug-35857288 cross-session fallback queried with the explicit CLI work-item id) cannot match the record either. Chained &#39;&amp;&amp;&#39; works because one process tree = one session resolution, no hook fires between. FIX: make gate records always carry a non-empty work_item_id — add optional --work-item  flag to wipnote check --gate (validate the id exists); when absent keep activeWorkItemForGate but fall back to most-recent in-progress item; completion path unchanged, HEAD re-gate semantics preserved. Confirming experiment: run check --gate then sqlite3 query gate_records for empty work_item_id; compare session ids printed by two separate invocations. Key sites: cmd/wipnote/check.go ~67, check_gate_support.go runSessionGate/persistGateRecord/validateCompletionGateRecord ~267-592, core/hooks/runner.go EnvSessionID ~305.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-07T13:48:56.889214"
-             data-updated="2026-08-09T20:43:19.009741" data-agent-assigned="claude-code" data-track-id="trk-49c43b06" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802" data-affected_files=".github/workflows/ci.yml,.wipnote/features/feat-7d0c7568.html,cmd/wipnote/api_plans.go,cmd/wipnote/context_pack.go,cmd/wipnote/context_pack_test.go,cmd/wipnote/hook_exit_plan_mode.go,cmd/wipnote/plan_cmds.go,cmd/wipnote/plan_create.go,cmd/wipnote/plan_create_test.go,cmd/wipnote/plan_critique.go,cmd/wipnote/plan_critique_test.go,cmd/wipnote/plan_elicit_decisions.go,cmd/wipnote/plan_elicit_decisions_test.go,cmd/wipnote/plan_finalize.go,cmd/wipnote/plan_finalize_test.go,cmd/wipnote/plan_finalize_yaml.go,cmd/wipnote/plan_finalize_yaml_test.go,cmd/wipnote/plan_mutations.go,cmd/wipnote/plan_promote_slice.go,cmd/wipnote/plan_promote_slice_test.go,cmd/wipnote/plan_reopen.go,cmd/wipnote/plan_show.go,cmd/wipnote/plan_typed_sections.go,cmd/wipnote/plan_validate.go,cmd/wipnote/plan_validate_test.go,cmd/wipnote/plan_wire.go,cmd/wipnote/plan_wire_test.go,cmd/wipnote/plan_yaml_cmds.go,cmd/wipnote/plan_yaml_cmds_test.go,cmd/wipnote/plan_yaml_extras.go,cmd/wipnote/reindex_plan_edges.go,cmd/wipnote/spec.go,cmd/wipnote/sqlite_write_boundary_test.go,cmd/wipnote/workitem_modify.go,docs/track-attribution-rules.yaml,go.mod,internal/planamend/parser.go,internal/planamend/parser_test.go,internal/planchat/backend.go,internal/planchat/backend_test.go,internal/plantmpl/builder.go,internal/plantmpl/builder_test.go,internal/plantmpl/critique_zone.go,internal/plantmpl/critique_zone_test.go,internal/plantmpl/dependency_graph.go,internal/plantmpl/dependency_graph_test.go,internal/plantmpl/design_section.go,internal/plantmpl/design_section_test.go,internal/plantmpl/finalize_preview.go,internal/plantmpl/finalize_preview_test.go,internal/plantmpl/outline_section.go,internal/plantmpl/outline_section_test.go,internal/plantmpl/plantmpl.go,internal/plantmpl/plantmpl_test.go,internal/plantmpl/progress_bar.go,internal/plantmpl/progress_bar_test.go,internal/plantmpl/questions_section.go,internal/plantmpl/questions_section_test.go,internal/plantmpl/slice_card.go,internal/plantmpl/slice_card_test.go,internal/plantmpl/templates/critique_zone.gohtml,internal/plantmpl/templates/dependency_graph.gohtml,internal/plantmpl/templates/design_section.gohtml,internal/plantmpl/templates/finalize_preview.gohtml,internal/plantmpl/templates/outline_section.gohtml,internal/plantmpl/templates/plan_page.gohtml,internal/plantmpl/templates/progress_bar.gohtml,internal/plantmpl/templates/questions_section.gohtml,internal/plantmpl/templates/slice_card.gohtml,internal/planyaml/io.go,internal/planyaml/schema.go,internal/planyaml/schema_test.go,internal/planyaml/validate.go,internal/planyaml/validate_test.go,packages/codex-marketplace/.agents/plugins/wipnote/skills/plan-critique/SKILL.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/LEGACY.md,packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/SKILL.md,packages/gemini-extension/skills/plan-critique/SKILL.md,packages/gemini-extension/skills/plan/LEGACY.md,packages/gemini-extension/skills/plan/SKILL.md,plan/go.mod,plan/go.sum,plan/planamend/parser.go,plan/planamend/parser_test.go,plan/planchat/backend.go,plan/planchat/backend_test.go,plan/plantmpl/builder.go,plan/plantmpl/builder_test.go,plan/plantmpl/critique_zone.go,plan/plantmpl/critique_zone_test.go,plan/plantmpl/dependency_graph.go,plan/plantmpl/dependency_graph_test.go,plan/plantmpl/design_section.go,plan/plantmpl/design_section_test.go,plan/plantmpl/finalize_preview.go,plan/plantmpl/finalize_preview_test.go,plan/plantmpl/outline_section.go,plan/plantmpl/outline_section_test.go,plan/plantmpl/plantmpl.go,plan/plantmpl/plantmpl_test.go,plan/plantmpl/progress_bar.go,plan/plantmpl/progress_bar_test.go,plan/plantmpl/questions_section.go,plan/plantmpl/questions_section_test.go,plan/plantmpl/slice_card.go,plan/plantmpl/slice_card_test.go,plan/plantmpl/templates/critique_zone.gohtml,plan/plantmpl/templates/dependency_graph.gohtml,plan/plantmpl/templates/design_section.gohtml,plan/plantmpl/templates/finalize_preview.gohtml,plan/plantmpl/templates/outline_section.gohtml,plan/plantmpl/templates/plan_page.gohtml,plan/plantmpl/templates/progress_bar.gohtml,plan/plantmpl/templates/questions_section.gohtml,plan/plantmpl/templates/slice_card.gohtml,plan/planyaml/io.go,plan/planyaml/schema.go,plan/planyaml/schema_test.go,plan/planyaml/validate.go,plan/planyaml/validate_test.go,plugin/skills/plan-critique/SKILL.md,plugin/skills/plan/LEGACY.md,plugin/skills/plan/SKILL.md">
+             data-updated="2026-06-07T20:18:10.19394" data-agent-assigned="claude-code" data-track-id="trk-49c43b06" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
 
         <header>
             <h1>Lift planning packages into plan/ module</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="../sessions/e3919a63-e4c6-4a41-bb1f-bd1d56449994.html" data-relationship="implemented_in" data-since="2026-06-07T20:05:27.373821">session e3919a63-e4c6-4a41-bb1f-bd1d56449994</a></li>
-                </ul>
-            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="../tracks/trk-49c43b06.html" data-relationship="part_of" data-since="2026-06-07T13:48:56.895135">trk-49c43b06</a></li>
+                    <li><a href="trk-49c43b06.html" data-relationship="part_of" data-since="2026-06-07T13:48:56.895135">trk-49c43b06</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="e3919a63-e4c6-4a41-bb1f-bd1d56449994.html" data-relationship="implemented_in" data-since="2026-06-07T20:05:27.373821">session e3919a63-e4c6-4a41-bb1f-bd1d56449994</a></li>
                 </ul>
             </section>
         </nav>

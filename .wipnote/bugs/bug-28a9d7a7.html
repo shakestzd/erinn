@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-26T12:39:31.284862"
-             data-updated="2026-05-15T05:32:01.641748" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:41:45.2467" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files=".htmlgraph/bugs/bug-0403e704.html,.htmlgraph/bugs/bug-1ebcad6b.html,.htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4d3c3139.html,.htmlgraph/bugs/bug-ccf8b887.html,.htmlgraph/bugs/bug-f22b6349.html,.htmlgraph/bugs/bug-f92bedff.html,.htmlgraph/bugs/bug-ff6a3286.html,.htmlgraph/features/feat-09024fb0.html,.htmlgraph/features/feat-1c3ebad9.html,.htmlgraph/features/feat-352a635e.html,.htmlgraph/features/feat-35519ac2.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-500da04c.html,.htmlgraph/features/feat-57d35c02.html,.htmlgraph/features/feat-6286f19f.html,.htmlgraph/features/feat-725953d3.html,.htmlgraph/features/feat-75426991.html,.htmlgraph/features/feat-7af2dda7.html,.htmlgraph/features/feat-7b094d00.html,.htmlgraph/features/feat-7b195a56.html,.htmlgraph/features/feat-82e11bbb.html,.htmlgraph/features/feat-9104fb56.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-af47836b.html,.htmlgraph/features/feat-bc3c0067.html,.htmlgraph/features/feat-c6b3d956.html,.htmlgraph/features/feat-dcf3d618.html,.htmlgraph/features/feat-e195d658.html,.htmlgraph/features/feat-ed1a1f2c.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-cb36e595.html,.wipnote/bugs/bug-28a9d7a7.html,.wipnote/bugs/bug-55a17fc2.html,.wipnote/features/feat-22fae741.html,.wipnote/features/feat-290aa82d.html,.wipnote/features/feat-38eb73aa.html,.wipnote/features/feat-612fc215.html,.wipnote/features/feat-a0c0025e.html,.wipnote/features/feat-a1e427d6.html,.wipnote/features/feat-d8fb9e42.html,.wipnote/plans/plan-cf1a6ae4.html,.wipnote/plans/plan-cf1a6ae4.yaml,cmd/htmlgraph/main.go,cmd/htmlgraph/main_test.go,cmd/htmlgraph/otel_collect.go,cmd/htmlgraph/otel_collect_test.go,cmd/htmlgraph/projects.go,cmd/htmlgraph/projects_test.go,cmd/htmlgraph/serve_child.go,cmd/htmlgraph/serve_child_indexer_removal_test.go,cmd/htmlgraph/serve_global.go,cmd/htmlgraph/serve_global_test.go,cmd/htmlgraph/serve_parent.go,cmd/htmlgraph/worktree_helpers_test.go,cmd/wipnote/reindex_otel_events.go,cmd/wipnote/serve.go,cmd/wipnote/serve_child.go,internal/agent/detect.go,internal/agent/detect_test.go,internal/hooks/gemini_model.go,internal/hooks/gemini_model_test.go,internal/otel/collector/lifecycle.go,internal/otel/indexer/indexer_test.go,internal/otel/indexer/orphans_test.go,internal/registry/registry.go,internal/registry/registry_test.go">
 
         <header>
             <h1>Session OTel collector dies mid-session and is duplicated by _serve-child receiver</h1>
@@ -24,38 +24,38 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
                 <ul>
-                    <li><a href="bebc2f35-a728-46b6-9ec6-dc5822379ce0.html" data-relationship="implemented_in" data-since="2026-04-26T16:18:07.006318">session bebc2f35-a728-46b6-9ec6-dc5822379ce0</a></li>
-                    <li><a href="7c4712e0-782f-415b-8614-a9affbfd7524.html" data-relationship="implemented_in" data-since="2026-04-26T18:20:17.557782">session 7c4712e0-782f-415b-8614-a9affbfd7524</a></li>
-                    <li><a href="11836a1a-43f9-4302-aeec-e35e472abd69.html" data-relationship="implemented_in" data-since="2026-05-14T17:34:45.545148">session 11836a1a-43f9-4302-aeec-e35e472abd69</a></li>
-                    <li><a href="08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T05:20:29.486222">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
+                    <li><a href="../features/feat-c40942d3.html" data-relationship="blocks" data-since="2026-05-07T19:27:05.117506">Tag v0.59.0, push origin/main, cut GitHub release</a></li>
                 </ul>
             </section>
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-4697c62c.html" data-relationship="caused_by" data-since="2026-04-26T12:39:31.289337">bug-4697c62c</a></li>
+                    <li><a href="../bugs/bug-4697c62c.html" data-relationship="caused_by" data-since="2026-04-26T12:39:31.289337">bug-4697c62c</a></li>
                 </ul>
             </section>
-            <section data-edge-type="blocks">
-                <h3>Blocks:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="feat-c40942d3.html" data-relationship="blocks" data-since="2026-05-07T19:27:05.117506">Tag v0.59.0, push origin/main, cut GitHub release</a></li>
+                    <li><a href="../sessions/bebc2f35-a728-46b6-9ec6-dc5822379ce0.html" data-relationship="implemented_in" data-since="2026-04-26T16:18:07.006318">session bebc2f35-a728-46b6-9ec6-dc5822379ce0</a></li>
+                    <li><a href="../sessions/7c4712e0-782f-415b-8614-a9affbfd7524.html" data-relationship="implemented_in" data-since="2026-04-26T18:20:17.557782">session 7c4712e0-782f-415b-8614-a9affbfd7524</a></li>
+                    <li><a href="../sessions/11836a1a-43f9-4302-aeec-e35e472abd69.html" data-relationship="implemented_in" data-since="2026-05-14T17:34:45.545148">session 11836a1a-43f9-4302-aeec-e35e472abd69</a></li>
+                    <li><a href="../sessions/08d6dd0f-655f-4c1e-95bc-cbc278858a02.html" data-relationship="implemented_in" data-since="2026-05-15T05:20:29.486222">session 08d6dd0f-655f-4c1e-95bc-cbc278858a02</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T12:39:31.292788">trk-c4615ad2</a></li>
-                    <li><a href="trk-bf3f8aa4.html" data-relationship="part_of" data-since="2026-05-07T19:27:29.686971">Public Launch 2026-05 — Erinn AI rename &#43; announcement</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T12:39:31.292788">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-bf3f8aa4.html" data-relationship="part_of" data-since="2026-05-07T19:27:29.686971">Public Launch 2026-05 — Erinn AI rename &#43; announcement</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="feat-56aa1d48.html" data-relationship="relates_to" data-since="2026-04-26T12:39:34.992991">htmlgraph otel-collect subcommand</a></li>
+                    <li><a href="../features/feat-56aa1d48.html" data-relationship="relates_to" data-since="2026-04-26T12:39:34.992991">htmlgraph otel-collect subcommand</a></li>
                 </ul>
             </section>
         </nav>
@@ -84,7 +84,7 @@
 Acceptance Criteria
 1. internal/otel/receiver package no longer exists in the tree. 2. No production code under cmd/ or internal/ imports internal/otel/receiver (verify via grep -rn). 3. ConvertAll behavior is preserved at its caller in cmd/htmlgraph/otel_collect_handler.go. 4. Stale comment in serve.go:102 and stale warning in claude_env.go:184 are removed or rewritten to reflect the session-scoped collector. 5. go build, go vet, and go test all pass on the full repo. 6. Targeted test of cmd/htmlgraph package passes 3 consecutive runs (regression guard against the bug-de827cbf hang).
 Test Strategy
-Quality gates: go build ./... && go vet ./... && go test -timeout 180s ./.... Stress: go test -count=3 -timeout 120s -run 'TestPlanLifecycle_NoSlices|TestAutocommitPlan|TestOtelCollect' ./cmd/htmlgraph/ ./internal/otel/.... Manual smoke: launch htmlgraph claude in a scratch dir, confirm exactly one otel-collect process spawns and its handshake port matches OTEL_EXPORTER_OTLP_ENDPOINT in the child env, then exit and confirm SIGTERM cleanup.</p>
+Quality gates: go build ./... &amp;&amp; go vet ./... &amp;&amp; go test -timeout 180s ./.... Stress: go test -count=3 -timeout 120s -run &#39;TestPlanLifecycle_NoSlices|TestAutocommitPlan|TestOtelCollect&#39; ./cmd/htmlgraph/ ./internal/otel/.... Manual smoke: launch htmlgraph claude in a scratch dir, confirm exactly one otel-collect process spawns and its handshake port matches OTEL_EXPORTER_OTLP_ENDPOINT in the child env, then exit and confirm SIGTERM cleanup.</p>
         </section>
     </article>
 </body>

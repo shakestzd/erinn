@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Test-fixture completion intent leaked into the production commit outbox</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e360704e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T12:57:55.233808"
+             data-updated="2026-08-09T12:57:55.246021" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Test-fixture completion intent leaked into the production commit outbox</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-09T12:57:55.245914">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The pending outbox holds an intent to commit a feature HTML file that does not exist in the repository, any worktree, or any reachable scratch space, for a work item id no agent in the session ever created deliberately. It was enqueued during the exact window a test suite was running completion-path tests against fixtures, and its recorded repo root is the real repository. The likely mechanism: the completion path enqueues its commit intent using a repo root resolved from the environment — project-dir variable or cwd walk-up — rather than from the store the completed item actually lives in, so a fixture completion inside a temp directory writes a poison intent into the real per-user outbox. Consequence today is bounded noise: the intent fails on every flush and will eventually dead-letter. But the same leak with a colliding path would let a test commit a fixture artifact into the real repository. Fix by deriving the enqueued repo root from the artifact&#39;s own resolved store path, and add a test that completes a fixture item and asserts the production outbox is untouched. Verify the hypothesis by matching the ghost id against fixture ids the rollup and transactional-complete tests generate.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-20T18:54:35.900381"
-             data-updated="2026-05-20T19:02:09.833774" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4">
+             data-updated="2026-08-09T20:42:28.950804" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4" data-affected_files=".wipnote/bugs/bug-c33f31b3.html,cmd/wipnote/codex.go,cmd/wipnote/codex_test.go">
 
         <header>
             <h1>codex marketplace registration: tarball uses FLAT layout (marketplace.json at root), dev source uses DEEP layout (.agents/plugins/marketplace.json) — fix must handle both</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T18:54:35.916533">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T18:55:17.154709">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                    <li><a href="../sessions/ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T18:55:17.154709">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T18:54:35.916533">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>v0.60.7 fix assumed deep layout for all installs. Empirical inspection of the released wipnote_0.60.7_darwin_arm64.tar.gz shows GoReleaser flattens the codex tree: tarball contains codex-marketplace/marketplace.json at root and codex-marketplace/wipnote/.codex-plugin/plugin.json — no .agents/plugins/ prefix. Dev source AND wipnote build install retain the deep layout (.agents/plugins/marketplace.json with .agents/plugins/wipnote/). Need a helper codexManifestPath(treeRoot) that stat-checks the flat path first, falls back to the deep path. Apply at all marketplace-add call sites in cmd/wipnote/codex.go (runCodexInit ~781, launchCodexDefault ~893, --dev ~1086) and in ensureCodexLocalPluginInstalled (~344-353). Repro: 'wipnote upgrade' to v0.60.7 on Mac then 'wipnote codex' → Error: failed to resolve local marketplace source path: No such file or directory.
+            <p>v0.60.7 fix assumed deep layout for all installs. Empirical inspection of the released wipnote_0.60.7_darwin_arm64.tar.gz shows GoReleaser flattens the codex tree: tarball contains codex-marketplace/marketplace.json at root and codex-marketplace/wipnote/.codex-plugin/plugin.json — no .agents/plugins/ prefix. Dev source AND wipnote build install retain the deep layout (.agents/plugins/marketplace.json with .agents/plugins/wipnote/). Need a helper codexManifestPath(treeRoot) that stat-checks the flat path first, falls back to the deep path. Apply at all marketplace-add call sites in cmd/wipnote/codex.go (runCodexInit ~781, launchCodexDefault ~893, --dev ~1086) and in ensureCodexLocalPluginInstalled (~344-353). Repro: &#39;wipnote upgrade&#39; to v0.60.7 on Mac then &#39;wipnote codex&#39; → Error: failed to resolve local marketplace source path: No such file or directory.
 [2026-05-20 19:00 claude-code] accepted-advisory (provenance override): Implementation in commit 2aaee4be1 — codexManifestPath helper added to codex.go; commit predates link step</p>
         </section>
     </article>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Lint cleanup: 8 pre-existing diagnostics in cmd/htmlgraph/ (incl. nilness in api_preview.go:107)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-02T21:41:48.933082"
-             data-updated="2026-05-02T22:17:19.049608" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:05.677812" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-07a41751.html,.htmlgraph/bugs/bug-4b399212.html,.htmlgraph/bugs/bug-68dff527.html,.htmlgraph/bugs/bug-7899a7ee.html,.htmlgraph/bugs/bug-acaa1fa4.html,cmd/htmlgraph/api_feed.go,cmd/htmlgraph/api_preview.go,cmd/htmlgraph/backfill_ai_title.go,cmd/htmlgraph/codex.go,cmd/htmlgraph/migrate_tracks.go,cmd/htmlgraph/plan_promote_slice.go,cmd/htmlgraph/skill_flags_test.go,cmd/htmlgraph/yolo.go">
 
         <header>
             <h1>Lint cleanup: 8 pre-existing diagnostics in cmd/htmlgraph/ (incl. nilness in api_preview.go:107)</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="6b432d50-b2c3-4045-960e-a815085f56c3.html" data-relationship="implemented_in" data-since="2026-05-02T22:12:40.348954">session 6b432d50-b2c3-4045-960e-a815085f56c3</a></li>
+                    <li><a href="../sessions/6b432d50-b2c3-4045-960e-a815085f56c3.html" data-relationship="implemented_in" data-since="2026-05-02T22:12:40.348954">session 6b432d50-b2c3-4045-960e-a815085f56c3</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-02T21:41:48.946384">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-02T21:41:48.946384">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -57,7 +57,7 @@ INFO (dead code / unused signatures, safe to clean):
 
 Suggested order: (1) fix api_preview.go:107 first — read the surrounding code, decide if the nil-check is dead or hiding a bug; (2) batch the unusedparams fixes (rename to _ or remove); (3) delete unused funcs only after grep -rn confirms no callers; (4) trivial S1017.
 
-Acceptance: go vet ./... and the LSP modernize/staticcheck pass clean for cmd/htmlgraph/. Do NOT delete codex.go funcs without first checking they aren't reflectively referenced or commented-out callers.</p>
+Acceptance: go vet ./... and the LSP modernize/staticcheck pass clean for cmd/htmlgraph/. Do NOT delete codex.go funcs without first checking they aren&#39;t reflectively referenced or commented-out callers.</p>
         </section>
     </article>
 </body>

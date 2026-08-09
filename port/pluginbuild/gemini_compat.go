@@ -71,13 +71,13 @@ func mapGeminiAgentModel(model string) string {
 const tripleTickForbidden = "'''"
 
 // toGeminiCommandTOML wraps a markdown body as a TOML `prompt` value using a
-// multiline literal string (three apostrophes on each side: '''…'''). Literal strings pass all content through
+// multiline literal string (delimited by three consecutive quotes on each side). Literal strings pass all content through
 // verbatim — backslashes, \n sequences, and \uXXXX escapes are NOT interpreted
 // by the TOML parser, so the prompt round-trips byte-for-byte from source
 // markdown to parsed TOML value. Consumed by the Antigravity command emitter.
 //
 // The only restriction of TOML literal strings is that they cannot contain the
-// sequence of three consecutive apostrophes ('''). If the source contains that sequence, this function returns an
+// sequence of three consecutive quotes. If the source contains that sequence, this function returns an
 // error — the caller should add an escape for that file or switch to a TOML
 // writer library rather than silently producing unparseable output.
 func toGeminiCommandTOML(mdBody string) (string, error) {

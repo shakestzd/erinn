@@ -779,7 +779,7 @@ func stepBackfillTotalEvents(db *sql.DB) error {
 // same commit collided with the first insert and was silently dropped
 // (bug-3bf05d49).
 //
-// feature_id is normalized to the empty string '' (never NULL) so it can safely sit in a
+// feature_id is normalized to the empty string (never NULL) so it can safely sit in a
 // composite key: SQLite's PRIMARY KEY does not imply NOT NULL, and two NULLs
 // are never equal under a UNIQUE index — a nullable PK column would silently
 // defeat INSERT OR IGNORE's de-duplication for unattributed commits.

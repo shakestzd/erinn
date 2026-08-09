@@ -73,7 +73,7 @@ func TestInsertGitCommit_MultipleFeatureIDsSameCommitSession(t *testing.T) {
 }
 
 // TestInsertGitCommit_UnattributedDuplicateStillDeduped guards the flip side
-// of the fix: feature_id is stored as the empty string '' rather than NULL specifically so
+// of the fix: feature_id is stored as the empty string rather than NULL specifically so
 // that re-inserting the SAME unattributed commit (e.g. a re-run of
 // `wipnote ingest commits`, or the hook firing twice) still de-dupes via
 // INSERT OR IGNORE. Had feature_id remained nullable, two NULLs are never

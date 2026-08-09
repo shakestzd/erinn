@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph blame &lt;path&gt; — reverse lookup from file to features/bugs/tracks</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T06:28:01.937583"
-             data-updated="2026-05-01T11:11:53.487826" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:12.10637" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".htmlgraph/bugs/bug-c5a34bc3.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/plans/plan-3bbc313f.html,.htmlgraph/plans/plan-3bbc313f.yaml,.htmlgraph/tracks/trk-0677c709.html,cmd/htmlgraph/blame.go,cmd/htmlgraph/blame_test.go,cmd/htmlgraph/cache.go,cmd/htmlgraph/cache_pollution_test.go,cmd/htmlgraph/code_areas.go,cmd/htmlgraph/code_areas_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/multiharness_test.go,cmd/htmlgraph/otel_collect.go,cmd/htmlgraph/worktree_helpers_test.go,docs/cli/blame.md,docs/code-areas.md,internal/blame/areas.go,internal/blame/areas_test.go,internal/blame/blame.go,internal/blame/blame_test.go,internal/otel/sink/ndjson/ndjson.go,internal/otel/sink/ndjson/ndjson_test.go,internal/otel/sink/sink_test.go,internal/storage/dbpath.go,internal/storage/evict.go,internal/storage/evict_test.go">
 
         <header>
             <h1>htmlgraph blame &lt;path&gt; — reverse lookup from file to features/bugs/tracks</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="eab7ad37-80d8-4e22-8083-e4c57040a349.html" data-relationship="implemented_in" data-since="2026-05-01T06:32:25.660492">session eab7ad37-80d8-4e22-8083-e4c57040a349</a></li>
+                    <li><a href="../sessions/eab7ad37-80d8-4e22-8083-e4c57040a349.html" data-relationship="implemented_in" data-since="2026-05-01T06:32:25.660492">session eab7ad37-80d8-4e22-8083-e4c57040a349</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T06:28:01.945282">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T06:28:01.945282">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -41,19 +41,19 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-0" data-agent="claude-code">✅ Audit internal/db/feature_files_repo.go schema — confirm columns (file_path, feature_id, lines_added, lines_removed, last_seen, etc.); document in a short comment block at top of new blame.go</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-1" data-agent="claude-code">✅ Add cmd/htmlgraph/blame.go with cobra command &#39;htmlgraph blame &lt;path&gt;&#39;; positional path arg required; flags --format text|json|markdown (default text), --since &lt;date&gt;, --top N (default unlimited)</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-2" data-agent="claude-code">✅ Implement core query in internal/blame/blame.go: input path → feature_files rows → features → contained_in track edges; aggregate per-feature line-change counts and per-track totals; return a structured Result type for formatters to consume</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-3" data-agent="claude-code">✅ Implement formatters: text (table with feature/title/track/lines), json (Result type marshaled), markdown (table with anchors); ensure JSON shape is stable enough for piping into htmlgraph query</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-4" data-agent="claude-code">✅ Add cmd/htmlgraph/blame_test.go: single-feature file (one row out), multi-feature same-track file (rollup correct), multi-track file (dominant track plus breakdown), unknown path (clean error not panic), path under .htmlgraph/ (skip with note)</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-5" data-agent="claude-code">✅ Update plugin/skills/agent-context (or wherever the htmlgraph help --compact list lives) to include &#39;blame&#39; under the lineage command family alongside trace/lineage/history</li>
-                <li data-completed="true" data-step-id="step-feat-69c6a463-6" data-agent="claude-code">✅ Document in docs/cli/blame.md with 3 recipes: &#39;who touched this file?&#39;, &#39;which track owns this directory?&#39; (loop over files), &#39;audit untracked files&#39; (--filter no-attribution)</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Audit internal/db/feature_files_repo.go schema — confirm columns (file_path, feature_id, lines_added, lines_removed, last_seen, etc.); document in a short comment block at top of new blame.go</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/blame.go with cobra command &#39;htmlgraph blame &lt;path&gt;&#39;; positional path arg required; flags --format text|json|markdown (default text), --since &lt;date&gt;, --top N (default unlimited)</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement core query in internal/blame/blame.go: input path → feature_files rows → features → contained_in track edges; aggregate per-feature line-change counts and per-track totals; return a structured Result type for formatters to consume</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement formatters: text (table with feature/title/track/lines), json (Result type marshaled), markdown (table with anchors); ensure JSON shape is stable enough for piping into htmlgraph query</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/blame_test.go: single-feature file (one row out), multi-feature same-track file (rollup correct), multi-track file (dominant track plus breakdown), unknown path (clean error not panic), path under .htmlgraph/ (skip with note)</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Update plugin/skills/agent-context (or wherever the htmlgraph help --compact list lives) to include &#39;blame&#39; under the lineage command family alongside trace/lineage/history</li>
+                <li data-completed="true" data-step-id="step-feat-69c6a463-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Document in docs/cli/blame.md with 3 recipes: &#39;who touched this file?&#39;, &#39;which track owns this directory?&#39; (loop over files), &#39;audit untracked files&#39; (--filter no-attribution)</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Today there is no CLI command that, given a source file path, lists which features and bugs have touched it. The data exists: internal/db/feature_files_repo.go tracks file-to-feature attribution and git_commits ties commits to features. The missing piece is the reverse-lookup surface. Output: human-readable text default, plus --format json and --format markdown. Walk:  → feature_files rows → features → contained_in track edges → rollup with per-feature line-change counts and dominant-track summary. This is the foundational primitive for the partner command 'htmlgraph code-areas' — once both exist, file→track attribution becomes a live derivation rather than a manually-maintained doc.</p>
+            <p>Today there is no CLI command that, given a source file path, lists which features and bugs have touched it. The data exists: internal/db/feature_files_repo.go tracks file-to-feature attribution and git_commits ties commits to features. The missing piece is the reverse-lookup surface. Output: human-readable text default, plus --format json and --format markdown. Walk:  → feature_files rows → features → contained_in track edges → rollup with per-feature line-change counts and dominant-track summary. This is the foundational primitive for the partner command &#39;htmlgraph code-areas&#39; — once both exist, file→track attribution becomes a live derivation rather than a manually-maintained doc.</p>
         </section>
     </article>
 </body>

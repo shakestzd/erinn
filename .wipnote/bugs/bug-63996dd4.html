@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-21T23:37:37.699381"
-             data-updated="2026-05-22T01:22:40.742444" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
+             data-updated="2026-08-09T20:42:04.049392" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8" data-affected_files=".wipnote/bugs/bug-63996dd4.html,cmd/wipnote/ingest.go,internal/hooks/posttooluse.go,internal/hooks/posttooluse_test.go">
 
         <header>
             <h1>post-commit hook doesn&#39;t link commit to work item by parsing the ID from the commit message (fallback when no active session item)</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-21T23:37:37.710082">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-21T23:40:16.509836">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-21T23:40:16.509836">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-21T23:37:37.710082">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Commit-to-workitem linking depends on the session's active work item at commit time. When a commit is made by a session with no active item (e.g. a delegated committer subagent), the live post-commit hook links nothing, even when the commit message names the work item ID explicitly. Only the batch 'ingest commits' picks it up. Fix: post-commit hook should parse a work-item ID from the commit message and link as a fallback when no active item is set. Surfaced while completing bug-900f6655.</p>
+            <p>Commit-to-workitem linking depends on the session&#39;s active work item at commit time. When a commit is made by a session with no active item (e.g. a delegated committer subagent), the live post-commit hook links nothing, even when the commit message names the work item ID explicitly. Only the batch &#39;ingest commits&#39; picks it up. Fix: post-commit hook should parse a work-item ID from the commit message and link as a fallback when no active item is set. Surfaced while completing bug-900f6655.</p>
         </section>
     </article>
 </body>

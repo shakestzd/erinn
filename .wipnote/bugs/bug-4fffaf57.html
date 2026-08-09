@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-23T22:39:48.755672"
-             data-updated="2026-05-23T22:59:23.631935" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:41:56.276677" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".gitignore,.wipnote/bugs/bug-4fffaf57.html,internal/hooks/session_start.go,internal/worktree/carryover.go,internal/worktree/carryover_test.go,internal/worktree/gitignore.go,internal/worktree/gitignore_test.go">
 
         <header>
             <h1>wipnote does not install its derived/runtime .gitignore policy into adopter projects — session/telemetry/lock/pid artifacts show as untracked</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T22:39:48.77959">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T22:40:18.415173">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T22:40:18.415173">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T22:39:48.77959">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>The wipnote dev repo's root .gitignore hand-maintains a 'wipnote policy' block ignoring derived/runtime artifacts (.wipnote/sessions/, events/, logs/, *.db*, **/*.lock, .active-session, .launch-mode, .otlp-port, etc.). Adopter projects never receive this policy — the only gitignore writer is excludeWipnoteFromWorktree (worktree-scoped). So in a user project, all of wipnote's runtime/telemetry files (sessions/*.html, events.ndjson, *.lock, .collector-pid, .index-offset, .active-session, .otel-notice-shown, session-families.json, migrations/*.done, etc.) show as untracked: pollutes git status, risks accidental commit, and floods the yolo worktree-carryover 'Untracked files not carried' output (~100 lines of wipnote internals). Fix: (1) idempotently install a self-contained .wipnote/.gitignore policy (patterns relative to .wipnote/) at project bootstrap / session-start for ALL harnesses, ignoring derived/runtime/telemetry while keeping canonical work-item HTML + config tracked; (2) top up patterns missing from the current dev policy (.otel-notice-shown, session-families.json, migrations/*.done, pid/offset markers); (3) defensive: exclude .wipnote/ from the carryover untracked report in internal/worktree/carryover.go. Rationale for ignoring sessions: per-user/per-machine observability, unbounded churn, sensitive prompt/cost content, fully derived — the portable causal backbone is committed work-items + git commits, not local session traces.</p>
+            <p>The wipnote dev repo&#39;s root .gitignore hand-maintains a &#39;wipnote policy&#39; block ignoring derived/runtime artifacts (.wipnote/sessions/, events/, logs/, *.db*, **/*.lock, .active-session, .launch-mode, .otlp-port, etc.). Adopter projects never receive this policy — the only gitignore writer is excludeWipnoteFromWorktree (worktree-scoped). So in a user project, all of wipnote&#39;s runtime/telemetry files (sessions/*.html, events.ndjson, *.lock, .collector-pid, .index-offset, .active-session, .otel-notice-shown, session-families.json, migrations/*.done, etc.) show as untracked: pollutes git status, risks accidental commit, and floods the yolo worktree-carryover &#39;Untracked files not carried&#39; output (~100 lines of wipnote internals). Fix: (1) idempotently install a self-contained .wipnote/.gitignore policy (patterns relative to .wipnote/) at project bootstrap / session-start for ALL harnesses, ignoring derived/runtime/telemetry while keeping canonical work-item HTML + config tracked; (2) top up patterns missing from the current dev policy (.otel-notice-shown, session-families.json, migrations/*.done, pid/offset markers); (3) defensive: exclude .wipnote/ from the carryover untracked report in internal/worktree/carryover.go. Rationale for ignoring sessions: per-user/per-machine observability, unbounded churn, sensitive prompt/cost content, fully derived — the portable causal backbone is committed work-items + git commits, not local session traces.</p>
         </section>
     </article>
 </body>

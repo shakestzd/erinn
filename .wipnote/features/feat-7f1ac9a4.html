@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph code-areas — aggregate file→track attribution across the codebase</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-01T06:28:02.047448"
-             data-updated="2026-05-01T11:11:53.579505" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:19.748031" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-affected_files=".htmlgraph/bugs/bug-c5a34bc3.html,.htmlgraph/features/feat-9b767422.html,.htmlgraph/plans/plan-3bbc313f.html,.htmlgraph/plans/plan-3bbc313f.yaml,.htmlgraph/tracks/trk-0677c709.html,cmd/htmlgraph/blame.go,cmd/htmlgraph/blame_test.go,cmd/htmlgraph/cache.go,cmd/htmlgraph/cache_pollution_test.go,cmd/htmlgraph/code_areas.go,cmd/htmlgraph/code_areas_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/multiharness_test.go,cmd/htmlgraph/otel_collect.go,cmd/htmlgraph/worktree_helpers_test.go,docs/cli/blame.md,docs/code-areas.md,internal/blame/areas.go,internal/blame/areas_test.go,internal/blame/blame.go,internal/blame/blame_test.go,internal/otel/sink/ndjson/ndjson.go,internal/otel/sink/ndjson/ndjson_test.go,internal/otel/sink/sink_test.go,internal/storage/dbpath.go,internal/storage/evict.go,internal/storage/evict_test.go">
 
         <header>
             <h1>htmlgraph code-areas — aggregate file→track attribution across the codebase</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T06:28:02.055881">trk-08dcbb33</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-69c6a463.html" data-relationship="blocked_by" data-since="2026-05-01T06:28:17.198504">htmlgraph blame &lt;path&gt; — reverse lookup from file to features/bugs/tracks</a></li>
+                    <li><a href="../features/feat-69c6a463.html" data-relationship="blocked_by" data-since="2026-05-01T06:28:17.198504">htmlgraph blame &lt;path&gt; — reverse lookup from file to features/bugs/tracks</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="eab7ad37-80d8-4e22-8083-e4c57040a349.html" data-relationship="implemented_in" data-since="2026-05-01T06:47:20.472976">session eab7ad37-80d8-4e22-8083-e4c57040a349</a></li>
+                    <li><a href="../sessions/eab7ad37-80d8-4e22-8083-e4c57040a349.html" data-relationship="implemented_in" data-since="2026-05-01T06:47:20.472976">session eab7ad37-80d8-4e22-8083-e4c57040a349</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-01T06:28:02.055881">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,19 +47,19 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-0" data-agent="claude-code">✅ Add cmd/htmlgraph/code_areas.go with cobra command &#39;htmlgraph code-areas&#39;; flags --by-track (default) | --by-file, --format text|json|markdown, --include-untracked (default true), --root &lt;dir&gt; (default repo root)</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-1" data-agent="claude-code">✅ Implement aggregator in internal/blame/areas.go reusing the query helper from blame.go (deps: blame feature must land first); walk every file under --root, run the blame query for each, group results by track, sort tracks by file count</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-2" data-agent="claude-code">✅ Add &#39;untracked&#39; bucket logic: any file with zero feature_files rows lands here; emit a top-level summary count so gap detection is one-line obvious</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-3" data-agent="claude-code">✅ Implement markdown formatter that produces a drop-in replacement for a hand-authored docs/code-areas.md: per-track section heading, file table with line counts, untracked appendix</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-4" data-agent="claude-code">✅ Add cmd/htmlgraph/code_areas_test.go: by-track grouping correctness, by-file inverse, untracked detection, format matrix (text/json/markdown each produce parseable output), --root scoping</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-5" data-agent="claude-code">✅ Wire CI step: &#39;htmlgraph code-areas --format markdown &gt; docs/code-areas.md.gen&#39; and &#39;diff -q docs/code-areas.md docs/code-areas.md.gen&#39; — fail on diff; commit the generated docs/code-areas.md as the canonical version</li>
-                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-6" data-agent="claude-code">✅ Delete any pre-existing manually-written docs/code-areas.md once the generator covers the same content; ensure it is in version control as generator output, not hand-maintained</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/code_areas.go with cobra command &#39;htmlgraph code-areas&#39;; flags --by-track (default) | --by-file, --format text|json|markdown, --include-untracked (default true), --root &lt;dir&gt; (default repo root)</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement aggregator in internal/blame/areas.go reusing the query helper from blame.go (deps: blame feature must land first); walk every file under --root, run the blame query for each, group results by track, sort tracks by file count</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add &#39;untracked&#39; bucket logic: any file with zero feature_files rows lands here; emit a top-level summary count so gap detection is one-line obvious</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement markdown formatter that produces a drop-in replacement for a hand-authored docs/code-areas.md: per-track section heading, file table with line counts, untracked appendix</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add cmd/htmlgraph/code_areas_test.go: by-track grouping correctness, by-file inverse, untracked detection, format matrix (text/json/markdown each produce parseable output), --root scoping</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire CI step: &#39;htmlgraph code-areas --format markdown &gt; docs/code-areas.md.gen&#39; and &#39;diff -q docs/code-areas.md docs/code-areas.md.gen&#39; — fail on diff; commit the generated docs/code-areas.md as the canonical version</li>
+                <li data-completed="true" data-step-id="step-feat-7f1ac9a4-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Delete any pre-existing manually-written docs/code-areas.md once the generator covers the same content; ensure it is in version control as generator output, not hand-maintained</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Forward partner of 'htmlgraph blame'. Walks every tracked source file, aggregates by track via feature_files → features → contained_in chains, and emits a per-track inventory (with optional inverse --by-file mode). Modes: --format text|json|markdown. Surfaces an 'untracked' bucket for files with no feature attribution (gap signal). Replaces the manually-written docs/code-areas.md once shipped — CI step regenerates docs/code-areas.md and fails on diff. Depends on 'htmlgraph blame' existing because they share the underlying query helper; build blame first, then layer code-areas on top.</p>
+            <p>Forward partner of &#39;htmlgraph blame&#39;. Walks every tracked source file, aggregates by track via feature_files → features → contained_in chains, and emits a per-track inventory (with optional inverse --by-file mode). Modes: --format text|json|markdown. Surfaces an &#39;untracked&#39; bucket for files with no feature attribution (gap signal). Replaces the manually-written docs/code-areas.md once shipped — CI step regenerates docs/code-areas.md and fails on diff. Depends on &#39;htmlgraph blame&#39; existing because they share the underlying query helper; build blame first, then layer code-areas on top.</p>
         </section>
     </article>
 </body>

@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-16T23:27:08.859352"
-             data-updated="2026-05-17T02:05:56.628785" data-agent-assigned="claude-code" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-147-g13bb16b5e">
+             data-updated="2026-08-09T20:42:50.051807" data-agent-assigned="claude-code" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-147-g13bb16b5e" data-affected_files=".wipnote/features/feat-101c2905.html,cmd/wipnote/api_plans.go,cmd/wipnote/dashboard/index.html,cmd/wipnote/dashboard/js/app.js,cmd/wipnote/plan_finalize_yaml.go,cmd/wipnote/sqlite_write_boundary_test.go,internal/otel/receiver/writer.go,internal/otel/receiver/writer_test.go">
 
         <header>
             <h1>Dashboard plan table &#43; finalize UX modernization (ID, slice-progress, surfaced command, version)</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="7b192a27-aafc-4c21-8888-d67d1bdc107f.html" data-relationship="implemented_in" data-since="2026-05-16T23:27:22.269595">session 7b192a27-aafc-4c21-8888-d67d1bdc107f</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocks">
                 <h3>Blocks:</h3>
                 <ul>
-                    <li><a href="feat-8b28291b.html" data-relationship="blocks" data-since="2026-05-16T23:27:22.422601">Plan review feedback woven into generated features (programmatic stub &#43; agentic refine)</a></li>
+                    <li><a href="../features/feat-8b28291b.html" data-relationship="blocks" data-since="2026-05-16T23:27:22.422601">Plan review feedback woven into generated features (programmatic stub &#43; agentic refine)</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/7b192a27-aafc-4c21-8888-d67d1bdc107f.html" data-relationship="implemented_in" data-since="2026-05-16T23:27:22.269595">session 7b192a27-aafc-4c21-8888-d67d1bdc107f</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,7 +48,7 @@
         <section data-content>
             <h3>Description</h3>
             <p>Four contained fixes. 1) Add plan ID column (data already in p.id; index.html table header + app.js row loop). 2) Fix parsePlanListItem to compute Total=len(slices) and Approved from slice approval model consistent with finalize-enable, not rendered-HTML approve-input count. 3a) Extend planFinalizeHandler JSON to include the agentic next command (per printFinalizeYAMLSummary) + created_features; render them in app.js finalize handler instead of just Plan Finalized. 4) Expose meta.version on planListItem + add VERSION column.
-[2026-05-17 02:05 claude-code] accepted-advisory (provenance override): Durable provenance IS commit 69784ec0995ae1ffddd2fe190bdc734c64d6dfe3 (HEAD), whose body references feat-101c2905 and contains the full implementation: dashboard api_plans.go/plan_finalize_yaml.go + dashboard html/js, the sqlite_write_boundary inventory reconciliation, and the bundled internal/otel writer WIP. Auto-link did not fire because the commit was created by an out-of-session copilot subprocess so the post-commit session-attribution hook did not bind it; there is no CLI to retro-link a commit. The 'code-bearing source paths' the gate flags are agent-memory files and stdout-redirect temp files forced by a session-wide broken Bash output-capture environment, not implementation code. Pre-existing dirty files (settings.local.json, internal/storage/*) predate this session and were deliberately excluded.</p>
+[2026-05-17 02:05 claude-code] accepted-advisory (provenance override): Durable provenance IS commit 69784ec0995ae1ffddd2fe190bdc734c64d6dfe3 (HEAD), whose body references feat-101c2905 and contains the full implementation: dashboard api_plans.go/plan_finalize_yaml.go + dashboard html/js, the sqlite_write_boundary inventory reconciliation, and the bundled internal/otel writer WIP. Auto-link did not fire because the commit was created by an out-of-session copilot subprocess so the post-commit session-attribution hook did not bind it; there is no CLI to retro-link a commit. The &#39;code-bearing source paths&#39; the gate flags are agent-memory files and stdout-redirect temp files forced by a session-wide broken Bash output-capture environment, not implementation code. Pre-existing dirty files (settings.local.json, internal/storage/*) predate this session and were deliberately excluded.</p>
         </section>
     </article>
 </body>

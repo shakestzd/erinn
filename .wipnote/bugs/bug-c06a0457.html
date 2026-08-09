@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-11T07:45:07.383977"
-             data-updated="2026-06-11T08:59:12.215882" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+             data-updated="2026-08-09T20:42:28.616073" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac" data-affected_files=".wipnote/arch/learning-feat-359312ab.md,.wipnote/arch/learning-feat-5a312c8f.md,.wipnote/bugs/bug-c06a0457.html,cmd/wipnote/arch_cmds.go,cmd/wipnote/arch_cmds_test.go,cmd/wipnote/ingest.go,cmd/wipnote/ingest_events_test.go,cmd/wipnote/reindex_feature_files_test.go,cmd/wipnote/reindex_files.go,core/arch/card.go,core/arch/card_test.go,core/arch/store.go">
 
         <header>
             <h1>complete --learning captures garbage path globs: absolute host paths, dead worktrees, transcript tmp files</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:45:07.415364">trk-53715165</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:49:39.083786">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T08:49:39.083786">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:45:07.415364">trk-53715165</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>ROOT CAUSE (researched 2026-06-11): two unguarded write paths. (1) cmd/wipnote/ingest.go ~277 stores RAW absolute paths from tool inputs into feature_files — core/paths.MustNormalize/NormalizeToRepoRelative exists (core/paths/normalize.go, used by core/hooks/pretooluse.go) but ingest never calls it; reindex-sourced rows are clean (git diff-tree emits repo-relative). (2) createLearningCard (arch_cmds.go ~526) writes resolveWorkItemPaths output verbatim into card.Paths. DURABLE FIX, three layers: L1 ingest.go — normalize each extracted path with paths.MustNormalize(projectDir) and SKIP unresolved:/empty results (outside-repo paths must not enter feature_files); L2 createLearningCard — normalize+dedupe+filter again (defense in depth against pre-fix rows); L3 arch validate rule — ERROR on absolute or ../-escaping or unresolved: paths, WARN on suspicious prefixes (agent-memory dirs, tmp) so bootstrap cards keep working. REPAIR: fix the two existing garbage cards via a repeatable repair pass (read card links -> git diff-tree linked commits -> normalize -> rewrite paths) and land the repair BEFORE the validator, or validate immediately reds the live cards. Interaction: bug-38680a65's fallback emits diff-tree (repo-relative) paths — passes this validator; no conflict. Effort ~2.5h. Order: ship ingest+capture normalization with bug-38680a65's helper extraction in one PR; validator+repair as follow-on.
+            <p>ROOT CAUSE (researched 2026-06-11): two unguarded write paths. (1) cmd/wipnote/ingest.go ~277 stores RAW absolute paths from tool inputs into feature_files — core/paths.MustNormalize/NormalizeToRepoRelative exists (core/paths/normalize.go, used by core/hooks/pretooluse.go) but ingest never calls it; reindex-sourced rows are clean (git diff-tree emits repo-relative). (2) createLearningCard (arch_cmds.go ~526) writes resolveWorkItemPaths output verbatim into card.Paths. DURABLE FIX, three layers: L1 ingest.go — normalize each extracted path with paths.MustNormalize(projectDir) and SKIP unresolved:/empty results (outside-repo paths must not enter feature_files); L2 createLearningCard — normalize+dedupe+filter again (defense in depth against pre-fix rows); L3 arch validate rule — ERROR on absolute or ../-escaping or unresolved: paths, WARN on suspicious prefixes (agent-memory dirs, tmp) so bootstrap cards keep working. REPAIR: fix the two existing garbage cards via a repeatable repair pass (read card links -&gt; git diff-tree linked commits -&gt; normalize -&gt; rewrite paths) and land the repair BEFORE the validator, or validate immediately reds the live cards. Interaction: bug-38680a65&#39;s fallback emits diff-tree (repo-relative) paths — passes this validator; no conflict. Effort ~2.5h. Order: ship ingest+capture normalization with bug-38680a65&#39;s helper extraction in one PR; validator+repair as follow-on.
 [2026-06-11 08:59 claude-code] accepted-advisory (provenance override): commit 2462965b7 contains all implementation; DB sync needed to link commit</p>
         </section>
     </article>

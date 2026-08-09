@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>WriteBatch uses DEFERRED transaction instead of IMMEDIATE — masks lock contention</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-03T19:15:00.584648"
-             data-updated="2026-05-05T01:55:10.508539" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:08.554038" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-affected_files=".htmlgraph/bugs/bug-6f3f876c.html,.htmlgraph/bugs/bug-ac25cf0a.html,.htmlgraph/tracks/trk-cb36e595.html,internal/db/pragmas.go,internal/otel/receiver/writer.go">
 
         <header>
             <h1>WriteBatch uses DEFERRED transaction instead of IMMEDIATE — masks lock contention</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-03T19:15:00.588627">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T23:41:43.099822">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T23:41:43.099822">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-03T19:15:00.588627">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Latent correctness bug found while diagnosing bug-ac25cf0a. internal/otel/receiver/writer.go:208 opens a transaction with sql.TxOptions{} (zero value = DEFERRED) but the comment at line 218-220 claims to 'Upgrade the tx to an IMMEDIATE writer lock'. The follow-up SELECT 1 at line 221 only acquires SHARED, not RESERVED — so the tx remains DEFERRED through any subsequent INSERT, with the SHARED→RESERVED upgrade racing other writers. This is the underlying contention source that triggered bug-ac25cf0a's PRAGMA lock collision; bug-ac25cf0a's fix (skip journal_mode SET when already-WAL) eliminated the visible symptom but the writer.go race window remains. Fix: either pass an actual IMMEDIATE BEGIN via raw conn.ExecContext, or document that the modernc.org/sqlite driver does not honor TxOptions for upgrade semantics and use BEGIN IMMEDIATE explicitly. Two writer goroutines in _serve-child (otelreceiver.NewWriter for OTLP + idxWriter for indexer, both MaxOpenConns=1) double the collision window — separate but related issue worth keeping in mind during the fix.</p>
+            <p>Latent correctness bug found while diagnosing bug-ac25cf0a. internal/otel/receiver/writer.go:208 opens a transaction with sql.TxOptions{} (zero value = DEFERRED) but the comment at line 218-220 claims to &#39;Upgrade the tx to an IMMEDIATE writer lock&#39;. The follow-up SELECT 1 at line 221 only acquires SHARED, not RESERVED — so the tx remains DEFERRED through any subsequent INSERT, with the SHARED→RESERVED upgrade racing other writers. This is the underlying contention source that triggered bug-ac25cf0a&#39;s PRAGMA lock collision; bug-ac25cf0a&#39;s fix (skip journal_mode SET when already-WAL) eliminated the visible symptom but the writer.go race window remains. Fix: either pass an actual IMMEDIATE BEGIN via raw conn.ExecContext, or document that the modernc.org/sqlite driver does not honor TxOptions for upgrade semantics and use BEGIN IMMEDIATE explicitly. Two writer goroutines in _serve-child (otelreceiver.NewWriter for OTLP + idxWriter for indexer, both MaxOpenConns=1) double the collision window — separate but related issue worth keeping in mind during the fix.</p>
         </section>
     </article>
 </body>

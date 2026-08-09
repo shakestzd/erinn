@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-23T17:20:58.750618"
-             data-updated="2026-05-23T17:35:55.567015" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:42:03.367828" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-624e85ac.html,internal/hooks/pretooluse.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go">
 
         <header>
             <h1>work-item and research PreToolUse guards fire on Edit/Write/Bash targeting paths OUTSIDE the project root</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T17:20:58.76057">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T17:21:32.983118">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T17:21:32.983118">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T17:20:58.76057">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>The always-on work-item guard ('An active work item is required before writing code') and research guard block Edit/Write even when the target file is outside the repo (e.g. ~/.claude memory dir, ~/.config). These guards enforce project-code discipline and should not fire for writes outside the project root. Same guard-scope family as the yolo isolation fix bug-0ed4e469. Reuse the external-path heuristic already used by the Bash research guard (bashCommandTargetsExternalPath).</p>
+            <p>The always-on work-item guard (&#39;An active work item is required before writing code&#39;) and research guard block Edit/Write even when the target file is outside the repo (e.g. ~/.claude memory dir, ~/.config). These guards enforce project-code discipline and should not fire for writes outside the project root. Same guard-scope family as the yolo isolation fix bug-0ed4e469. Reuse the external-path heuristic already used by the Bash research guard (bashCommandTargetsExternalPath).</p>
         </section>
     </article>
 </body>

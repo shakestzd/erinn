@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>OTel silently drops spans on SQLITE_BUSY &#43; parallel launcher spawns collide on :8080</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-21T09:58:32.173605"
-             data-updated="2026-04-21T10:44:41.369692" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:06.733686" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/api_otel.go,cmd/htmlgraph/claude_serve_autostart.go,cmd/htmlgraph/dashboard/components/event-tree.js,cmd/htmlgraph/serve.go,cmd/htmlgraph/serve_parent.go,internal/db/pragmas.go,internal/db/schema.go">
 
         <header>
             <h1>OTel silently drops spans on SQLITE_BUSY &#43; parallel launcher spawns collide on :8080</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T09:58:32.386044">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
+                    <li><a href="../sessions/5421ab54-b29c-420c-8795-bceed37a8518.html" data-relationship="implemented_in" data-since="2026-04-21T09:58:32.386044">session 5421ab54-b29c-420c-8795-bceed37a8518</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T09:58:32.174515">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T09:58:32.174515">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two coupled root causes for the user-visible OTel outages: (1) writer returns early without retry when SQLite reports database-is-locked; serve-64968b38.log shows continuous SQLITE_BUSY spam during contention windows. (2) New Claude sessions in parallel terminals fire SessionStart which calls ensureServeForOtel → spawnDetachedServe, which races against an already-running serve and logs 'listen tcp 127.0.0.1:8080: bind: address already in use' (see serve-auto.log). The failed spawn adds load and may momentarily write to the DB before exiting. Fix: (a) add bounded retry with exponential backoff in the writer for SQLITE_BUSY; (b) harden ensureServeForOtel's port probe to use a lockfile or PID file under .htmlgraph/ to detect an already-running parent serve reliably, not just a TCP probe; (c) optional: writer should batch multi-span INSERTs in a single transaction so contention windows shrink.</p>
+            <p>Two coupled root causes for the user-visible OTel outages: (1) writer returns early without retry when SQLite reports database-is-locked; serve-64968b38.log shows continuous SQLITE_BUSY spam during contention windows. (2) New Claude sessions in parallel terminals fire SessionStart which calls ensureServeForOtel → spawnDetachedServe, which races against an already-running serve and logs &#39;listen tcp 127.0.0.1:8080: bind: address already in use&#39; (see serve-auto.log). The failed spawn adds load and may momentarily write to the DB before exiting. Fix: (a) add bounded retry with exponential backoff in the writer for SQLITE_BUSY; (b) harden ensureServeForOtel&#39;s port probe to use a lockfile or PID file under .htmlgraph/ to detect an already-running parent serve reliably, not just a TCP probe; (c) optional: writer should batch multi-span INSERTs in a single transaction so contention windows shrink.</p>
         </section>
     </article>
 </body>

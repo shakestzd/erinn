@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Activity Feed: Agent tool_use row mislabels orchestrator model as Haiku when dispatching sonnet-coder from Opus</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-24T03:43:36.350066"
-             data-updated="2026-04-24T04:17:39.231472" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:01.623453" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-5d7220f3.html,cmd/htmlgraph/api_otel_test.go,cmd/htmlgraph/dashboard/components/event-tree.js">
 
         <header>
             <h1>Activity Feed: Agent tool_use row mislabels orchestrator model as Haiku when dispatching sonnet-coder from Opus</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T03:50:14.364228">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
+                    <li><a href="../sessions/cb5d73c7-d3c1-4598-9768-a07cf69db974.html" data-relationship="implemented_in" data-since="2026-04-24T03:50:14.364228">session cb5d73c7-d3c1-4598-9768-a07cf69db974</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T03:43:36.354151">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T03:43:36.354151">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Visual evidence at /tmp/Screenshot_2026-04-23_at_11.34.33_PM.png. An Agent tool_use row for dispatching the sonnet-coder that fixed bug-633b2c6d shows:\n\n- HTMLGRAPH:SONNET-CODER subagent badge (correct — the chosen subagent_type)\n- HAIKU 4.5 pill (wrong — this is the orchestrator's emission, orchestrator is Opus 4.7)\n- model: claude-haiku-4-5-20251001 (wrong — matches neither orchestrator Opus 4.7 nor subagent Sonnet 4.5)\n- input_tokens=6, output_tokens=155 (reasonable for the orchestrator's decision-and-dispatch turn)\n\nConjecture: the dashboard / OTel span attributes model from the CHILD (subagent) span rather than the PARENT (orchestrator) span when rendering a Task/Agent event. Or it picks the session-level 'latest seen model' regardless of which agent made the call. The Haiku value likely leaked in from a different subagent invocation running around the same time (we had a parallel haiku-coder for Playwright deps around the same clock).\n\nExpected: for a Task/Agent tool_use, show the orchestrator's model (the one that DID the dispatch). The subagent's model belongs on the NESTED rows for the subagent's own tool_calls, not on the dispatch itself.\n\nInvestigate: cmd/htmlgraph/dashboard/components/event-tree.js around the model-badge render for tool-use spans (grep 'model' + 'Task|Agent' + 'subagent_type'). Also check cmd/htmlgraph/api_tree.go scanEvent / eventColumns — does it surface the right 'model' field for the task_delegation row vs. the children? And check the OTel receiver attribution: api_otel.go DecodedFields — model should come from the span's own resource attrs, not the session's last-seen model.\n\nBlast radius: any parallel dispatch scenario where multiple subagent models run concurrently. Attribution is wrong on the dispatch row; would mislead cost/token analytics too.</p>
+            <p>Visual evidence at /tmp/Screenshot_2026-04-23_at_11.34.33_PM.png. An Agent tool_use row for dispatching the sonnet-coder that fixed bug-633b2c6d shows:\n\n- HTMLGRAPH:SONNET-CODER subagent badge (correct — the chosen subagent_type)\n- HAIKU 4.5 pill (wrong — this is the orchestrator&#39;s emission, orchestrator is Opus 4.7)\n- model: claude-haiku-4-5-20251001 (wrong — matches neither orchestrator Opus 4.7 nor subagent Sonnet 4.5)\n- input_tokens=6, output_tokens=155 (reasonable for the orchestrator&#39;s decision-and-dispatch turn)\n\nConjecture: the dashboard / OTel span attributes model from the CHILD (subagent) span rather than the PARENT (orchestrator) span when rendering a Task/Agent event. Or it picks the session-level &#39;latest seen model&#39; regardless of which agent made the call. The Haiku value likely leaked in from a different subagent invocation running around the same time (we had a parallel haiku-coder for Playwright deps around the same clock).\n\nExpected: for a Task/Agent tool_use, show the orchestrator&#39;s model (the one that DID the dispatch). The subagent&#39;s model belongs on the NESTED rows for the subagent&#39;s own tool_calls, not on the dispatch itself.\n\nInvestigate: cmd/htmlgraph/dashboard/components/event-tree.js around the model-badge render for tool-use spans (grep &#39;model&#39; + &#39;Task|Agent&#39; + &#39;subagent_type&#39;). Also check cmd/htmlgraph/api_tree.go scanEvent / eventColumns — does it surface the right &#39;model&#39; field for the task_delegation row vs. the children? And check the OTel receiver attribution: api_otel.go DecodedFields — model should come from the span&#39;s own resource attrs, not the session&#39;s last-seen model.\n\nBlast radius: any parallel dispatch scenario where multiple subagent models run concurrently. Attribution is wrong on the dispatch row; would mislead cost/token analytics too.</p>
         </section>
     </article>
 </body>

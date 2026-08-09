@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>[P1] otel-collect handshake timeout blocks htmlgraph claude --dev startup</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-01T22:53:54.574563"
-             data-updated="2026-05-05T15:58:46.377157" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:24.096695" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-affected_files="cmd/htmlgraph/main.go">
 
         <header>
             <h1>[P1] otel-collect handshake timeout blocks htmlgraph claude --dev startup</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="bug-56b686aa.html" data-relationship="relates_to" data-since="2026-05-01T22:56:55.284838">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
-                    <li><a href="plan-3bbc313f.html" data-relationship="relates_to" data-since="2026-05-01T22:56:55.347648">Plan: HTML-canonical architecture migration</a></li>
+                    <li><a href="../sessions/5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T15:51:03.156297">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-01T22:53:54.609334">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-05-01T22:53:54.609334">trk-c4615ad2</a></li>
                 </ul>
             </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="5b44705e-2530-44da-bcaf-79f0a45ea157.html" data-relationship="implemented_in" data-since="2026-05-05T15:51:03.156297">session 5b44705e-2530-44da-bcaf-79f0a45ea157</a></li>
+                    <li><a href="../bugs/bug-56b686aa.html" data-relationship="relates_to" data-since="2026-05-01T22:56:55.284838">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
+                    <li><a href="../plans/plan-3bbc313f.html" data-relationship="relates_to" data-since="2026-05-01T22:56:55.347648">Plan: HTML-canonical architecture migration</a></li>
                 </ul>
             </section>
         </nav>
@@ -61,12 +61,12 @@ Observed output:
   htmlgraph: FATAL: collector spawn failed after 3 attempts: otel-collect: handshake timeout (3s)
 
 Likely root cause (untriaged):
-  Stale claude --dev sessions and their otel-collect children survive across user disconnects in Codespaces. ps -ef shows two prior 'htmlgraph claude --dev' processes still alive (one from Apr27, one from Apr30) and at least one orphaned 'htmlgraph otel-collect' child holding resources. A freshly spawned collector then races with these for the SQLite project DB lock and cannot complete its pragma-application phase within the 3s handshake budget. Concurrent CLI calls in the same shell confirm SQLITE_BUSY: 'database is locked (5)' on PRAGMA journal_mode.
+  Stale claude --dev sessions and their otel-collect children survive across user disconnects in Codespaces. ps -ef shows two prior &#39;htmlgraph claude --dev&#39; processes still alive (one from Apr27, one from Apr30) and at least one orphaned &#39;htmlgraph otel-collect&#39; child holding resources. A freshly spawned collector then races with these for the SQLite project DB lock and cannot complete its pragma-application phase within the 3s handshake budget. Concurrent CLI calls in the same shell confirm SQLITE_BUSY: &#39;database is locked (5)&#39; on PRAGMA journal_mode.
 
 Hypotheses to probe (in order):
   1. Stale-collector reaping: detect zombie collectors at launch (pid file, port probe, or socket lockfile) and reap before spawning the new one.
   2. Handshake budget too tight when another writer holds the DB. 3s is fine for a cold open, not for contention; either retry the handshake itself or extend the budget under detected contention.
-  3. --tmux mode (recommended in CLAUDE.md for Codespaces) is opt-in; non-tmux launches get killed silently on disconnect, leaving orphans. Consider making tmux the default for --dev in Codespaces, OR add a 'graceful-shutdown-on-parent-disconnect' supervisor that reaps the otel-collect when the parent claude exits.
+  3. --tmux mode (recommended in CLAUDE.md for Codespaces) is opt-in; non-tmux launches get killed silently on disconnect, leaving orphans. Consider making tmux the default for --dev in Codespaces, OR add a &#39;graceful-shutdown-on-parent-disconnect&#39; supervisor that reaps the otel-collect when the parent claude exits.
 
 Severity: P1 — blocks dev-mode entry entirely; user cannot iterate on the plugin without manual ps/kill cleanup.
 

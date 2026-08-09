@@ -12,19 +12,22 @@ package main
 //   snapshot            HTML           No              canonical-first (already)
 //   find                HTML           No              canonical-first (this slice)
 //   status              HTML+optional  No (optional)   canonical-first (this slice)
-//   graph cycles/…      SQLite         Yes             SQLite-required, fail-loud (this slice)
+//   graph cycles/…      HTML           No              canonical-first (feat-fc3cc9e0)
+//
+// The last row inverted in feat-fc3cc9e0. The graph commands were the one
+// SQLite-required class this audit tracked; they now read canonical HTML
+// through projection.Load, so no command in the CLI requires a database.
 //
 // Tests in this file:
 //   TestFind_DoesNotOpenDB              — spy: find collection never calls workitem.Open
 //   TestFind_ByID_DoesNotOpenDB         — spy: find by ID never calls workitem.Open
 //   TestLockedDB_CanonicalCommandsWork  — canonical commands succeed even when DB file absent
-//   TestSQLiteRequiredCommand_FailsLoud — graph cycles fails loudly when DB absent
+//   TestGraphCyclesNeedsNoDatabase      — graph cycles succeeds with no DB reachable
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/shakestzd/wipnote/core/models"
@@ -112,29 +115,34 @@ func TestLockedDB_CanonicalCommandsWork(t *testing.T) {
 	})
 }
 
-// TestSQLiteRequiredCommand_FailsLoud verifies that graph commands that
-// genuinely require SQLite fail with a non-silent, actionable error message
-// containing "locked" or "reindex" guidance when the DB is unavailable.
-func TestSQLiteRequiredCommand_FailsLoud(t *testing.T) {
+// TestGraphCyclesNeedsNoDatabase replaces TestSQLiteRequiredCommand_FailsLoud,
+// whose premise no longer holds (feat-fc3cc9e0).
+//
+// That test asserted `graph cycles` failed LOUDLY with reindex/locked guidance
+// when the project DB could not be opened. runGraphCycles now goes through
+// loadGraphProjection -> projection.Load, which reads canonical .wipnote/ HTML
+// and never opens a database, so there is no longer a failure mode to assert:
+// the old test could only be satisfied by re-introducing a dependency the
+// cutover removed on purpose. The honest inversion is to assert the new
+// property — the command succeeds with no database reachable at all.
+//
+// WIPNOTE_DB_PATH is still pointed at an unopenable path, and that is the
+// point: it must make no difference.
+func TestGraphCyclesNeedsNoDatabase(t *testing.T) {
 	dir := setupMinimalWipnoteDir(t)
 
-	// Point DB at a path that cannot be opened (parent dir does not exist).
-	t.Setenv("WIPNOTE_DB_PATH", filepath.Join(t.TempDir(), "nodir", "wipnote.db"))
+	unopenable := filepath.Join(t.TempDir(), "nodir", "wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", unopenable)
 
 	projectDirFlag = filepath.Dir(dir)
 	t.Cleanup(func() { projectDirFlag = "" })
 
-	err := runGraphCycles()
-	if err == nil {
-		t.Fatal("runGraphCycles: want error when DB is unavailable, got nil")
+	if err := runGraphCycles(); err != nil {
+		t.Fatalf("runGraphCycles: want success from canonical artifacts alone, got %v", err)
 	}
 
-	msg := err.Error()
-	hasGuidance := strings.Contains(msg, "reindex") ||
-		strings.Contains(msg, "locked") ||
-		strings.Contains(msg, "wipnote reindex")
-	if !hasGuidance {
-		t.Errorf("runGraphCycles error missing retry/reindex guidance.\nGot: %q\nWant message to contain 'reindex' or 'locked'", msg)
+	if _, err := os.Stat(filepath.Dir(unopenable)); !os.IsNotExist(err) {
+		t.Errorf("graph cycles created a database directory at %s — it must not touch one", filepath.Dir(unopenable))
 	}
 }
 
@@ -144,34 +152,32 @@ func TestSQLiteRequiredCommand_FailsLoud(t *testing.T) {
 // dependency-free.
 func TestCommandAuditClassification(t *testing.T) {
 	// Commands confirmed canonical-first (no SQLite needed for read path).
+	//
+	// The seven graph commands moved here from a former "sqlite-required"
+	// bucket in feat-fc3cc9e0. Every one of them now calls loadGraphProjection,
+	// which builds a projection.Snapshot from canonical .wipnote/ HTML; none
+	// opens a database. The sqliteRequired bucket is gone rather than left
+	// empty, because an empty list of "commands that need SQLite" invites the
+	// next reader to start refilling it.
 	canonicalFirst := []string{
-		"plan critique", // slice 1 — YAML-first
-		"plan validate", // slice 1 — YAML-first
-		"plan show",     // HTML direct read
-		"wip show",      // HTML directory scan
-		"snapshot",      // graph.LoadAll (HTML)
-		"find",          // graph.LoadDir/LoadAll (HTML) — this slice
-		"status",        // graph.LoadAll + optional DB attribution — this slice
-	}
-
-	// Commands confirmed SQLite-required (fail-loud on lock).
-	sqliteRequired := []string{
-		"graph cycles",      // edge traversal in DB
-		"graph path",        // edge traversal in DB
-		"graph reach",       // edge traversal in DB
-		"graph orphans",     // edge traversal in DB
-		"graph hubs",        // edge traversal in DB
-		"graph bottlenecks", // edge traversal in DB
-		"graph sessions",    // session-feature joins in DB
+		"plan critique",     // slice 1 — YAML-first
+		"plan validate",     // slice 1 — YAML-first
+		"plan show",         // HTML direct read
+		"wip show",          // HTML directory scan
+		"snapshot",          // graph.LoadAll (HTML)
+		"find",              // graph.LoadDir/LoadAll (HTML)
+		"status",            // graph.LoadAll + optional attribution
+		"graph cycles",      // projection.Load (HTML)
+		"graph path",        // projection.Load (HTML)
+		"graph reach",       // projection.Load (HTML)
+		"graph orphans",     // projection.Load (HTML)
+		"graph hubs",        // projection.Load (HTML)
+		"graph bottlenecks", // projection.Load (HTML)
+		"graph sessions",    // projection.Load (HTML)
 	}
 
 	for _, cmd := range canonicalFirst {
 		t.Run("canonical/"+cmd, func(t *testing.T) {
-			_ = cmd
-		})
-	}
-	for _, cmd := range sqliteRequired {
-		t.Run("sqlite-required/"+cmd, func(t *testing.T) {
 			_ = cmd
 		})
 	}

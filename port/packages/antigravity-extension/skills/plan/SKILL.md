@@ -198,7 +198,7 @@ Acceptance criteria for generated plans:
        "questions": [
          {"id": "scope.0", "header": "State", "type": "choice",
           "prompt": "Where does the state live?",
-          "options": [{"label": "In SQLite (read index)", "description": "rebuildable cache"}]}
+          "options": [{"label": "In .wipnote/ canonical files", "description": "HTML / plan YAML / ledgers — committed"}]}
        ]}
     ]}
 
@@ -237,9 +237,10 @@ In each stage, lead with the block-authoring step (per `wipnote plan interview-q
 {
   "questions": [
     {"question": "Where does the state live?", "header": "State", "multiSelect": false, "options": [
-      {"label": "In SQLite (read index)", "description": "Derived read-index (per-user cache), can be rebuilt."},
-      {"label": "In .wipnote/<kind>/*.html", "description": "Canonical store — survives DB rebuild."},
-      {"label": "In-memory only", "description": "No persistence; lifecycle = process."},
+      {"label": "In .wipnote/<kind>/*.html", "description": "Canonical work-item / arch state — committed with the repo."},
+      {"label": "In a .wipnote ledger or NDJSON", "description": "Append-only canonical record: session / claim / gate ledgers, per-session events."},
+      {"label": "Derived from git", "description": "Commit and file attribution — recomputed on demand, never stored."},
+      {"label": "In-memory only", "description": "No persistence; lifecycle = process. This is where the SQLite projection lives."},
       {"label": "On the filesystem outside .wipnote/", "description": "e.g., session transcripts, hook artifacts."}
     ]}
   ]
@@ -335,7 +336,7 @@ slices:
       client IP. Middleware in cmd/wipnote/serve.go returns HTTP 429 with
       JSON body when bucket empty.
     why: |
-      Protects SQLite writer from burst overload (Goal 1 — throughput cap).
+      Protects the canonical event writer from burst overload (Goal 1 — throughput cap).
     files:
       - internal/ratelimit/limiter.go
       - cmd/wipnote/serve.go
@@ -369,7 +370,7 @@ slices:
       **Trigger:** middleware on /api/ingest, keyed by RemoteAddr.
       **State:** in-memory map[ip]bucket, reset on process restart.
       **Payload:** 429 + {"error":"rate_limited","retry_after":1}.
-      **Rejected:** SQLite-backed counters (write amplification under load);
+      **Rejected:** file-backed counters (write amplification under load);
         Redis (new runtime dep — violates constraint).
     questions:
       - id: q-key

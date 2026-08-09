@@ -36,6 +36,25 @@ func countGateRecords(t *testing.T, database *sql.DB) int {
 	return n
 }
 
+// seedIndexOnlyGateRecord writes a passing gate row straight into the derived
+// index and nowhere else, so a test can present the gate with an index that
+// disagrees with the canonical ledger.
+func seedIndexOnlyGateRecord(t *testing.T, database *sql.DB, sessionID, workItemID string) {
+	t.Helper()
+	rec := &dbpkg.GateRecord{
+		SessionID:   sessionID,
+		WorkItemID:  workItemID,
+		ProjectType: "go",
+		GateCommand: "true",
+		Status:      "pass",
+		Source:      "check",
+		CheckedAt:   time.Now().UTC(),
+	}
+	if err := dbpkg.InsertGateRecord(database, rec); err != nil {
+		t.Fatalf("seed index-only gate record: %v", err)
+	}
+}
+
 // TestGateRecord_SurvivesIndexPurge is the acceptance test for bug-550c1cd8: a
 // gate run must outlive the derived index, which lives in the OS cache directory
 // and may be purged at any time.
@@ -111,11 +130,13 @@ func TestCompletionGate_VerdictTracksLedgerNotIndex(t *testing.T) {
 	}
 
 	// Half two: ledger removed, index full — the completion must be refused.
-	// The re-check the gate runs at the end would rewrite the ledger, so the
-	// index is reloaded from the surviving rows first and the ledger removed
-	// immediately before the call.
+	// Nothing populates the index during a normal run any more (feat-fc3cc9e0
+	// made the mirror write a no-op), so the "index full" half of the contrast
+	// is staged directly. That is the point: a row that exists ONLY in the index
+	// must not be able to authorise a completion.
+	seedIndexOnlyGateRecord(t, database, "sess-verdict", "feat-verdict")
 	if countGateRecords(t, database) == 0 {
-		t.Fatal("expected the re-check above to have repopulated the index")
+		t.Fatal("expected the staged index row to be present")
 	}
 	if err := os.Remove(ledgerPath); err != nil {
 		t.Fatalf("remove ledger: %v", err)

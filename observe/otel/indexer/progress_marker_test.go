@@ -11,13 +11,13 @@ func TestCheckpointRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".index-offset")
 
-	if err := writeCheckpoint(path, 12345); err != nil {
-		t.Fatalf("writeCheckpoint: %v", err)
+	if err := publishProgress(path, 12345); err != nil {
+		t.Fatalf("publishProgress: %v", err)
 	}
 
-	got, err := readCheckpoint(path)
+	got, err := readProgress(path)
 	if err != nil {
-		t.Fatalf("readCheckpoint: %v", err)
+		t.Fatalf("readProgress: %v", err)
 	}
 	if got != 12345 {
 		t.Errorf("got offset %d, want 12345", got)
@@ -29,9 +29,9 @@ func TestCheckpointMissing(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".index-offset")
 
-	got, err := readCheckpoint(path)
+	got, err := readProgress(path)
 	if err != nil {
-		t.Fatalf("readCheckpoint on missing file: %v", err)
+		t.Fatalf("readProgress on missing file: %v", err)
 	}
 	if got != 0 {
 		t.Errorf("expected 0 for missing checkpoint, got %d", got)
@@ -48,9 +48,9 @@ func TestCheckpointCorrupted(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	got, err := readCheckpoint(path)
+	got, err := readProgress(path)
 	if err != nil {
-		t.Fatalf("readCheckpoint on corrupt file: %v", err)
+		t.Fatalf("readProgress on corrupt file: %v", err)
 	}
 	if got != 0 {
 		t.Errorf("expected 0 for corrupted checkpoint, got %d", got)
@@ -66,28 +66,28 @@ func TestCheckpointEmptyFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	got, err := readCheckpoint(path)
+	got, err := readProgress(path)
 	if err != nil {
-		t.Fatalf("readCheckpoint on empty file: %v", err)
+		t.Fatalf("readProgress on empty file: %v", err)
 	}
 	if got != 0 {
 		t.Errorf("expected 0 for empty checkpoint, got %d", got)
 	}
 }
 
-// TestCheckpointAtomicWrite verifies that writeCheckpoint writes via tmp+rename.
+// TestCheckpointAtomicWrite verifies that publishProgress writes via tmp+rename.
 func TestCheckpointAtomicWrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".index-offset")
 
 	// Write multiple times to ensure atomicity (no partial writes visible).
 	for _, offset := range []int64{0, 100, 999, 123456789} {
-		if err := writeCheckpoint(path, offset); err != nil {
-			t.Fatalf("writeCheckpoint(%d): %v", offset, err)
+		if err := publishProgress(path, offset); err != nil {
+			t.Fatalf("publishProgress(%d): %v", offset, err)
 		}
-		got, err := readCheckpoint(path)
+		got, err := readProgress(path)
 		if err != nil {
-			t.Fatalf("readCheckpoint after write %d: %v", offset, err)
+			t.Fatalf("readProgress after write %d: %v", offset, err)
 		}
 		if got != offset {
 			t.Errorf("after write %d, got %d", offset, got)

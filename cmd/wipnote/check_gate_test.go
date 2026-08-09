@@ -20,6 +20,10 @@ import (
 func setupGateTestProject(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	// WIPNOTE_PROJECT_DIR / CLAUDE_PROJECT_DIR outrank the working directory in
+	// paths.ResolveProjectDir, and both are set in a live agent session, so a
+	// bare t.TempDir() does NOT isolate a command entry point from the real repo.
+	isolateProjectDir(t, root)
 	for _, dir := range []string{
 		".wipnote/features",
 		".wipnote/bugs",
@@ -79,6 +83,50 @@ func openGateTestDB(t *testing.T, projectRoot string) *sql.DB {
 	return database
 }
 
+// latestGateLedgerRecord reads the session's newest gate record from the gate
+// LEDGER — the canonical store. It replaces dbpkg.LatestGateRecordForSession:
+// the per-project read-index mirror those assertions used is gone
+// (feat-fc3cc9e0), so asserting on it would prove nothing about durability.
+func latestGateLedgerRecord(t *testing.T, projectRoot, sessionID string) *gateledger.Record {
+	t.Helper()
+	rec, err := gateledger.StoreForProject(projectRoot).LatestForSession(sessionID)
+	if err != nil {
+		t.Fatalf("gate ledger LatestForSession(%s): %v", sessionID, err)
+	}
+	return rec
+}
+
+// countGateLedgerRecords counts the session's gate records in the ledger.
+func countGateLedgerRecords(t *testing.T, projectRoot, sessionID string) int {
+	t.Helper()
+	recs, err := gateledger.StoreForProject(projectRoot).ReadAll()
+	if err != nil {
+		t.Fatalf("gate ledger ReadAll: %v", err)
+	}
+	n := 0
+	for _, r := range recs {
+		if r.SessionID == sessionID {
+			n++
+		}
+	}
+	return n
+}
+
+// seedGateWorkItemArtifact writes a canonical work-item artifact, which is what
+// makes an ID "known to the project" now that there is no features table.
+func seedGateWorkItemArtifact(t *testing.T, projectRoot, id, status string) {
+	t.Helper()
+	dir := filepath.Join(projectRoot, ".wipnote", "features")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	html := `<html><body><article id="` + id + `" data-type="feature" data-status="` + status +
+		`"><header><h1>` + id + `</h1></header></article></body></html>`
+	if err := os.WriteFile(filepath.Join(dir, id+".html"), []byte(html), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRunSessionGate_WritesSessionLocalRecord(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs real Go gate commands")
@@ -93,13 +141,7 @@ func TestRunSessionGate_WritesSessionLocalRecord(t *testing.T) {
 		t.Fatal("expected passing gate")
 	}
 
-	database := openGateTestDB(t, projectRoot)
-	defer database.Close()
-
-	record, err := dbpkg.LatestGateRecordForSession(database, "sess-gate-pass")
-	if err != nil {
-		t.Fatalf("LatestGateRecordForSession: %v", err)
-	}
+	record := latestGateLedgerRecord(t, projectRoot, "sess-gate-pass")
 	if record == nil {
 		t.Fatal("expected gate record")
 	}
@@ -200,18 +242,12 @@ func TestRunSessionGate_ReportsAndPersistsAllowlistHits(t *testing.T) {
 		t.Fatal("canonical record signature did not re-verify after the ledger round trip")
 	}
 
-	database := openGateTestDB(t, projectRoot)
-	defer database.Close()
-
-	indexed, err := dbpkg.LatestGateRecordForSession(database, "sess-gate-listener")
-	if err != nil {
-		t.Fatalf("LatestGateRecordForSession: %v", err)
-	}
+	indexed := latestGateLedgerRecord(t, projectRoot, "sess-gate-listener")
 	if indexed == nil {
-		t.Fatal("expected projected gate record")
+		t.Fatal("expected persisted gate record")
 	}
-	if indexed.RecordID != canonical.ID {
-		t.Fatalf("index row record_id = %q, want the canonical id %q", indexed.RecordID, canonical.ID)
+	if indexed.ID != canonical.ID {
+		t.Fatalf("ledger row id = %q, want the canonical id %q", indexed.ID, canonical.ID)
 	}
 	if indexed.AllowlistHitCount != len(result.AllowlistHits) {
 		t.Fatalf("allowlist hit count = %d, want %d", indexed.AllowlistHitCount, len(result.AllowlistHits))
@@ -659,10 +695,7 @@ func TestCheckCompletionGateRecord_AcceptsMatchingSessionAfterRecheck(t *testing
 		t.Fatalf("expected matching gate record to pass, got: %v", err)
 	}
 
-	count, err := dbpkg.CountGateRecords(database, "sess-gate-ok")
-	if err != nil {
-		t.Fatalf("CountGateRecords: %v", err)
-	}
+	count := countGateLedgerRecords(t, projectRoot, "sess-gate-ok")
 	if count < 2 {
 		t.Fatalf("expected recheck to write a second gate record, got %d", count)
 	}
@@ -722,18 +755,12 @@ func TestRunSessionGate_NoManifest_SkippedNotPassed(t *testing.T) {
 		t.Fatalf("expected a loud WARN on stderr, got: %q", stderr.String())
 	}
 
-	database := openGateTestDB(t, projectRoot)
-	defer database.Close()
-
-	record, err := dbpkg.LatestGateRecordForSession(database, "sess-noop-manifest")
-	if err != nil {
-		t.Fatalf("LatestGateRecordForSession: %v", err)
-	}
+	record := latestGateLedgerRecord(t, projectRoot, "sess-noop-manifest")
 	if record == nil {
 		t.Fatal("expected gate record to be persisted")
 	}
-	// gate_records.status is DB-constrained to ('pass','fail'); a skipped run
-	// persists as "fail" — never "pass" — so it can't be mistaken for a
+	// A gate record's status is only ever pass|fail; a skipped run persists as
+	// "fail" — never "pass" — so it can't be mistaken for a
 	// validated green gate. The Skipped/WARN assertions above are what
 	// distinguish "nothing ran" from "something ran and failed" for callers
 	// inspecting the in-memory RunResult.
@@ -938,12 +965,7 @@ func TestPersistGateRecord_ExplicitWorkItemID(t *testing.T) {
 		t.Error("signature invalid after explicit work item set")
 	}
 
-	database := openGateTestDB(t, projectRoot)
-	defer database.Close()
-	stored, err := dbpkg.LatestGateRecordForSession(database, "sess-explicit-wi")
-	if err != nil {
-		t.Fatalf("LatestGateRecordForSession: %v", err)
-	}
+	stored := latestGateLedgerRecord(t, projectRoot, "sess-explicit-wi")
 	if stored == nil {
 		t.Fatal("expected stored record")
 	}
@@ -961,14 +983,7 @@ func TestResolveGateWorkItem_FlagTakesPrecedence(t *testing.T) {
 	// (bug-fddf5820, finding 4: the flag is now checked against the DB). Seed it
 	// as 'done' so it cannot be picked up by the most-recent-in-progress
 	// fallback path and pollute sibling tests that share the read index.
-	database := openGateTestDB(t, projectRoot)
-	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
-		VALUES ('feat-flag-explicit', 'feature', 'Flag test', 'done', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`)
-	if err != nil {
-		database.Close()
-		t.Fatalf("insert feature: %v", err)
-	}
-	database.Close()
+	seedGateWorkItemArtifact(t, projectRoot, "feat-flag-explicit", "done")
 
 	var stderr strings.Builder
 	got := resolveGateWorkItem(projectRoot, "sess-any", dbpkg.AgentRootSentinel, "feat-flag-explicit", &stderr)
@@ -1005,15 +1020,9 @@ func TestResolveGateWorkItem_FlagNonexistentWarns(t *testing.T) {
 // (feat-cecb2f2b: resolution path 3).
 func TestResolveGateWorkItem_FallbackToMostRecentInProgress(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
-	// Seed an in-progress feature directly into the DB.
-	database := openGateTestDB(t, projectRoot)
-	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
-		VALUES ('feat-fallback-latest', 'feature', 'Fallback test', 'in-progress', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`)
-	if err != nil {
-		database.Close()
-		t.Fatalf("insert feature: %v", err)
-	}
-	database.Close()
+	// Seed an in-progress feature as its canonical artifact — the last-resort
+	// fallback scans the .wipnote store now, not a features table.
+	seedGateWorkItemArtifact(t, projectRoot, "feat-fallback-latest", "in-progress")
 
 	var stderr strings.Builder
 	// Use a session that has no active work item claim and no flag value.

@@ -70,7 +70,7 @@ Dispatch `Task(subagent_type="wipnote:researcher")` with a structured prompt:
 2. Read the source files involved
 3. Identify the root cause with file paths and line numbers
 4. Check if the issue affects other cases beyond the reported one
-5. Query SQLite or run CLI commands to verify current state
+5. Verify current state from canonical files (`.wipnote/` HTML, plan YAML, ledgers, per-session NDJSON) and git, or via `wipnote` query commands — there is no project database to query
 6. Propose a fix (describe what to change, don't implement)
 
 ### Report Format
@@ -108,12 +108,12 @@ When `--delegation` is specified, audit the current session's delegation complia
 1. **Collect data**:
 ```bash
 wipnote status
-sqlite3 "$(wipnote status | awk '/^DB:/{sub(/^DB:[[:space:]]*/, ""); print; exit}')" "
-SELECT tool_name, COUNT(*) as count
-FROM agent_events
-WHERE session_id = (SELECT session_id FROM agent_events ORDER BY timestamp DESC LIMIT 1)
-GROUP BY tool_name ORDER BY count DESC;
-"
+# Tool counts for the most recent session, read from its canonical event log.
+# The per-session NDJSON is the record — there is no agent_events table and no
+# project database; the SQLite projection is in-memory and dies with the command.
+SESSION_DIR=$(ls -td .wipnote/sessions/*/ | head -1)
+jq -r 'select(.canonical=="tool_decision") | .attrs.tool_name // empty' \
+  "$SESSION_DIR/events.ndjson" | sort | uniq -c | sort -rn
 ```
 
 2. **Compute score**: `delegations / (delegations + direct_impl + git_writes) * 100`

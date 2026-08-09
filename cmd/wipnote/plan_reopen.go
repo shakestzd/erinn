@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
@@ -39,6 +40,15 @@ Example:
 // Promoted features are not deleted.
 func executePlanReopen(wipnoteDir, planID string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan YAML for %s: %w", planID, err)
@@ -49,7 +59,7 @@ func executePlanReopen(wipnoteDir, planID string) error {
 	}
 
 	plan.Meta.Status = "todo"
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan YAML: %w", err)
 	}
 

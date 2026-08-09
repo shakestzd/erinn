@@ -17,6 +17,7 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/projection"
 )
 
 // Node is one hop in a forward or backward chain. It is the wire format for the
@@ -80,6 +81,78 @@ func ForwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, 
 // "who points at me?".
 func BackwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, error) {
 	return BFSWalk(db, root, rels, maxDepth, false)
+}
+
+// ForwardProjectionWalk performs a BFS over the canonical in-memory projection.
+func ForwardProjectionWalk(snap *projection.Snapshot, root string, rels []string, maxDepth int) []Node {
+	return ProjectionWalk(snap, root, rels, maxDepth, true)
+}
+
+// BackwardProjectionWalk performs a reverse BFS over the canonical projection.
+func BackwardProjectionWalk(snap *projection.Snapshot, root string, rels []string, maxDepth int) []Node {
+	return ProjectionWalk(snap, root, rels, maxDepth, false)
+}
+
+// ProjectionWalk is the database-free counterpart of BFSWalk.
+func ProjectionWalk(snap *projection.Snapshot, root string, rels []string, maxDepth int, forward bool) []Node {
+	if snap == nil || maxDepth <= 0 || len(rels) == 0 {
+		return nil
+	}
+	allowed := relSet(rels)
+	type queueEntry struct {
+		id    string
+		depth int
+	}
+	visited := map[string]bool{root: true}
+	queue := []queueEntry{{id: root, depth: 0}}
+	var result []Node
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur.depth >= maxDepth {
+			continue
+		}
+		for _, n := range projectionNeighbors(snap, cur.id, allowed, forward) {
+			if visited[n.ID] {
+				continue
+			}
+			visited[n.ID] = true
+			n.Depth = cur.depth + 1
+			n.Parent = cur.id
+			result = append(result, n)
+			queue = append(queue, queueEntry{id: n.ID, depth: n.Depth})
+		}
+	}
+	resolveProjectionTitles(snap, result)
+	return result
+}
+
+func relSet(rels []string) map[string]bool {
+	out := make(map[string]bool, len(rels))
+	for _, rel := range rels {
+		out[rel] = true
+	}
+	return out
+}
+
+func projectionNeighbors(snap *projection.Snapshot, id string, rels map[string]bool, forward bool) []Node {
+	edges := snap.Out[id]
+	if !forward {
+		edges = snap.In[id]
+	}
+	out := make([]Node, 0, len(edges))
+	for _, e := range edges {
+		if !rels[e.Relationship] {
+			continue
+		}
+		n := Node{ID: e.ToID, Type: e.ToType, EdgeType: e.Relationship, Metadata: e.Metadata}
+		if !forward {
+			n.ID = e.FromID
+			n.Type = e.FromType
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 // BFSWalk is the shared BFS engine for both directions. When forward=true it
@@ -242,6 +315,29 @@ func resolveTitles(db *sql.DB, nodes []Node) {
 	for i := range nodes {
 		if r, ok := labels[nodes[i].ID]; ok {
 			nodes[i].Title = r.Title
+			continue
+		}
+		if slug, ok := arch.ArchSlugFromNodeID(nodes[i].ID); ok {
+			nodes[i].Title = slug
+		}
+	}
+}
+
+func resolveProjectionTitles(snap *projection.Snapshot, nodes []Node) {
+	if len(nodes) == 0 {
+		return
+	}
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.ID
+	}
+	labels := snap.ResolveToMap(ids)
+	for i := range nodes {
+		if r, ok := labels[nodes[i].ID]; ok {
+			nodes[i].Title = r.Title
+			if nodes[i].Type == "" {
+				nodes[i].Type = r.Type
+			}
 			continue
 		}
 		if slug, ok := arch.ArchSlugFromNodeID(nodes[i].ID); ok {

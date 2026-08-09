@@ -148,7 +148,7 @@ func TestPlanStatusHandler_OK(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
 	wipnoteDir := writeTempPlanHTML(t, planID)
 
-	if err := db.StorePlanFeedback(database, planID, "design", "approve", "true", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, "design", "approve", "true", ""); err != nil {
 		t.Fatalf("store feedback: %v", err)
 	}
 
@@ -180,7 +180,7 @@ func TestPlanStatusHandler_LegacyApprovedValue(t *testing.T) {
 	wipnoteDir := writeTempPlanHTML(t, planID)
 
 	for _, section := range []string{"design", "slice-1"} {
-		if err := db.StorePlanFeedback(database, planID, section, "approve", "approved", ""); err != nil {
+		if err := storePlanFeedback(wipnoteDir, planID, section, "approve", "approved", ""); err != nil {
 			t.Fatalf("store feedback %s: %v", section, err)
 		}
 	}
@@ -221,7 +221,8 @@ func TestPlanStatusHandler_PlanNotFound(t *testing.T) {
 
 func TestPlanFeedbackSubmitHandler_StoresFeedback(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
-	handler := planFeedbackSubmitHandler(database)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+	handler := planFeedbackSubmitHandler(database, wipnoteDir)
 
 	body, _ := json.Marshal(planFeedbackRequest{
 		Section: "design",
@@ -237,7 +238,7 @@ func TestPlanFeedbackSubmitHandler_StoresFeedback(t *testing.T) {
 		t.Errorf("status: got %d, want 200; body: %s", w.Code, w.Body.String())
 	}
 
-	entries, err := db.GetPlanFeedback(database, planID)
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 	if err != nil {
 		t.Fatalf("get feedback: %v", err)
 	}
@@ -251,7 +252,8 @@ func TestPlanFeedbackSubmitHandler_StoresFeedback(t *testing.T) {
 
 func TestPlanFeedbackSubmitHandler_MissingFields(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
-	handler := planFeedbackSubmitHandler(database)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+	handler := planFeedbackSubmitHandler(database, wipnoteDir)
 
 	body, _ := json.Marshal(map[string]string{"section": "design"}) // missing action
 	req := httptest.NewRequest(http.MethodPost, "/api/plans/"+planID+"/feedback", bytes.NewReader(body))
@@ -288,7 +290,7 @@ func TestPlanFinalizeHandler_Success(t *testing.T) {
 	wipnoteDir := writeTempPlanHTML(t, planID)
 
 	for _, section := range []string{"design", "outline"} {
-		if err := db.StorePlanFeedback(database, planID, section, "approve", "true", ""); err != nil {
+		if err := storePlanFeedback(wipnoteDir, planID, section, "approve", "true", ""); err != nil {
 			t.Fatalf("store feedback: %v", err)
 		}
 	}
@@ -325,7 +327,7 @@ func TestPlanFinalizeHandler_LegacyApprovedValue(t *testing.T) {
 	wipnoteDir := writeTempPlanHTML(t, planID)
 
 	for _, section := range []string{"design", "slice-1"} {
-		if err := db.StorePlanFeedback(database, planID, section, "approve", "approved", ""); err != nil {
+		if err := storePlanFeedback(wipnoteDir, planID, section, "approve", "approved", ""); err != nil {
 			t.Fatalf("store feedback %s: %v", section, err)
 		}
 	}
@@ -344,18 +346,19 @@ func TestPlanFinalizeHandler_LegacyApprovedValue(t *testing.T) {
 
 func TestPlanFeedbackReadHandler_StructuredResponse(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
+	wipnoteDir := writeTempPlanHTML(t, planID)
 
-	if err := db.StorePlanFeedback(database, planID, "design", "approve", "true", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, "design", "approve", "true", ""); err != nil {
 		t.Fatalf("store approve: %v", err)
 	}
-	if err := db.StorePlanFeedback(database, planID, "design", "comment", "looks good", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, "design", "comment", "looks good", ""); err != nil {
 		t.Fatalf("store comment: %v", err)
 	}
-	if err := db.StorePlanFeedback(database, planID, "outline", "answer", "async", "delivery-mode"); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, "outline", "answer", "async", "delivery-mode"); err != nil {
 		t.Fatalf("store answer: %v", err)
 	}
 
-	handler := planFeedbackReadHandler(database)
+	handler := planFeedbackReadHandler(database, wipnoteDir)
 	req := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/feedback", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
@@ -392,7 +395,8 @@ func TestPlanFeedbackReadHandler_StructuredResponse(t *testing.T) {
 // two-axis state, then reads it back through the GET /feedback path.
 func TestPlanFeedback_BlockAnchor(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
-	submit := planFeedbackSubmitHandler(database)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+	submit := planFeedbackSubmitHandler(database, wipnoteDir)
 
 	body, _ := json.Marshal(planFeedbackRequest{
 		Section:          "slice-3-block-data-model-1",
@@ -412,7 +416,7 @@ func TestPlanFeedback_BlockAnchor(t *testing.T) {
 		t.Fatalf("submit status: got %d, want 200; body: %s", w.Code, w.Body.String())
 	}
 
-	read := planFeedbackReadHandler(database)
+	read := planFeedbackReadHandler(database, wipnoteDir)
 	rreq := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/feedback", nil)
 	rw := httptest.NewRecorder()
 	read(rw, rreq)
@@ -892,7 +896,8 @@ func TestValidSectionRe_RejectsBadFormats(t *testing.T) {
 // section='slice-3-question-q-foo' must return 200, NOT 400.
 func TestAPI_PostFeedback_SliceQuestionSection_Returns200(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
-	handler := planFeedbackSubmitHandler(database)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+	handler := planFeedbackSubmitHandler(database, wipnoteDir)
 
 	body, _ := json.Marshal(planFeedbackRequest{
 		Section: "slice-3-question-q-foo",
@@ -913,7 +918,8 @@ func TestAPI_PostFeedback_SliceQuestionSection_Returns200(t *testing.T) {
 // accepted and stored correctly.
 func TestAPI_PostFeedback_SliceLevel_Returns200(t *testing.T) {
 	database, planID := setupPlanTestDB(t)
-	handler := planFeedbackSubmitHandler(database)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+	handler := planFeedbackSubmitHandler(database, wipnoteDir)
 
 	body, _ := json.Marshal(planFeedbackRequest{
 		Section: "slice-1",

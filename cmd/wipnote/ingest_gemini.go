@@ -11,7 +11,6 @@ import (
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/ingest"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -26,11 +25,15 @@ func ingestGeminiCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gemini",
 		Short: "Ingest Gemini CLI session transcripts",
-		Long: `Reads Gemini CLI session JSON files from ~/.gemini/tmp/ and stores
-structured messages and tool calls in the wipnote database.
+		Long: `Reads Gemini CLI session JSON files from ~/.gemini/tmp/ and renders
+each one as a canonical session HTML file in .wipnote/sessions/.
+
+Gemini CLI is no longer a launch target, but its historical transcripts are
+still readable, so this import path is retained.
 
 By default, discovers sessions for the current project. Use --all to
-ingest all projects, or --project to target a specific project slug.`,
+ingest all projects, or --project to target a specific project slug.
+Already-rendered sessions are skipped; --force re-renders them.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runIngestGemini(project, all, force)
 		},
@@ -50,13 +53,16 @@ func runIngestGemini(project string, all, force bool) error {
 	}
 	printProjectHeaderIfDifferent(wipnoteDir)
 
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
+	// The canonical product of this command is the session HTML file it
+	// renders into .wipnote/sessions/. The projection below is the
+	// process-local in-memory compatibility DB: the ingest helpers below are
+	// shared with the Claude path and take a *sql.DB, and the renderer reads
+	// the session's active feature out of it. It is hydrated from canonical
+	// artifacts, holds nothing after this process exits, and creates no file
+	// (feat-fc3cc9e0).
+	database, err := openDB(wipnoteDir)
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return fmt.Errorf("build session projection: %w", err)
 	}
 	defer database.Close()
 
@@ -84,12 +90,12 @@ func runIngestGemini(project string, all, force bool) error {
 
 	var ingested, skipped, errCount int
 	for _, sf := range files {
-		if !force {
-			count, _ := dbpkg.CountMessages(database, sf.SessionID)
-			if count > 0 {
-				skipped++
-				continue
-			}
+		// "Already ingested" is now a question about the canonical artifact,
+		// not about rows in a derived index: a session is ingested when its
+		// HTML exists in .wipnote/sessions/.
+		if !force && sessionHTMLExists(wipnoteDir, sf.SessionID) {
+			skipped++
+			continue
 		}
 
 		n, toolN, err := ingestGeminiFileWithDB(database, wipnoteDir, sf, force)
@@ -112,7 +118,16 @@ func runIngestGemini(project string, all, force bool) error {
 	return nil
 }
 
-// ingestGeminiFileWithDB ingests a single Gemini session JSON file into the database.
+// sessionHTMLExists reports whether a session already has its canonical HTML
+// file rendered under .wipnote/sessions/.
+func sessionHTMLExists(wipnoteDir, sessionID string) bool {
+	_, err := os.Stat(filepath.Join(wipnoteDir, "sessions", sessionID+".html"))
+	return err == nil
+}
+
+// ingestGeminiFileWithDB renders a single Gemini session JSON file into its
+// canonical session HTML, populating the process-local projection along the
+// way so the renderer can resolve the session's active feature.
 func ingestGeminiFileWithDB(database *sql.DB, wipnoteDir string, sf ingest.GeminiSessionFile, force bool) (int, int, error) {
 	result, err := ingest.ParseGeminiFile(sf.Path)
 	if err != nil {

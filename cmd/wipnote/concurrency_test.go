@@ -16,7 +16,9 @@ func TestConcurrentCLIRepeatedStartAndCompleteAreIdempotent(t *testing.T) {
 		t.Skip("drives concurrent CLI lifecycle")
 	}
 
-	const sessionID = "test-cli-concurrent-status"
+	// test-cli-concurrent-status — session-shaped id required by the canonical session ledger
+	// that testHgDirWithDB now seeds.
+	const sessionID = "019ee378-abcd-7000-8000-000000000301"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
@@ -57,7 +59,7 @@ func TestConcurrentCLIMutationsDoNotLoseCanonicalUpdates(t *testing.T) {
 		t.Skip("drives concurrent CLI lifecycle")
 	}
 
-	tmpDir, hgDir := testHgDirWithDB(t, "test-cli-concurrent-mutations")
+	tmpDir, hgDir := testHgDirWithDB(t, "019ee378-abcd-7000-8000-000000000400" /* test-cli-concurrent-mutations */)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
 

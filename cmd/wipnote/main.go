@@ -2,7 +2,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -13,11 +12,9 @@ import (
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/daemon/apply"
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/worktree"
 	cliinternal "github.com/shakestzd/wipnote/internal/cli"
 	"github.com/shakestzd/wipnote/internal/registry"
@@ -156,8 +153,22 @@ func buildRoot() *cobra.Command {
 		Data: []cliinternal.GroupedCommand{
 			{GroupID: "data", Command: batchCmd()},
 			{GroupID: "data", Command: ingestCmd()},
-			{GroupID: "data", Command: backfillCmd()},
-			{GroupID: "data", Command: sweepCmd()},
+			// `wipnote backfill` is gone (feat-fc3cc9e0). Both subcommands
+			// (`feature-files`, `tool-calls-feature`) read `tool_calls` — a
+			// table hydration never populates — and wrote to `feature_files` /
+			// `tool_calls` in the per-process projection. They could only ever
+			// scan zero rows and persist nothing, while printing a count. The
+			// surviving capability is `wipnote reindex backfill-orphans`, which
+			// derives file attribution from git and writes it to the work
+			// item's canonical HTML.
+			// `wipnote sweep orphaned-events` is gone (feat-fc3cc9e0). It read
+			// agent_events rows still marked 'started' out of the per-project
+			// SQLite file. No such file exists, and an in-flight tool call is
+			// not recorded in any durable store — so a standalone CLI process
+			// can never see one. It would have reported "Swept 0" forever. The
+			// automatic sweeps that share the writer daemon's live projection
+			// (PostToolUse per-session, SessionStart project-wide, the daemon's
+			// own drain loop) are unaffected by this removal.
 			{GroupID: "data", Command: reindexCmd()},
 			{GroupID: "data", Command: migrateCmd()},
 			{GroupID: "data", Command: migrateTracksCmd()},
@@ -305,19 +316,6 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	projectDir := filepath.Dir(hgDir)
-	storage.CleanLegacyDBIfSafe(projectDir, os.Stderr)
-	// Opportunistic prune is destructive; skip it for the `cache` subtree so
-	// `wipnote cache prune --dry-run` reports the disk's actual state, and
-	// pass the active project's cache dir as protected so the LRU sweep can't
-	// pull the read-index out from under the very command that's about to run.
-	// Also skip for launcher commands (yolo, claude, codex, antigravity):
-	// the 1-3s cache scan adds silent latency before the harness starts, and
-	// launchers are not the prune path of record (feat-caa02f9a Fix 2).
-	if !inCacheSubtree(cmd) && !isHarnessLauncherCmd(cmd) {
-		if cacheRoot, cerr := storage.CacheRoot(); cerr == nil {
-			storage.OpportunisticPrune(cacheRoot, projectDir, os.Stderr)
-		}
-	}
 	launchTiming("persistentPreRunE: before openDB+EnsureSession")
 
 	// For harness launcher commands, wrap the session init in a styled spinner step
@@ -359,73 +357,23 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// initSessionWithDB performs the session initialization that was previously done
-// inline in persistentPreRunE. It opens the DB (read-only or writable as needed)
-// and ensures a session row exists. This is factored out so it can be wrapped
-// in a spinner for harness launcher commands (bug-b48c354f).
-func initSessionWithDB(hgDir, projectDir string, cmd *cobra.Command) error {
-	// slice-5 (feat-1ad54813): split-handle daemon-routed session ensure.
-	//   • Hot path (session exists): read-only SELECT — never acquires a write
-	//     lock. WAL readers and writers never block each other, so the launch
-	//     chooser renders <1s even under a held external write lock.
-	//   • Cold path (new session): routed through the per-project writer daemon
-	//     via agent.RouteSessionInsertFn (ENQUEUE-ONLY, bounded AsyncEnqueueBudget
-	//     — bug-d792aee6 finding 1: applied-ack stalled ~2.4s under a held lock).
-	//     No writable handle is opened when the daemon acks.
-	//   • Last-resort fallback: daemon unreachable → EnsureSessionWithTimeout on
-	//     the writable handle with ensureSessionPreRunTimeout, matching pre-slice-5
-	//     behaviour (busy_timeout-bounded, INSERT OR IGNORE idempotent).
-	//
-	// For harness launcher commands we open with a short 500ms busy_timeout so
-	// WAL contention from a running serve daemon never stalls the interactive
-	// launch path for the full 5s default (feat-caa02f9a Fix 1).
-	roOpenFn := func(dbPath string) (*sql.DB, error) {
-		if isHarnessLauncherCmd(cmd) {
-			return dbpkg.OpenReadOnlyFast(dbPath, 500)
-		}
-		return dbpkg.OpenReadOnly(dbPath)
-	}
-	dbPath, pathErr := storage.CanonicalDBPath(projectDir)
-	if pathErr == nil {
-		roDB, roErr := roOpenFn(dbPath)
-		if roErr == nil {
-			// Read-only open succeeded — warm DB. Use the routed path which
-			// opens NO writable handle when the daemon acks (hot or acked-cold).
-			//
-			// roborev-473 finding 2: pass a LAZY writable opener instead of
-			// eagerly opening the writable handle here. The warm/exists path and
-			// the daemon-acked cold path never invoke it, so we no longer pay a
-			// writable open + migration under contention for the common case;
-			// EnsureSessionRouted opens (and closes) the handle ONLY on a daemon
-			// miss where the direct fallback is actually needed.
-			_, _ = agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
-				launchTiming("persistentPreRunE: lazy openDB (daemon-miss fallback)")
-				return openDB(hgDir)
-			}, projectDir, projectDir, ensureSessionPreRunTimeout)
-			roDB.Close()
-		} else {
-			// Read-only open failed. Distinguish a genuinely-missing DB (first
-			// launch — must create it) from a lock/contention error. For harness
-			// launchers the writable openDB uses the default 5s busy_timeout, so
-			// falling back on contention would reintroduce the launch stall the
-			// 500ms fast-fail just avoided (roborev-612). Only take the writable
-			// fallback when the DB is actually missing, or for non-launcher cmds.
-			_, statErr := os.Stat(dbPath)
-			dbMissing := os.IsNotExist(statErr)
-			if dbMissing || !isHarnessLauncherCmd(cmd) {
-				if database, dberr := openDB(hgDir); dberr == nil {
-					launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
-					_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
-					database.Close()
-				}
-			} else {
-				// Launcher + DB exists but read-only open failed (lock/contention):
-				// skip best-effort writable session init to keep launch fast; the
-				// SessionStart hook / writer daemon still records the session.
-				launchTiming("persistentPreRunE: skip writable fallback under contention (launcher)")
-			}
-		}
-	}
+// initSessionWithDB records the current session before nearly every command. It
+// is factored out of persistentPreRunE so it can be wrapped in a spinner for
+// harness launcher commands (bug-b48c354f).
+//
+// It opens NO database, despite the name. agent.EnsureSessionWithTimeout writes
+// the canonical sessions ledger and .active-session; its first parameter is
+// declared `_ any` and is never read (core/agent/ensure.go:32). Passing a
+// hydrated projection meant paying a full non-incremental project parse — every
+// work-item HTML, every ledger, every plan and gate record, plus the whole edge
+// rebuild — on the pre-run path of nearly every command, and then discarding
+// the result. That is the same full-reindex-on-the-hot-path cost class as
+// bug-1f338b5b and bug-4e5816f4, so no projection is built here.
+//
+// The two leading parameters are retained for the persistentPreRunE call sites;
+// neither is needed now that no handle is opened.
+func initSessionWithDB(_, projectDir string, _ *cobra.Command) error {
+	_, _ = agent.EnsureSessionWithTimeout(nil, projectDir, ensureSessionPreRunTimeout)
 	return nil
 }
 

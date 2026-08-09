@@ -89,43 +89,85 @@ func TestOverlappingAgentsResolveToTheirOwnWorkItem(t *testing.T) {
 	}
 }
 
-// TestEpisodeSurvivesFullCacheWipe pins the durability promise: the read index
-// is disposable, the HTML is not. Delete the whole SQLite cache, rebuild, and
-// the interval must still resolve.
+// TestEpisodeSurvivesFullCacheWipe pins the durability promise: the read
+// index is disposable, the canonical ledger is not.
+//
+// Before feat-fc3cc9e0 "wipe the derived index" meant os.Remove-ing the real
+// SQLite cache file at WIPNOTE_DB_PATH plus its -wal/-shm sidecars. That file
+// no longer exists: WIPNOTE_DB_PATH isn't even set by the test harness
+// anymore (setupReindexTestEnv), openDB never writes to disk (see
+// openCachedDB's own doc comment), and every projection is a fresh
+// dbpkg.OpenEphemeralProjection() :memory: handle that dies the moment it's
+// closed. The old os.Remove/os.Stat block against that path had silently
+// become a no-op: os.Remove on a path nothing ever set returns IsNotExist,
+// which the test tolerated, and the follow-up "verify it's really gone"
+// os.Stat check then passed for the identical reason. Both passed whether or
+// not episodes actually survived anything, because there was nothing left to
+// wipe — the test proved nothing while still reading as a durability guard.
+//
+// The honest equivalent: a SQLite :memory: database has no on-disk backing
+// at all, so Close() destroys 100% of what a projection held, unconditionally
+// — there is no IsNotExist to tolerate because there is nothing left to
+// check. This closes the first projection completely, then rebuilds via a
+// SECOND, fully independent :memory: handle sharing no connection, pool, or
+// process state with the first.
+//
+// Closing the projection alone would still be checking "does rebuilding from
+// canonical files work" twice in a row, which passes trivially whether or
+// not anything was actually destroyed in between (nothing currently caches
+// across calls, so two independent rebuilds of UNCHANGED data can never
+// disagree). To make "no residue survives" a claim that could actually be
+// false, the episode is CLOSED — a real mutation to the canonical ledger
+// shard — while no projection exists at all. The rebuilt projection can only
+// report the closed state if it genuinely re-derives from canonical disk;
+// a stale or cached answer would still show the episode open.
 func TestEpisodeSurvivesFullCacheWipe(t *testing.T) {
 	repoRoot, wipnoteDir := setupArchiveRepo(t)
 	setupReindexTestEnv(t, repoRoot)
 
 	base := time.Date(2026, 8, 8, 10, 0, 0, 0, time.UTC)
+	// Seed an OPEN episode — still running when the first projection is built.
 	seedEpisode(t, wipnoteDir, "root-1", "sess-1", "ag-1", "feat-durable",
-		base, base.Add(time.Hour), claimledger.OutcomeCompleted)
+		base, time.Time{}, "")
 
 	runReindexInDir(t, repoRoot)
 	database := openCachedDB(t, repoRoot)
 	if got, _ := dbpkg.WorkItemForAgentAt(database, "ag-1", base.Add(30*time.Minute)); got != "feat-durable" {
-		t.Fatalf("before wipe: got %q, want feat-durable", got)
+		t.Fatalf("before wipe: got %q, want feat-durable (episode still open)", got)
 	}
+
+	// Destroy the first projection completely — see doc comment above.
 	database.Close()
 
-	// Nuke the entire derived index, WAL sidecars included.
-	dbPath := os.Getenv("WIPNOTE_DB_PATH")
-	for _, suffix := range []string{"", "-wal", "-shm"} {
-		if err := os.Remove(dbPath + suffix); err != nil && !os.IsNotExist(err) {
-			t.Fatalf("remove %s%s: %v", dbPath, suffix, err)
-		}
-	}
-	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
-		t.Fatalf("cache was not actually wiped: %v", err)
+	// Mutate canonical state while NO projection exists anywhere: close the
+	// episode. Only a rebuild that genuinely re-reads the ledger shard from
+	// disk, rather than reusing anything left over from the first build, can
+	// see this.
+	store := claimledger.NewStore(wipnoteDir)
+	closedAt := base.Add(45 * time.Minute)
+	if _, err := store.Close("root-1", "sess-1", "ag-1", "feat-durable", claimledger.OutcomeCompleted, closedAt); err != nil {
+		t.Fatalf("close episode: %v", err)
 	}
 
+	// Rebuild via a second, fully independent ephemeral projection.
 	runReindexInDir(t, repoRoot)
 	rebuilt := openCachedDB(t, repoRoot)
-	got, err := dbpkg.WorkItemForAgentAt(rebuilt, "ag-1", base.Add(30*time.Minute))
+
+	gotDuringWindow, err := dbpkg.WorkItemForAgentAt(rebuilt, "ag-1", base.Add(30*time.Minute))
 	if err != nil {
-		t.Fatalf("WorkItemForAgentAt after rebuild: %v", err)
+		t.Fatalf("WorkItemForAgentAt after rebuild (during window): %v", err)
 	}
-	if got != "feat-durable" {
-		t.Errorf("after full cache wipe + rebuild: got %q, want feat-durable — the episode did not survive", got)
+	if gotDuringWindow != "feat-durable" {
+		t.Errorf("after full projection wipe + rebuild: got %q, want feat-durable — the episode did not survive", gotDuringWindow)
+	}
+
+	gotAfterClose, err := dbpkg.WorkItemForAgentAt(rebuilt, "ag-1", closedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("WorkItemForAgentAt after rebuild (after close): %v", err)
+	}
+	if gotAfterClose != "" {
+		t.Errorf("after rebuild: got %q for a time AFTER the episode closed, want \"\" — "+
+			"the rebuild is reporting stale (still-open) state instead of reading the canonical ledger", gotAfterClose)
 	}
 }
 

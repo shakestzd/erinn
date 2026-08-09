@@ -10,25 +10,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// checkCrossProjectCmd reports sessions that belong to a different project.
+//
+// The --fix flag was removed in feat-fc3cc9e0. It deleted the reported rows
+// from `sessions` and `agent_events`, both of which now live only in the
+// per-process projection: the DELETE committed to a throwaway database and
+// reindexSessionLedger re-inserted every row from the canonical session ledger
+// on the next openDB. The report is unaffected and still accurate — the
+// projection's `sessions` table IS hydrated from that ledger, so the detection
+// reads real data. Only the remedy was fictional.
+//
+// The honest remedy is canonical and deliberately not automated here: a
+// cross-project session is a real ledger entry written by a real session, and
+// removing it means editing .wipnote/sessions/ and the ledger. That is a
+// destructive edit to provenance, not a tidy-up, so it stays a human decision.
 func checkCrossProjectCmd() *cobra.Command {
-	var fix bool
-
 	cmd := &cobra.Command{
 		Use:   "cross-project",
 		Short: "Find sessions from other projects",
-		Long: `Scan all sessions in the database for entries that belong to a different
-project (identified by git remote URL or project directory path).
+		Long: `Scan all sessions for entries that belong to a different project
+(identified by git remote URL or project directory path).
 
 Sessions with a different git_remote_url than the current project are reported
 as cross-project items. When git_remote_url is empty, the project_dir column is
 used as a fallback comparison.
 
-Use --fix to delete the reported sessions and their associated events.`,
+Report only. A cross-project session is a real entry in the canonical session
+ledger, so removing one means editing .wipnote/ — a deliberate edit to
+provenance rather than something this command should do for you.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runCheckCrossProject(fix)
+			return runCheckCrossProject()
 		},
 	}
-	cmd.Flags().BoolVar(&fix, "fix", false, "Delete cross-project sessions and their events")
 	return cmd
 }
 
@@ -40,7 +53,7 @@ type crossProjectSession struct {
 	status       string
 }
 
-func runCheckCrossProject(fix bool) error {
+func runCheckCrossProject() error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return err
@@ -66,17 +79,8 @@ func runCheckCrossProject(fix bool) error {
 	}
 
 	printForeignSessions(foreign, currentRemote)
-
-	if !fix {
-		fmt.Printf("\nRun with --fix to delete these %d session(s) and their events.\n", len(foreign))
-		return nil
-	}
-
-	deleted, err := deleteForeignSessions(database, foreign)
-	if err != nil {
-		return fmt.Errorf("delete sessions: %w", err)
-	}
-	fmt.Printf("\nDeleted %d cross-project session(s) and their events.\n", deleted)
+	fmt.Printf("\n%d cross-project session(s) reported. Each is a real entry in the\n", len(foreign))
+	fmt.Println("canonical session ledger; remove one by editing .wipnote/ deliberately.")
 	return nil
 }
 
@@ -139,29 +143,4 @@ func printForeignSessions(foreign []crossProjectSession, currentRemote string) {
 	if currentRemote != "" {
 		fmt.Printf("\nCurrent project remote: %s\n", currentRemote)
 	}
-}
-
-func deleteForeignSessions(database *sql.DB, foreign []crossProjectSession) (int, error) {
-	tx, err := database.Begin()
-	if err != nil {
-		return 0, err
-	}
-
-	deleted := 0
-	for _, s := range foreign {
-		if _, err := tx.Exec(`DELETE FROM agent_events WHERE session_id = ?`, s.sessionID); err != nil {
-			_ = tx.Rollback()
-			return 0, fmt.Errorf("delete events for %s: %w", s.sessionID, err)
-		}
-		if _, err := tx.Exec(`DELETE FROM sessions WHERE session_id = ?`, s.sessionID); err != nil {
-			_ = tx.Rollback()
-			return 0, fmt.Errorf("delete session %s: %w", s.sessionID, err)
-		}
-		deleted++
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-	return deleted, nil
 }

@@ -33,15 +33,25 @@ func gitInitRepo(t *testing.T, root string) {
 	run("commit", "-q", "-m", "init")
 }
 
-// writeArtifact creates an uncommitted work-item HTML artifact under .wipnote/.
+// writeArtifact creates an uncommitted "done" work-item HTML artifact under
+// .wipnote/. The artifact — not a read index — is what the canonical reconcile
+// scan reads the status from, so it must carry a real data-status.
 func writeArtifact(t *testing.T, root, typeName, id string) {
+	t.Helper()
+	writeArtifactWithStatus(t, root, typeName, id, "done")
+}
+
+// writeArtifactWithStatus writes a minimal but genuinely parseable work-item
+// artifact in the given state.
+func writeArtifactWithStatus(t *testing.T, root, typeName, id, status string) {
 	t.Helper()
 	dir := filepath.Join(root, ".wipnote", typeName+"s")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, id+".html"),
-		[]byte("<html>"+id+"</html>"), 0o644); err != nil {
+	html := `<html><body><article id="` + id + `" data-type="` + typeName +
+		`" data-status="` + status + `"><header><h1>` + id + `</h1></header></article></body></html>`
+	if err := os.WriteFile(filepath.Join(dir, id+".html"), []byte(html), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

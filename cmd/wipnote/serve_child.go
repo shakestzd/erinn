@@ -19,7 +19,7 @@ import (
 	"github.com/shakestzd/wipnote/core/daemon/readsrv"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/internal/childproc"
 	"github.com/shakestzd/wipnote/internal/registry"
 	"github.com/shakestzd/wipnote/observe/otel/indexer"
@@ -124,49 +124,14 @@ func runWriterOnly(serveManaged bool) error {
 	}
 	defer lease.Release()
 
-	dbPath, err := storage.CanonicalDBPath(projectRoot)
+	writeDB, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
+		return fmt.Errorf("open ephemeral compatibility db: %w", err)
 	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("ensure db dir: %w", err)
+	if err := hydrateCompatibilityDB(writeDB, wipnoteDir); err != nil {
+		writeDB.Close()
+		return fmt.Errorf("hydrate compatibility db: %w", err)
 	}
-	// dbpkg.Open runs migrations / ensures schema exists, exactly as the
-	// default path did in runServeChild, before the writequeue worker (or the
-	// background maintenance loops) touches the DB. The daemon now OWNS this
-	// single writable handle for the whole process.
-	//
-	// SINGLE-WRITER CONSOLIDATION (feat-075c110d): this is the ONE and ONLY
-	// writable SQLite handle the daemon opens. We cap it at MaxOpenConns=1 so
-	// the database/sql pool itself guarantees exactly ONE physical connection
-	// — and therefore that at most one BEGIN IMMEDIATE transaction is ever in
-	// flight across EVERY write path in the process:
-	//
-	//   - the writequeue applier (socket-delivered derived ops),
-	//   - the OTel sink (otel_signals inserts via the receiver Writer),
-	//   - the indexer (its direct writes + orphan-filter SELECTs),
-	//   - auto-ingest, the one-time ai-title backfill, and retention.
-	//
-	// Previously the daemon opened TWO writable pools to the same file —
-	// `dbpkg.Open` here AND a second pool inside receiver.NewWriter — so two
-	// connections could each issue BEGIN IMMEDIATE concurrently, producing the
-	// "database is locked (5) (SQLITE_BUSY)" thrash that kept the indexer
-	// failing and left otel_signals empty. Sharing this single handle (passed
-	// to receiver.NewWriterFromDB below) and capping it to one connection
-	// removes the second pool entirely.
-	//
-	// Read amplification note: collapsing to a single connection serializes
-	// the daemon's same-process SELECTs (orphan-filter, prompt-ID bridge)
-	// behind writes. That is acceptable here — the daemon is write-dominated,
-	// the SELECTs are tiny and infrequent, and the HTTP dashboard reads run in
-	// a SEPARATE read-only handle inside serve_child (not this pool). No user-
-	// facing read path shares this connection.
-	writeDB, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db (writable, schema): %w", err)
-	}
-	writeDB.SetMaxOpenConns(1)
-	writeDB.SetMaxIdleConns(1)
 	defer writeDB.Close()
 
 	// The OTel signals Writer BORROWS the single writable handle above rather
@@ -217,7 +182,7 @@ func runWriterOnly(serveManaged bool) error {
 	// serve_child↔writer contention. They now run HERE, against the daemon's
 	// single writable handle / queue, so the HTTP serve_child can be strictly
 	// read-only.
-	startWriterMaintenance(ctx, writeDB, wipnoteDir, q, writer)
+	startWriterMaintenance(ctx, wipnoteDir)
 
 	// Wire the real derived-op Applier. writer.DB() is the SAME single
 	// writable handle (writeDB, MaxOpenConns=1) the OTel sink, indexer, and
@@ -262,73 +227,193 @@ func runWriterOnly(serveManaged bool) error {
 	return ln.ServeWithIdleTimeout(ctx, idle)
 }
 
-// startWriterMaintenance launches the per-project background maintenance loops
-// that legitimately write to the project DB but do not fit the socket/
-// writequeue op API. It runs INSIDE the headless writer daemon (feat-075c110d
-// increment 2) so these writes share the daemon's single writable handle/queue
-// rather than opening a second writer inside the HTTP serve_child.
+// retentionSweepInterval is how often the daemon runs the retention pass
+// (archive completed sessions, sweep stale NDJSON). It matches the cadence
+// retention.StartLoop used before this function drove the ticker itself.
+const retentionSweepInterval = 24 * time.Hour
+
+// startWriterMaintenance launches the per-project background maintenance that
+// does not fit the socket/writequeue op API. It runs INSIDE the headless writer
+// daemon (feat-075c110d increment 2), the one long-lived per-project process
+// and therefore the only place a periodic pass can live.
 //
-// Loops started:
-//   - auto-ingest (every 60s) + a one-time ai-title backfill after the first
-//     ingest cycle, both against writeDB.
-//   - the NDJSON→SQLite indexer: SELECTs run against writeDB (the daemon holds
-//     no separate read-only handle), and its writes route through the same
-//     writequeue (WithQueue) / OTel sink the socket ops use.
-//   - retention archival (startup + every 24h) against writeDB.
+// # The test every loop had to pass
+//
+// These loops were written when the project database was a file on disk shared
+// by every wipnote process. The daemon wrote, the dashboard read, and a row the
+// daemon inserted was a row the dashboard could serve. That is no longer true:
+// each process builds its OWN in-memory projection (feat-fc3cc9e0), hydrated
+// from canonical files by hydrateCompatibilityDB.
+//
+// That breaks loops in two different ways, and the second is the dangerous one:
+//
+//  1. A loop whose entire OUTPUT was a DB row now produces nothing.
+//  2. A loop whose GUARD reads a table the projection does not hydrate does not
+//     become cautious — it becomes reckless. An empty table reads as "nothing
+//     to protect", never as "I cannot tell". Every such guard fails OPEN.
+//
+// So the question for each loop is not "does it still run" but "is its output
+// durable, and is every table its guards read actually hydrated". The hydration
+// set is exactly what hydrateCompatibilityDB writes: tracks, features/bugs/
+// spikes, archived work items, claim_episodes, sessions (from the ledger, nine
+// columns), graph_edges, plans, gate_records, recaps. Notably NOT hydrated:
+// claims, agent_events, messages, tool_calls.
+//
+// # Running (2)
+//
+//   - retention (24h) — reads sessions.status/completed_at, which the ledger
+//     hydration does populate, and writes NOTHING to the database. Destructive
+//     by intent: it tar.gz's completed sessions into .wipnote/archive/ and then
+//     os.RemoveAll's the live directory. Its own interlock is the .index-offset
+//     progress marker (retention.go:267), which is missing or behind whenever
+//     the dashboard indexer has not caught up — and a missing marker reads as
+//     "not caught up", so it defers rather than deleting un-indexed telemetry.
+//   - reconcile drain (5m) — git-commits done-but-uncommitted work-item
+//     artifacts (feat-c08d1ba1 slice-6 moved this off the Stop hook's ~5.45s
+//     hot path). It needs no projection at all: hooks.Reconcile-
+//     DoneButUncommittedForProject ignores its *sql.DB (session_end.go:733,
+//     `_ = database`) and works entirely from canonical files plus git.
+//
+// # Off, with cause (5)
+//
+// None of these had a production caller before this function was restored, so
+// leaving them off returns to the status quo rather than losing anything.
+//
+//   - EMPTY-SPIKE WORKTREE GC — OFF. The feature is opt-in and DEFAULT OFF
+//     (worktree.LoadCleanupConfig sets EmptySpikeWorktreeCleanup: false), so
+//     wiring it would change nothing for anyone today. It is unwired anyway
+//     because its LIVENESS GUARD IS INERT, and the previous comment here
+//     claimed the opposite — it called the sweep "liveness-aware", which is the
+//     sentence a future reader would trust when deciding whether turning the
+//     feature ON is safe. It is not.
+//     workItemHasLiveHeartbeat (config.go:198) joins the `claims` table.
+//     `claims` has no hydration path, and an audit found no production writer
+//     for it at all, so the query returns ErrNoRows and the guard returns false
+//     for EVERY work item — it cannot protect anything, in any configuration.
+//     With it inert, all that stands between a live agent's worktree and
+//     destruction is an mtime TTL, a git-lock check and a clean-tree check —
+//     which an agent idling on a clean tree satisfies — after which the sweep
+//     calls `git worktree remove` and shells out to `wipnote <type> complete`.
+//     Tracked as bug-0b322d67; rewire once liveness is answerable from
+//     canonical data. claim_episodes is hydrated but carries no
+//     last_heartbeat_at, so it is not a substitute: "episode still open" is not
+//     "heartbeat within N minutes".
+//   - ORPHAN DRAIN — OFF. hooks.SweepOrphanedEventsForProject selects from
+//     agent_events (event_repo.go:392), which the projection never hydrates, so
+//     it finds zero orphans on every pass. This one fails CLOSED — an empty
+//     table means it sweeps nothing — so it is harmless, but it would pay a
+//     full project hydrate every five minutes to guarantee finding nothing.
+//   - REAPER — OFF. Its heartbeat guard is dead the same way the sweep's is:
+//     db.SessionLivenessByHeartbeat reads MAX(last_heartbeat_at) FROM claims
+//     (session_repo.go:586), so heartbeatStale is permanently true. Unlike the
+//     sweep it is NOT dangerous, because SessionReapEligible ANDs that with
+//     !IsSessionProcessAlive (session_liveness.go:224), a pid-file + kill(0)
+//     check that degrades to LIVE on any uncertainty. It stays off for a
+//     different reason: its only durable output is closing claim episodes in
+//     the canonical ledger, and it cannot record that it did so — the session
+//     stays open in sessions-ledger.html because the remediation is an UPDATE
+//     against the projection — so every daemon restart re-reaps the same dead
+//     sessions. Restore it once that close is durable; the orphaned-collector
+//     reaping it also does is real work being deferred with it.
+//   - AUTO-INGEST — OFF. Both of its skip guards read unhydrated state:
+//     CountMessages reads `messages`, so it always returns 0, and the
+//     transcript_synced mtime guard reads a column the ledger hydration never
+//     populates. needsIngest is therefore true for every session on every
+//     pass — a full re-ingest of every transcript, forever. In a repo with
+//     bug-1f338b5b and bug-4e5816f4 in its history that is a severe regression.
+//   - AI-TITLE BACKFILL — OFF. It selects transcript_path, which is not among
+//     the columns the ledger hydration inserts, so every row short-circuits and
+//     zero titles are updated — and it then writes the persistent sentinel
+//     .wipnote/migrations/ai-title-backfill.done, durably guaranteeing a pass
+//     that accomplished nothing never runs again.
+//   - RECAPS REINDEX — OFF. It refilled the recaps table so the dashboard's
+//     Recap tab was not blank after a restart (bug-95d2d493). The dashboard now
+//     populates recaps in its own projection on every start, so the loop
+//     refilled a table nobody queries.
+//
+// The NDJSON→SQLite indexer moved rather than died: startDashboardTelemetryIndexer
+// runs it in the process whose projection the dashboard actually reads.
 //
 // ctx cancellation (from SIGTERM/SIGINT or idle-exit) stops every loop.
-func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir string, q *writequeue.Queue, writer *otelreceiver.Writer) {
+func startWriterMaintenance(ctx context.Context, wipnoteDir string) {
 	projectRoot := filepath.Dir(wipnoteDir)
 
-	// Auto-ingest + one-time ai-title backfill. These issue INSERT/UPDATE/
-	// DELETE on sessions/messages/tool_calls directly on the writable handle.
-	go autoIngestLoop(writeDB, wipnoteDir, func() {
-		startAITitleBackfill(ctx, writeDB, wipnoteDir)
+	// Retention archival: startup, then every 24h. A fresh projection per pass
+	// rather than one hydrated at daemon boot — a daemon lives for hours, and a
+	// boot-time snapshot would never show a session completed since.
+	startDrainLoop(ctx, retentionSweepInterval, func() {
+		withFreshProjection(wipnoteDir, "retention", func(database *sql.DB) {
+			if _, err := retention.Sweep(database, wipnoteDir, "", os.Getenv("WIPNOTE_RETENTION_DRYRUN") == "1"); err != nil {
+				log.Printf("retention: sweep: %v", err)
+			}
+		})
 	})
 
-	// NDJSON→SQLite indexer. Routes every SignalSink batch through the daemon's
-	// writequeue (via the OTel sink) and its prompt-ID bridge through the same
-	// queue (WithQueue). The daemon holds no separate read-only handle, so the
-	// orphan-filter SELECTs use the writable handle directly here — acceptable
-	// because they execute in the SAME process as the single writer (no cross-
-	// process SHARED↔RESERVED lock escalation, which was the bug-272c5e34/
-	// bug-74a7bda7 contention root cause).
-	snk := sqls.NewQueued(q, writer)
-	idxr := indexer.New(wipnoteDir, snk).
-		WithDB(writeDB).
-		WithWriteDB(writeDB).
-		WithQueue(q)
+	// Out-of-band reconcile drain (feat-c08d1ba1 slice-6). No projection: the
+	// callee ignores the handle and reads canonical artifacts directly, so
+	// building one would be pure cost.
+	startDrainLoop(ctx, reconcileDrainInterval, func() {
+		hooks.ReconcileDoneButUncommittedForProject(nil, projectRoot)
+	})
+}
+
+// withFreshProjection builds a short-lived compatibility projection from
+// canonical state, hands it to fn, and closes it. label names the caller in
+// failure logs so a broken pass is attributable.
+func withFreshProjection(wipnoteDir, label string, fn func(*sql.DB)) {
+	database, err := dbpkg.OpenEphemeralProjection()
+	if err != nil {
+		log.Printf("%s: open projection: %v", label, err)
+		return
+	}
+	defer database.Close()
+	if err := hydrateCompatibilityDB(database, wipnoteDir); err != nil {
+		log.Printf("%s: hydrate projection: %v", label, err)
+		return
+	}
+	fn(database)
+}
+
+// startDashboardTelemetryIndexer tails every per-session events.ndjson and
+// materialises the signals into the dashboard's OWN projection.
+//
+// This is the indexer that used to run in the writer daemon. Leaving it there
+// would have kept the code alive and the dashboard blank: the daemon and the
+// HTTP serve_child are separate processes with separate in-memory projections,
+// so signals indexed by the daemon are unreachable from the handlers that query
+// them. Those handlers are not incidental — api_otel.go, api_tree.go and
+// api_feed.go read otel_signals for the event tree, the activity feed, token
+// and cost rollups and the per-session transcript surface. Materialising into
+// the reader's own projection is what keeps them populated.
+//
+// Two consequences worth stating plainly:
+//
+//   - Every serve_child start replays every session's NDJSON from byte zero.
+//     There is no on-disk checkpoint to resume from, and there must not be: the
+//     projection starts empty, so an offset carried over from a previous
+//     process would leave everything before it permanently unindexed. Full
+//     replay is the only correct behaviour against an ephemeral destination.
+//   - The replayed signals are held in memory for the dashboard's lifetime.
+//     On a large history that is a real, unbounded-in-history footprint —
+//     observe/otel/signalvtab (feat-ba544d57) exists to answer these same
+//     queries directly over the NDJSON without materialising anything, and is
+//     the intended replacement for this loop.
+func startDashboardTelemetryIndexer(ctx context.Context, database *sql.DB, wipnoteDir string) {
+	if database == nil || wipnoteDir == "" {
+		return
+	}
+	writer, err := otelreceiver.NewWriterFromDB(database)
+	if err != nil {
+		log.Printf("dashboard telemetry indexer: writer init: %v", err)
+		return
+	}
+	// The projection is single-process with MaxOpenConns=1, so the pool itself
+	// serialises writes; the writequeue the daemon needed for cross-producer
+	// contention buys nothing here.
+	idxr := indexer.New(wipnoteDir, sqls.New(writer)).
+		WithDB(database).
+		WithWriteDB(database)
 	go idxr.Start(ctx)
-
-	// Retention archival: archive sessions older than the retention window at
-	// startup and every 24h.
-	retention.StartLoop(ctx, writeDB, wipnoteDir)
-
-	// Empty spike worktree GC: opt-in, conservative, and liveness-aware.
-	startEmptySpikeWorktreeSweepLoop(ctx, writeDB, projectRoot)
-
-	// Out-of-band orphan drain (bug-504095f2): the session-start hook only
-	// sweeps a small capped batch so the launcher stays fast; this low-frequency
-	// loop clears any remaining crash backlog using the daemon's single writable
-	// handle, off the interactive path.
-	startOrphanDrainLoop(ctx, writeDB, projectRoot)
-
-	// Out-of-band reconcile drain (feat-c08d1ba1 slice-6): the Stop hook stopped
-	// auto-committing done-but-uncommitted artifacts synchronously (its per-item
-	// git fork loop was a ~5.45s per-turn cost); this low-frequency loop performs
-	// that deterministic auto-commit off the interactive path so the durable
-	// record still lands in git.
-	startReconcileDrainLoop(ctx, writeDB, projectRoot)
-
-	// Periodic session/collector reaper (plan-5748e9a8): converts liveness detection
-	// into remediation — marks heartbeat-stale+process-dead active sessions ended and
-	// reaps identity-verified orphaned collectors. Dedicated pass, NOT full Reconcile.
-	startReaperLoop(ctx, writeDB, projectRoot)
-	// Recap reindex (bug-95d2d493): populate the recaps SQLite table at startup
-	// and on a periodic tick so the dashboard Recap tab is never empty after a
-	// container or DB restart. Previously reindexRecaps was called only from
-	// manual `wipnote reindex` / `wipnote recap list`.
-	startRecapsReindexLoop(ctx, writeDB, wipnoteDir)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours
@@ -356,41 +441,14 @@ func runServeChild(port int) error {
 	}
 
 	projectRoot := filepath.Dir(wipnoteDir)
-	dbPath, err := storage.CanonicalDBPath(projectRoot)
+	database, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
+		return fmt.Errorf("open ephemeral compatibility db: %w", err)
 	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("ensure db dir: %w", err)
+	if err := hydrateCompatibilityDB(database, wipnoteDir); err != nil {
+		database.Close()
+		return fmt.Errorf("hydrate compatibility db: %w", err)
 	}
-
-	// feat-075c110d increment 2: the HTTP serve_child is now STRICTLY
-	// read-only. The headless writer daemon (runWriterOnly) is the SOLE owner
-	// of the per-project writable workload — the writequeue AND all background
-	// maintenance (auto-ingest, indexer, ai-title backfill, retention). With
-	// serve running there is exactly ONE writable SQLite handle for the
-	// project: the daemon's. serve_child no longer opens a writable handle and
-	// therefore can never contend with the writer.
-	//
-	// OpenReadOnlyMigrated bootstraps the schema (a brief writable Open that
-	// runs migrations, then is closed immediately) and returns a read-only
-	// handle. mode=ro never creates a file and never migrates, so the bootstrap
-	// is still required for a fresh/schema-behind workspace; it does NOT leave
-	// a writable handle open. Once the writer daemon is up it owns migrations,
-	// but serve may start first, so we keep the bootstrap here.
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db (read-only mux): %w", err)
-	}
-	// Cap the dashboard read pool so a burst of concurrent HTTP requests
-	// cannot open an unbounded number of SQLite connections (each of which
-	// takes a SHARED lock and, under DELETE journal mode, serialises against
-	// the single writer). 12 is comfortably above the dashboard's steady
-	// concurrency while bounding worst-case lock pressure.
-	database.SetMaxOpenConns(dashboardReadPoolMaxConns)
-	// The read-only handle lives for the process lifetime; no defer Close —
-	// Serve blocks. The dashboard performs no in-process writes: any write the
-	// HTTP layer still needs goes via the writer daemon over its socket.
 
 	// Ensure the per-project writer daemon is running and reaped on shutdown
 	// (feat-075c110d increment 2). If a live writer lease already exists
@@ -401,32 +459,16 @@ func runServeChild(port int) error {
 	stopWriter := ensureWriterDaemon(projectRoot)
 	defer stopWriter()
 
-	// Dashboard interactive write routes (manual session-ingest button; plan
-	// feedback/finalize/delete/chat) genuinely mutate the DB and capture their
-	// *sql.DB at mux-build time. These are LOW-FREQUENCY, user-triggered writes
-	// — NOT the high-frequency background maintenance that increment 2 moved
-	// into the daemon (auto-ingest/indexer/ai-title/retention, the real
-	// contention source). They cannot yet be expressed as daemon op_types:
-	// routing them would require expanding the apply dispatch, which is
-	// explicitly OUT OF SCOPE for this increment (no wire-protocol / new-op
-	// changes). A dedicated writable handle is opened here for exactly these
-	// mutation endpoints (plan feedback POST, finalize, delete, chat, and
-	// manual session ingest). Read routes use the read-only `database` handle.
-	//
-	// bug-528478ad: previously this passed `database` (read-only, query_only=ON)
-	// for BOTH arguments, so every dashboard Approve/Finalize click returned 500
-	// "attempt to write a readonly database". The writable handle is capped at
-	// MaxOpenConns=1 so it serialises with the writer daemon; low-frequency
-	// user-triggered writes at dashboard speed will never contend in practice.
-	dashWriteDB, err := dbpkg.OpenWritable(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db (dashboard write handle): %w", err)
-	}
-	dashWriteDB.SetMaxOpenConns(1)
-	dashWriteDB.SetMaxIdleConns(1)
-	defer dashWriteDB.Close()
+	// Telemetry materialisation runs HERE, in the process that serves the
+	// queries. hydrateCompatibilityDB populates work items, ledgers, plans and
+	// recaps but never otel_signals — the signals live in per-session NDJSON, so
+	// something has to read them in, and it has to be this process for the
+	// dashboard's OTel handlers to see them at all. Cancelled on shutdown below.
+	indexerCtx, stopIndexer := context.WithCancel(context.Background())
+	defer stopIndexer()
+	startDashboardTelemetryIndexer(indexerCtx, database, wipnoteDir)
 
-	mux := buildSingleProjectMux(database, dashWriteDB, wipnoteDir)
+	mux := buildSingleProjectMux(database, database, wipnoteDir)
 
 	// /api/collector-status — diagnostic surface. The writer queue now lives in
 	// the daemon, so writerService.queue is nil here; readWriterServiceStatus

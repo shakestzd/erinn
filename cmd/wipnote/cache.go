@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/shakestzd/wipnote/core/storage"
@@ -13,10 +12,17 @@ import (
 func cacheCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cache",
-		Short: "Inspect and prune the SQLite read-index cache",
-		Long: `The SQLite read-index lives in the OS user cache directory, keyed by
-project-path hash. Cache files are derived state — losing them is harmless
-(the indexer rebuilds). These subcommands report and reclaim disk usage.`,
+		Short: "Report and reclaim leftover SQLite read-index caches",
+		Long: `wipnote no longer keeps a per-project SQLite read-index on disk; queries
+run against a process-local in-memory projection rebuilt from the canonical
+.wipnote/ artifacts. Installs that predate that change may still have
+per-project cache directories in the OS user cache dir, keyed by project-path
+hash, holding a wipnote.db and its WAL/SHM sidecars.
+
+Those leftovers are never read and are never deleted automatically. These
+subcommands exist so an operator can see them and reclaim the disk on
+purpose. Everything they can delete is derived state — the canonical store
+is .wipnote/, which lives in the repo and is never touched here.`,
 	}
 	cmd.AddCommand(cachePruneCmd())
 	cmd.AddCommand(cacheStatsCmd())
@@ -31,20 +37,26 @@ func cachePruneCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "prune",
-		Short: "Evict cache subdirs older than --max-age or beyond --max-size",
-		Long: `Removes per-project cache subdirs from the user cache directory.
+		Short: "Evict leftover cache subdirs older than --max-age or beyond --max-size",
+		Long: `Removes leftover per-project cache subdirs from the user cache directory.
 Eviction runs in two passes: first by age (anything older than --max-age),
-then by LRU until the surviving total fits in --max-size.`,
+then by LRU until the surviving total fits in --max-size.
+
+This is the only command that deletes them. Nothing prunes them for you: a
+leftover cache is ignored, not reclaimed, until you run this.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := storage.CacheRoot()
 			if err != nil {
 				return err
 			}
+			// Nothing is protected. The old carve-out shielded the running
+			// project's live read-index from its own operator; no project
+			// has a live read-index on disk any more, so every subdir here
+			// is a leftover the operator explicitly asked to reclaim.
 			opts := storage.EvictOptions{
-				MaxAge:    maxAge,
-				MaxSize:   maxSize,
-				DryRun:    dryRun,
-				Protected: protectedForCacheCmd(),
+				MaxAge:  maxAge,
+				MaxSize: maxSize,
+				DryRun:  dryRun,
 			}
 			res, err := storage.Evict(root, opts)
 			if err != nil {
@@ -62,7 +74,7 @@ then by LRU until the surviving total fits in --max-size.`,
 func cacheStatsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stats",
-		Short: "List per-project cache size and last-modified time",
+		Short: "List leftover per-project cache size and last-modified time",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := storage.CacheRoot()
 			if err != nil {
@@ -109,22 +121,6 @@ func printCacheStats(w io.Writer, root string, entries []storage.CacheEntry) err
 		fmt.Fprintf(w, "  %s  %10s  %s ago\n", e.Hash, humanBytes(e.Size), age)
 	}
 	return nil
-}
-
-// protectedForCacheCmd returns the active project's cache dir as a one-element
-// slice for EvictOptions.Protected, so an explicit `wipnote cache prune`
-// can never delete the read-index of the very project the operator is in.
-// Returns nil when the project root or its cache path can't be resolved.
-func protectedForCacheCmd() []string {
-	hgDir, err := findWipnoteDir()
-	if err != nil {
-		return nil
-	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(hgDir))
-	if err != nil {
-		return nil
-	}
-	return []string{filepath.Dir(dbPath)}
 }
 
 func humanBytes(n int64) string {

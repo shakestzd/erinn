@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/projection"
 )
 
 // graphNode represents a work item node in the graph response.
@@ -56,82 +57,12 @@ func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		includeAll := r.URL.Query().Get("all") == "true"
 
-		// Load all nodes with their track_id for implicit edge derivation.
-		nodes, trackIDs, err := loadGraphNodes(database, archSourceFor(wipnoteDir))
+		snap, err := projection.Load(wipnoteDir)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Collect explicit edges from graph_edges table.
-		edges, err := loadGraphEdges(database)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Build known-node set to avoid dangling edge references.
-		nodeSet := make(map[string]struct{}, len(nodes))
-		for _, n := range nodes {
-			nodeSet[n.ID] = struct{}{}
-		}
-
-		// Derive implicit part_of edges from track_id column.
-		for i, n := range nodes {
-			tid := trackIDs[i]
-			if tid == "" {
-				continue
-			}
-			if _, ok := nodeSet[tid]; !ok {
-				continue // target track not in node set
-			}
-			edges = append(edges, graphEdge{
-				Source: n.ID,
-				Target: tid,
-				Type:   "part_of",
-			})
-		}
-
-		// Derive session→feature edges from agent_events.
-		edges = append(edges, loadSessionFeatureEdges(database)...)
-
-		// Derive track-to-track edges from shared sessions: if a session
-		// worked on features from two different tracks, those tracks are related.
-		edges = append(edges, loadTrackCooccurrenceEdges(database)...)
-
-		// File edges (produced_in, touched_by) — commits and agents are
-		// no longer graph nodes, so their edge derivation is omitted.
-		edges = append(edges, loadFileEdges(database)...)
-
-		// Derive parent→child session edges from sessions.parent_session_id.
-		edges = append(edges, loadSessionHierarchyEdges(database)...)
-
-		// Derive session->feature (worked_on) edges from agent_lineage_trace.
-		// loadAgentLineageEdges emits both spawned (root->child session) AND
-		// worked_on (session->feature) edges — the latter are still wanted
-		// for session provenance even without agent nodes.
-		edges = append(edges, loadAgentLineageEdges(database)...)
-
-		// Deduplicate edges (explicit DB edges may duplicate implicit ones).
-		edges = deduplicateEdges(edges)
-
-		// Build edge-count index.
-		edgeCounts := make(map[string]int, len(nodes))
-		for _, e := range edges {
-			edgeCounts[e.Source]++
-			edgeCounts[e.Target]++
-		}
-
-		// Annotate nodes with their edge counts.
-		for i := range nodes {
-			nodes[i].Edges = edgeCounts[nodes[i].ID]
-		}
-
-		// Load activity counts per node from agent_events.
-		activityCounts := loadActivityCounts(database)
-		for i := range nodes {
-			nodes[i].Activity = activityCounts[nodes[i].ID]
-		}
+		nodes, edges := projectionGraphPayload(snap)
 
 		// Type filter: ?types=feature,session limits to those types.
 		caps := make(map[string]capInfo)
@@ -156,7 +87,7 @@ func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// interactions, so the graph contracts to "what this agent
 		// actually touched."
 		if agentName := r.URL.Query().Get("agent"); agentName != "" {
-			nodes = filterByAgent(database, nodes, agentName)
+			nodes = filterByAgentProjection(snap, nodes, agentName)
 		}
 
 		// Per-type caps: sort capped types by activity DESC, truncate.
@@ -231,7 +162,7 @@ func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// meaningful activity — so tombstones inherit that existing policy
 		// rather than a new one. `wipnote lineage` and /api/provenance are the
 		// surfaces that render them, each with its own pruned marker.
-		nodeSet = make(map[string]struct{}, len(nodes))
+		nodeSet := make(map[string]struct{}, len(nodes))
 		for _, n := range nodes {
 			nodeSet[n.ID] = struct{}{}
 		}
@@ -260,6 +191,41 @@ func graphAPIHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		}
 		respondJSON(w, graphData{Nodes: nodes, Edges: edges, Caps: capsOut})
 	}
+}
+
+func projectionGraphPayload(snap *projection.Snapshot) ([]graphNode, []graphEdge) {
+	nodes := make([]graphNode, 0, len(snap.NodeOrder))
+	for _, id := range snap.NodeOrder {
+		n := snap.Nodes[id]
+		nodes = append(nodes, graphNode{
+			ID:       n.ID,
+			Type:     n.Type,
+			Title:    n.Title,
+			Status:   n.Status,
+			Edges:    len(snap.Out[n.ID]) + len(snap.In[n.ID]),
+			Activity: projectionActivity(snap, n.ID),
+		})
+	}
+	edges := make([]graphEdge, 0, len(snap.Edges))
+	for _, e := range snap.Edges {
+		edges = append(edges, graphEdge{Source: e.FromID, Target: e.ToID, Type: e.Relationship})
+	}
+	return nodes, deduplicateEdges(edges)
+}
+
+func projectionActivity(snap *projection.Snapshot, id string) int {
+	var count int
+	for _, c := range snap.Claims {
+		if c.WorkItemID == id || c.SessionID == id || c.RootSessionID == id {
+			count++
+		}
+	}
+	for _, g := range snap.Gates {
+		if g.WorkItemID == id || g.SessionID == id {
+			count++
+		}
+	}
+	return count
 }
 
 // loadGraphNodes fetches all work items (features, bugs, spikes from the
@@ -911,35 +877,68 @@ func filterByAgent(database *sql.DB, nodes []graphNode, agentName string) []grap
 	return filtered
 }
 
+func filterByAgentProjection(snap *projection.Snapshot, nodes []graphNode, agentName string) []graphNode {
+	keep := make(map[string]bool)
+	for _, n := range snap.Nodes {
+		if n.Agent == agentName {
+			keep[n.ID] = true
+		}
+	}
+	for _, c := range snap.Claims {
+		if sessionAgent(snap, c.SessionID) != agentName && sessionAgent(snap, c.RootSessionID) != agentName {
+			continue
+		}
+		keep[c.SessionID] = true
+		keep[c.RootSessionID] = true
+		keep[c.WorkItemID] = true
+	}
+	for _, e := range snap.Edges {
+		if keep[e.FromID] || keep[e.ToID] {
+			keep[e.FromID] = true
+			keep[e.ToID] = true
+		}
+	}
+	filtered := make([]graphNode, 0, len(nodes))
+	for _, n := range nodes {
+		if keep[n.ID] {
+			filtered = append(filtered, n)
+		}
+	}
+	return filtered
+}
+
+func sessionAgent(snap *projection.Snapshot, sessionID string) string {
+	if n, ok := snap.Nodes[sessionID]; ok && n.Type == "session" {
+		return n.Agent
+	}
+	return ""
+}
+
 // agentsHandler returns the distinct agent names for the filter
 // dropdown. Ordered by activity DESC so the most-used agents appear
 // first.
-func agentsHandler(database *sql.DB) http.HandlerFunc {
+func agentsHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		rows, err := database.Query(`
-			SELECT name, SUM(cnt) AS activity FROM (
-				SELECT agent_name AS name, COUNT(*) AS cnt
-					FROM agent_lineage_trace WHERE agent_name != ''
-					GROUP BY agent_name
-				UNION ALL
-				SELECT agent_assigned AS name, COUNT(*) AS cnt
-					FROM sessions WHERE agent_assigned != ''
-					GROUP BY agent_assigned
-			) GROUP BY name ORDER BY activity DESC`)
+		snap, err := projection.Load(wipnoteDir)
 		if err != nil {
 			respondJSON(w, []string{})
 			return
 		}
-		defer rows.Close()
-		out := []string{}
-		for rows.Next() {
-			var name string
-			var activity int
-			if err := rows.Scan(&name, &activity); err != nil {
+		counts := map[string]int{}
+		for _, n := range snap.Nodes {
+			if n.Agent == "" {
 				continue
 			}
+			counts[n.Agent] += projectionActivity(snap, n.ID)
+			if counts[n.Agent] == 0 {
+				counts[n.Agent] = 1
+			}
+		}
+		out := make([]string, 0, len(counts))
+		for name := range counts {
 			out = append(out, name)
 		}
+		sort.Slice(out, func(i, j int) bool { return counts[out[i]] > counts[out[j]] })
 		respondJSON(w, out)
 	}
 }

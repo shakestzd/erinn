@@ -65,7 +65,11 @@ func TestEnsureWipnoteGitignore_CreatesFileWhenMissing(t *testing.T) {
 		"migrations/*.done",
 		"**/*.pid",
 		"**/*.sock",
-		"**/.index-offset",
+		// The trailing * is load-bearing, not a typo: without it the
+		// .index-offset-tmp-* files a crashed temp-then-rename leaves behind
+		// are untracked noise. Asserting the star keeps a future edit from
+		// narrowing the pattern back to the exact name.
+		"**/.index-offset*",
 		"**/.collector-pid",
 		"**/state.json",
 	} {

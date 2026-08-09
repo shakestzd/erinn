@@ -113,7 +113,14 @@ Bash is **read-only** in research mode. Only these command families are allowed:
 - `gh api --method GET` (GET only — never `--field`/`--input`/non-GET methods), `gh pr view`, `gh issue view`, `gh run view` — read-only GitHub state
 - `wipnote find`, `wipnote show`, `wipnote search`, `wipnote arch resolve` — wipnote queries (prefer `wipnote search '<ast pattern>'` over bare `grep` for code structures)
 - `wipnote sh "<command>"` — output wrapper for verbose commands; only for wrapping commands already allowed above
-- `sqlite3 <db> "SELECT ..."` — read-only DB queries
+
+There is no project database to query. Canonical state lives in files — work-item
+and architecture HTML, plan YAML, the session/claim/gate ledgers, per-session
+NDJSON — plus whatever git history records. Read it with the wipnote query
+commands above, or with `grep`/`cat` against `.wipnote/` directly. wipnote does
+use SQLite, but only as a process-local in-memory query engine built fresh inside
+a single command and discarded when it exits; there is no file on disk for
+`sqlite3` to open.
 
 ### Verbose output → wipnote sh
 

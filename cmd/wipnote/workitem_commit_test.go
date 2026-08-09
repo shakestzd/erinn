@@ -160,9 +160,15 @@ func TestTransactionalComplete_StrictFailureTriggersCompensatingReopen(t *testin
 		t.Errorf("on-disk status after failed complete = %q, want in-progress (compensating re-open)", got)
 	}
 
-	database, derr := dbpkg.Open(filepath.Join(wipnoteDir, ".db", "wipnote.db"))
+	// The projection must agree with canonical. It is built here, AFTER the
+	// command, rather than read from a file: openDB returns a private in-memory
+	// database hydrated from .wipnote/, so this asks "does a fresh projection of
+	// the canonical state show in-progress" — which is the real invariant. The
+	// old form opened a file-backed DB at WIPNOTE_DB_PATH and read a row the
+	// command never wrote there (feat-fc3cc9e0).
+	database, derr := openDB(wipnoteDir)
 	if derr != nil {
-		t.Fatalf("open db: %v", derr)
+		t.Fatalf("build projection: %v", derr)
 	}
 	defer database.Close()
 	var dbStatus string
@@ -170,7 +176,7 @@ func TestTransactionalComplete_StrictFailureTriggersCompensatingReopen(t *testin
 		t.Fatalf("query feature status: %v", qerr)
 	}
 	if dbStatus != "in-progress" {
-		t.Errorf("SQLite status after failed complete = %q, want in-progress", dbStatus)
+		t.Errorf("projected status after failed complete = %q, want in-progress", dbStatus)
 	}
 
 	// Re-open side effect: legacy active_feature_id must NOT still flag this
@@ -897,10 +903,11 @@ func TestTransactionalComplete_ReadOnlyFSSkipsReopen(t *testing.T) {
 		t.Errorf("on-disk status after read-only FS = %q, want done (no reopen)", got)
 	}
 
-	// Verify SQLite also reflects done (not re-opened to in-progress).
-	database, derr := dbpkg.Open(filepath.Join(wipnoteDir, ".db", "wipnote.db"))
+	// A fresh projection of canonical state must also read done — see the note
+	// on the same check in the strict-failure test above.
+	database, derr := openDB(wipnoteDir)
 	if derr != nil {
-		t.Fatalf("open db: %v", derr)
+		t.Fatalf("build projection: %v", derr)
 	}
 	defer database.Close()
 	var dbStatus string
@@ -908,7 +915,7 @@ func TestTransactionalComplete_ReadOnlyFSSkipsReopen(t *testing.T) {
 		t.Fatalf("query feature status: %v", qerr)
 	}
 	if dbStatus != "done" {
-		t.Errorf("SQLite status after read-only FS = %q, want done", dbStatus)
+		t.Errorf("projected status after read-only FS = %q, want done", dbStatus)
 	}
 
 	// The repo HEAD must NOT carry a "complete" commit for this item (autocommit

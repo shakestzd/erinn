@@ -5,14 +5,14 @@
     "email": "shakestzd@gmail.com",
     "url": "https://github.com/shakestzd"
   },
-  "description": "HTML-based agent observability + workflow analytics. Git-first JSONL event tracking with rebuildable SQLite index. Zero external dependencies, works offline, version control friendly.",
+  "description": "HTML-based agent observability + workflow analytics. Git-first canonical storage: work-item HTML, plan YAML, append-only ledgers, and NDJSON event logs, with commit attribution derived from git. Zero external dependencies, works offline, version control friendly.",
   "version": "0.35.0",
   "plugins": [
     {
       "name": "wipnote",
       "version": "0.35.0",
       "source": "../",
-      "description": "HTML-based agent observability + workflow analytics (Git-first JSONL + rebuildable SQLite index)",
+      "description": "HTML-based agent observability + workflow analytics (Git-first HTML, YAML, ledgers and NDJSON)",
       "category": "Development Tools",
       "tags": [
         "observability",

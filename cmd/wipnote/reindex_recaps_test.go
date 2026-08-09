@@ -210,16 +210,9 @@ func TestStartRecapsReindexLoop_PopulatesTableAtStartup(t *testing.T) {
 	t.Error("startRecapsReindexLoop did not populate the recaps table at startup")
 }
 
-func TestIsRecapHTMLPath(t *testing.T) {
-	root := t.TempDir()
-	wipnoteDir := filepath.Join(root, ".wipnote")
-	if !isRecapHTMLPath(filepath.Join(wipnoteDir, "recaps", "recap-feat-x.html"), wipnoteDir) {
-		t.Fatal("recap html path was not recognized")
-	}
-	if isRecapHTMLPath(filepath.Join(wipnoteDir, "features", "feat-x.html"), wipnoteDir) {
-		t.Fatal("feature html path must not be treated as recap")
-	}
-	if isRecapHTMLPath(filepath.Join(root, "other", "recap-feat-x.html"), wipnoteDir) {
-		t.Fatal("outside path must not be treated as recap")
-	}
-}
+// TestIsRecapHTMLPath is gone with isRecapHTMLPath itself. That predicate
+// existed only so the incremental reindex could tell a changed recap file from
+// a changed work-item file and route it to the right upsert; the incremental
+// path was deleted with the persistent index (feat-fc3cc9e0), and the full
+// rebuild reaches recaps through reindexRecaps, which globs the recaps
+// directory and needs no per-path classification.

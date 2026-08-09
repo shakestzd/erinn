@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -12,453 +14,256 @@ import (
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/observe/otel/indexer"
+	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
+	sqls "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 	"github.com/spf13/cobra"
 )
-
-const metaKeyLastIndexedCommit = "last_indexed_commit"
 
 func reindexCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reindex",
-		Short: "Sync HTML work items to SQLite index",
-		Long: `Reads HTML work item files from .wipnote/ and upserts them into the SQLite index.
+		Short: "Reparse every canonical .wipnote artifact and report what it yields",
+		Long: `Reparses every canonical artifact under .wipnote/ — work-item HTML, the
+archive/claim/session/gate ledgers, plans, arch cards, recaps, session activity
+logs and git history — into a compatibility projection, then reports what that
+projection contains and every error hit on the way.
 
-By default runs incrementally: only files changed since the last successful reindex
-are reparsed. Use --full to force a complete reparse of all files.`,
+The projection is an in-memory SQLite database private to this process. It is
+discarded when the command exits: no project database, WAL/SHM sidecar, or cache
+directory is created or updated. Every command builds its own projection on
+demand from the same canonical files, so there is no persistent index left to
+"sync" and nothing here that a later command inherits.
+
+What the command is FOR, therefore, is verification: it is the only place that
+parses the full corpus in one pass and tells you which artifacts fail to parse,
+and it reports the row counts a projection built from them yields.`,
 		RunE: runReindex,
 	}
-	cmd.Flags().Bool("full", false, "Force full reindex of all HTML files (ignores git diff)")
+	cmd.Flags().Bool("full", false, "Accepted for compatibility and ignored — every pass is full (see --help)")
 	cmd.Flags().BoolP("verbose", "v", false, "Print one line per error encountered during reindex")
 	cmd.AddCommand(reindexBackfillOrphansCmd())
 	return cmd
 }
 
-func runReindex(cmd *cobra.Command, _ []string) error {
-	fullFlag, _ := cmd.Flags().GetBool("full")
-	verboseFlag, _ := cmd.Flags().GetBool("verbose")
+// projectionCount is one row of the reindex report.
+type projectionCount struct {
+	label string
+	table string
+}
 
+// reportedProjectionTables are the projection tables `wipnote reindex` reports
+// on. Counting the rebuilt table is deliberately preferred over threading a
+// counter through every pass: it reports what the projection actually ENDS UP
+// containing rather than what each pass believed it wrote, which is the number
+// a reader of this command cares about.
+var reportedProjectionTables = []projectionCount{
+	{"work items", "features"},
+	{"tracks", "tracks"},
+	{"graph edges", "graph_edges"},
+	{"sessions", "sessions"},
+	{"agent events", "agent_events"},
+	{"claim episodes", "claim_episodes"},
+	{"gate records", "gate_records"},
+	{"recaps", "recaps"},
+	{"arch cards", "arch_cards"},
+	{"feature files", "feature_files"},
+	{"git commits", "git_commits"},
+}
+
+// runReindex rebuilds the compatibility projection from canonical artifacts and
+// reports the result.
+//
+// The previous incremental machinery (reparse only files changed since
+// metadata's last_indexed_commit, else fall back to a full pass) is gone with
+// the persistent database it served. It cannot be adapted: incrementality was
+// defined against an index that survived between runs, and the projection now
+// starts EMPTY every time. A git-diff-scoped pass over an empty projection does
+// not produce a stale index, it produces a projection containing only the files
+// that happened to change — which is worse than useless, so --full is now the
+// only behaviour and the flag is inert.
+func runReindex(cmd *cobra.Command, _ []string) error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return err
 	}
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	out := cmd.OutOrStdout()
 
-	projectDir := filepath.Dir(wipnoteDir)
-	dbPath, err := storage.CanonicalDBPath(projectDir)
+	database, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
+		return fmt.Errorf("open ephemeral projection: %w", err)
 	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("ensure db dir: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
+	defer database.Close()
+
+	started := time.Now()
+	errCount, err := rebuildFullProjection(database, wipnoteDir, verbose, out, cmd.ErrOrStderr())
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return err
 	}
-	dbClosed := false
-	closeDB := func() {
-		if !dbClosed {
-			_ = database.Close()
-			dbClosed = true
+
+	fmt.Fprintf(out, "\nRebuilt the compatibility projection from canonical .wipnote artifacts in %s.\n",
+		time.Since(started).Truncate(time.Millisecond))
+	for _, c := range reportedProjectionTables {
+		var n int
+		if err := database.QueryRow("SELECT COUNT(*) FROM " + c.table).Scan(&n); err != nil {
+			fmt.Fprintf(out, "  %-16s (unavailable: %v)\n", c.label, err)
+			continue
 		}
+		fmt.Fprintf(out, "  %-16s %d\n", c.label, n)
 	}
-	defer closeDB()
-	currentCommit := gitHeadCommit(projectDir)
-
-	lastCommit, _ := dbpkg.GetMetadata(database, metaKeyLastIndexedCommit)
-	useIncremental := !fullFlag && lastCommit != "" && currentCommit != ""
-
-	var total, upserted, errCount int
-	validIDs := make(map[string]bool)
-
-	// Rebuild agent_events from session HTML activity logs. projectDir is
-	// passed through so parseSessionHTML can attribute sessions whose HTML
-	// files predate the data-project-dir attribute (bug-a52d5bf9). The full
-	// path runs this mid-pass (see below) because collectSessionIDs reads the
-	// table it fills; sessionsIndexed keeps it from running twice.
-	sessDir := filepath.Join(wipnoteDir, "sessions")
-	var sessTotal, sessUpserted, sessErrs int
-	sessionsIndexed := false
-
-	if useIncremental {
-		if !gitCommitExists(projectDir, lastCommit) {
-			useIncremental = false
+	if errCount > 0 {
+		fmt.Fprintf(out, "\n%d canonical artifact(s) failed to parse or index.", errCount)
+		if !verbose {
+			fmt.Fprint(out, " Re-run with --verbose to see each one.")
 		}
+		fmt.Fprintln(out)
 	}
-
-	// Force a full reindex when an archive ledger changed since lastCommit. The
-	// incremental path keys off per-node file paths; an archive ledger is a
-	// multi-row table (not a single-node file), and archiving DELETES the
-	// individual files (which the incremental path would purge) while only the
-	// ledger gains the rows. A full pass is the simplest correct response — it is
-	// ledger-aware end-to-end (nodes, edges, and validIDs completeness for edge
-	// targets that did not change this window).
-	if useIncremental && archiveLedgerChangedSince(projectDir, wipnoteDir, lastCommit) {
-		useIncremental = false
-	}
-
-	if useIncremental {
-		total, upserted, errCount = runIncrementalReindex(database, wipnoteDir, projectDir, lastCommit, validIDs, verboseFlag)
-		fmt.Printf("Reindexed (incremental): %d upserted, %d errors (of %d changed HTML files)\n",
-			upserted, errCount, total)
-	} else {
-		trackTotal, trackUpserted, trackErrs := reindexTracks(database, wipnoteDir, projectDir, validIDs, verboseFlag)
-		total += trackTotal
-		upserted += trackUpserted
-		errCount += trackErrs
-
-		for _, dir := range []string{"features", "bugs", "spikes"} {
-			t, u, e := reindexFeatureDir(database, wipnoteDir, projectDir, dir, validIDs, verboseFlag)
-			total += t
-			upserted += u
-			errCount += e
-		}
-
-		// Archived work items: compacted out of individual files into
-		// .wipnote/archive/<type>s.html ledgers. They are still canonical, so
-		// they index into the same features table and must register in validIDs
-		// BEFORE purgeStaleEntries — otherwise the purge would treat a compacted
-		// item as a deleted file and drop it (and its edges) from the index.
-		arcTotal, arcUpserted, arcErrs := reindexWorkitemLedgerNodes(database, wipnoteDir, projectDir, validIDs, verboseFlag)
-		total += arcTotal
-		upserted += arcUpserted
-		errCount += arcErrs
-
-		// Plans are canonical nodes with their own HTML/YAML, but they are
-		// never indexed into the features or tracks tables, so no other pass
-		// registers their IDs. Without this, indexNodeEdges' target-validity
-		// gate silently drops every edge POINTING AT a plan (feature →
-		// planned_in → plan, track → contains → plan, …) and purgeStaleEntries
-		// deletes any such edge left over from a prior run. Must run BEFORE
-		// purgeStaleEntries, and must land together with the "plans" entry in
-		// reindexEdges — registering only the scan direction re-breaks the
-		// feature-side edges, and registering only the IDs leaves plan-sourced
-		// edges unscanned (bug-d5eaf6a4).
-		collectPlanIDs(wipnoteDir, validIDs)
-
-		// Sessions must be indexed BEFORE collectSessionIDs. On a from-scratch
-		// DB the sessions table is empty until reindexSessions populates it, so
-		// collectSessionIDs would register nothing and every work-item →
-		// implemented_in → session edge would fail the target-validity gate —
-		// a loss that only manifests on a cold rebuild (bug-6ec28063). The node
-		// passes above still have to run first: agent_events.feature_id carries
-		// a foreign key to features(id), so events would be rejected if the
-		// features table were still empty.
-		sessTotal, sessUpserted, sessErrs = reindexSessions(database, sessDir, projectDir)
-		sessionsIndexed = true
-
-		// The canonical sessions ledger (feat-1b08a194) is the authority for
-		// session validity; the derived table above is only the richer source
-		// where telemetry still exists. Projecting the ledger into that table
-		// joins the two, so collectSessionIDs below registers ledger-only
-		// sessions too and graph.ClassifyEdgeTarget answers EdgeTargetLive for
-		// them — with no change to ClassifyEdgeTarget, which asks only whether
-		// an id is in validIDs and never where it came from.
-		//
-		// Projection rather than a new collector is deliberate: the same pass
-		// also gives the three title readers something to read, which is the
-		// difference between a resolved session and a blank one. See
-		// reindexSessionLedger.
-		//
-		// Both calls must stay ABOVE purgeStaleEntries, for the same reason
-		// collectPlanIDs does: the purge judges targets against validIDs as it
-		// stands at that moment.
-		ledgerRows := reindexSessionLedger(database, wipnoteDir, verboseFlag)
-		collectSessionIDs(database, validIDs)
-		purged, edgesPurged := purgeStaleEntries(database, validIDs)
-		reindexEdges(database, wipnoteDir, validIDs)
-		reindexWorkitemLedgerEdges(database, wipnoteDir, validIDs, verboseFlag)
-		fixImplementedInEdges(database)
-		fmt.Printf("Reindexed: %d upserted, %d errors (of %d HTML files)\n",
-			upserted, errCount, total)
-		if purged > 0 || edgesPurged > 0 {
-			fmt.Printf("Purged: %d stale features, %d stale edges\n", purged, edgesPurged)
-		}
-		if ledgerRows > 0 {
-			fmt.Printf("  session ledger: %d canonical sessions with no surviving telemetry\n", ledgerRows)
-		}
-	}
-
-	if !sessionsIndexed {
-		sessTotal, sessUpserted, sessErrs = reindexSessions(database, sessDir, projectDir)
-	}
-	if sessUpserted > 0 || sessErrs > 0 {
-		fmt.Printf("  sessions: %d events upserted, %d errors (of %d session files)\n",
-			sessUpserted, sessErrs, sessTotal)
-	}
-
-	// Parse git commit trailers (Refs:/Fixes:) to backfill feature attribution.
-	trailerCount, trailerErr := reindexCommitTrailers(database, projectDir)
-	if trailerErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: commit trailer ingestion: %v\n", trailerErr)
-	} else if trailerCount > 0 {
-		fmt.Printf("  commit trailers: %d feature links from Refs/Fixes trailers\n", trailerCount)
-	}
-
-	// Rebuild feature_files from git_commits.
-	fileCount, ffErr := reindexFeatureFiles(database, projectDir)
-	if ffErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: feature_files rebuild: %v\n", ffErr)
-	} else if fileCount > 0 {
-		fmt.Printf("  feature_files: %d file associations rebuilt\n", fileCount)
-	}
-
-	// Ingest arch cards (.wipnote/arch/*.md) into the arch_cards read index.
-	archTotal, archUpserted, archErrs := reindexArchCards(database, wipnoteDir, verboseFlag)
-	if archUpserted > 0 || archErrs > 0 {
-		fmt.Printf("  arch cards: %d upserted, %d errors (of %d card files)\n",
-			archUpserted, archErrs, archTotal)
-	}
-	errCount += archErrs
-
-	// Ingest the claim ledger (.wipnote/claims/*.html) into claim_episodes. Runs
-	// on the incremental path too — see reindexClaimEpisodes for why a
-	// git-diff-driven pass would miss episodes that are written but not yet
-	// flushed by the commit queue.
-	claimFiles, claimRows, claimErrs := reindexClaimEpisodes(database, wipnoteDir, verboseFlag)
-	if claimRows > 0 || claimErrs > 0 {
-		fmt.Printf("  claim episodes: %d upserted, %d errors (of %d ledger files)\n",
-			claimRows, claimErrs, claimFiles)
-	}
-	errCount += claimErrs
-
-	// Gate ledger (feat-0e5ca43e). Backfill runs FIRST: it moves gate runs
-	// recorded before the ledger existed into it, and only then can the
-	// projection below treat them as rebuildable. Both run on the incremental
-	// path, for the same reason reindexClaimEpisodes does — ledger writes commit
-	// asynchronously, so a git-diff-driven pass would miss a run that is written
-	// but not yet flushed.
-	backfilled, backfillErrs := backfillGateLedgerFromIndex(database, wipnoteDir, verboseFlag)
-	if backfilled > 0 || backfillErrs > 0 {
-		fmt.Printf("  gate ledger: %d pre-ledger gate runs given a canonical home (%d errors)\n",
-			backfilled, backfillErrs)
-	}
-	errCount += backfillErrs
-
-	gateRows, gateErrs := reindexGateRecords(database, wipnoteDir, verboseFlag)
-	if gateRows > 0 || gateErrs > 0 {
-		fmt.Printf("  gate records: %d projected from the canonical ledger, %d errors\n",
-			gateRows, gateErrs)
-	}
-	errCount += gateErrs
-
-	// Ingest recap artifacts (.wipnote/recaps/*.html) into the recaps read index.
-	recapTotal, recapUpserted, recapErrs := reindexRecaps(database, wipnoteDir, projectDir, verboseFlag)
-	if recapUpserted > 0 || recapErrs > 0 {
-		fmt.Printf("  recaps: %d upserted, %d errors (of %d recap files)\n",
-			recapUpserted, recapErrs, recapTotal)
-	}
-	errCount += recapErrs
-
-	// Slice 9 (feat-229f3333): rebuild graph_edges derived from plan YAML
-	// dependency lists. The HTML edge pass above only covers <a data-*-id>
-	// attributes; plan YAML slice deps are a separate canonical source.
-	if !useIncremental {
-		planFiles, planEdges, planErrs := reindexPlanEdges(database, wipnoteDir)
-		if planEdges > 0 || planErrs > 0 {
-			fmt.Printf("  plan edges: %d edges from %d plan YAML files (%d errors)\n",
-				planEdges, planFiles, planErrs)
-		}
-		errCount += planErrs
-
-		// bug-eca8141d: replay slice approval state from canonical plan YAML into
-		// plan_feedback so the finalize gate works after a cache rebuild. Rows are
-		// inserted with INSERT OR IGNORE — live interactive rows win.
-		_, approvalRows, approvalErrs := reindexPlanApprovals(database, wipnoteDir)
-		if approvalRows > 0 || approvalErrs > 0 {
-			fmt.Printf("  plan approvals: %d slice approval rows replayed (%d errors)\n",
-				approvalRows, approvalErrs)
-		}
-		// bug-fddf5820 (finding 6): approvalErrs (and the sibling planErrs /
-		// archErrs passes) were never folded into errCount, so a rebuild with
-		// failed approval replays still set the "last indexed commit" metadata
-		// as if it were clean — suppressing the next incremental pass's retry.
-		errCount += approvalErrs
-	}
-
-	if currentCommit != "" && errCount == 0 {
-		_ = dbpkg.SetMetadata(database, metaKeyLastIndexedCommit, currentCommit)
-	}
-
-	// Close the read-pool handle before opening the OTel writer. Slice 6's
-	// writer service uses a dedicated writable connection — opening it on
-	// the same DB file while another writer is active is the contention
-	// pattern slice 6 is engineered to AVOID, not exercise. Sequencing the
-	// open/close keeps reindex a single writer at any moment.
-	closeDB()
-
-	// Slice 9 (feat-229f3333): replay every per-session events.ndjson back
-	// into otel_signals. This is the canonical-first recovery path — the
-	// dashboard's OTel-derived event surface is fully rebuildable from
-	// NDJSON, exactly the rebuild promise slice 9 ratifies.
-	if !useIncremental {
-		otelSess, otelIter, otelErrs := reindexOtelEvents(dbPath, wipnoteDir)
-		if otelSess > 0 || otelErrs > 0 {
-			fmt.Printf("  otel events: replayed %d session NDJSON files in %d iterations (%d errors)\n",
-				otelSess, otelIter, otelErrs)
-		}
-	}
-
+	fmt.Fprintln(out, "\nThe projection is in-memory and process-local — it was discarded when this")
+	fmt.Fprintln(out, "command exited. No project database or cache file was written.")
 	return nil
 }
 
-// runIncrementalReindex parses only files changed between lastCommit and HEAD.
-func runIncrementalReindex(
-	database *sql.DB,
-	wipnoteDir, projectDir, lastCommit string,
-	validIDs map[string]bool,
-	verbose bool,
-) (int, int, int) {
-	added, deleted := gitChangedFiles(projectDir, lastCommit, wipnoteDir)
+// rebuildFullProjection populates database with EVERYTHING derivable from
+// canonical state, and returns how many artifacts failed along the way.
+//
+// It is the full sweep: hydrateCompatibilityDB (what every command builds) plus
+// the passes too expensive to run on an ordinary command's pre-run path — the
+// ones that walk git history, the whole sessions tree, or every telemetry
+// shard. Split out from runReindex so tests can build the same projection the
+// command builds instead of re-deriving a partial one.
+func rebuildFullProjection(database *sql.DB, wipnoteDir string, verbose bool, out, errOut io.Writer) (int, error) {
+	projectDir := filepath.Dir(wipnoteDir)
 
-	for _, path := range deleted {
-		id := idFromHTMLPath(path)
-		if id != "" {
-			if isRecapHTMLPath(path, wipnoteDir) {
-				database.Exec(`DELETE FROM recaps WHERE id = ?`, id)
-			} else {
-				database.Exec(`DELETE FROM features WHERE id = ?`, id)
-				database.Exec(`DELETE FROM tracks WHERE id = ?`, id)
+	errCount := 0
+
+	// The node and edge halves of the SAME rebuild every command performs via
+	// openDB, so what this command verifies is exactly what other commands will
+	// get — not a parallel implementation that can drift from it.
+	//
+	// reindexSessions goes BETWEEN the halves, not after. It parses per-session
+	// activity HTML into agent_events and the richer sessions rows, so it must
+	// follow the node passes (agent_events.feature_id is a foreign key into
+	// features) and precede the edge passes (which resolve implemented_in
+	// targets against the sessions table, and would otherwise let the ledger's
+	// placeholder row win). It is not in hydrateCompatibilityDB itself because
+	// walking the whole sessions tree is exactly the kind of cost that must not
+	// land on an ordinary command's pre-run path (bug-1f338b5b, bug-4e5816f4).
+	validIDs := make(map[string]bool)
+	hydrateNodePasses(database, wipnoteDir, validIDs)
+
+	sessTotal, sessUpserted, sessErrs := reindexSessions(database, filepath.Join(wipnoteDir, "sessions"), projectDir)
+	errCount += sessErrs
+	if sessUpserted > 0 || sessErrs > 0 {
+		fmt.Fprintf(out, "  sessions: %d events upserted, %d errors (of %d session files)\n",
+			sessUpserted, sessErrs, sessTotal)
+	}
+
+	hydrateEdgePasses(database, wipnoteDir, validIDs)
+
+	// The remaining passes walk git history or every telemetry shard — same
+	// cost argument, same reason they live only here.
+	trailerCount, trailerErr := reindexCommitTrailers(database, projectDir)
+	if trailerErr != nil {
+		errCount++
+		fmt.Fprintf(errOut, "warning: commit trailer ingestion: %v\n", trailerErr)
+	} else if trailerCount > 0 {
+		fmt.Fprintf(out, "  commit trailers: %d feature links from Refs/Fixes trailers\n", trailerCount)
+	}
+
+	fileCount, ffErr := reindexFeatureFiles(database, projectDir)
+	if ffErr != nil {
+		errCount++
+		fmt.Fprintf(errOut, "warning: feature_files rebuild: %v\n", ffErr)
+	} else if fileCount > 0 {
+		fmt.Fprintf(out, "  feature_files: %d file associations rebuilt\n", fileCount)
+	}
+
+	archTotal, archUpserted, archErrs := reindexArchCards(database, wipnoteDir, verbose)
+	errCount += archErrs
+	if archUpserted > 0 || archErrs > 0 {
+		fmt.Fprintf(out, "  arch cards: %d upserted, %d errors (of %d card files)\n",
+			archUpserted, archErrs, archTotal)
+	}
+
+	// Telemetry: replay every per-session events.ndjson into otel_signals.
+	// Sessions must already be indexed above — the indexer skips shards with no
+	// row in the sessions table (its orphan filter), so a telemetry pass that
+	// ran first would silently index nothing.
+	signals, signalErrs := replayTelemetryShards(database, wipnoteDir)
+	errCount += signalErrs
+	if signals > 0 || signalErrs > 0 {
+		fmt.Fprintf(out, "  telemetry: %d signals replayed from session NDJSON (%d errors)\n", signals, signalErrs)
+	}
+
+	// Two passes the legacy full path ran that are deliberately NOT here:
+	//
+	//   • purgeStaleEntries — it deleted index rows whose canonical file had
+	//     disappeared. A projection built fresh from the files that exist right
+	//     now cannot contain a row for a file that does not, so there is
+	//     nothing stale to purge.
+	//   • backfillGateLedgerFromIndex — it moved gate runs recorded in the
+	//     persistent index BEFORE the canonical ledger existed into that
+	//     ledger. Those rows lived only in the database that is now gone; the
+	//     projection's gate_records are themselves projected from the ledger
+	//     (reindexGateRecords), so running the backfill could only copy the
+	//     ledger onto itself.
+
+	return errCount, nil
+}
+
+// maxTelemetryDrainPasses bounds the replay loop below. The indexer consumes at
+// most maxBytesPerTick per session per pass so one huge shard cannot monopolise
+// the writer, which means a full replay needs several passes. bug-b2471635 was
+// an unbounded version of this loop spinning forever on a shard that could not
+// advance, so the ceiling is explicit and progress-checked rather than trusted.
+const maxTelemetryDrainPasses = 512
+
+// replayTelemetryShards drives the NDJSON indexer over every session shard until
+// it stops making progress, materialising otel_signals into database. Returns
+// the signal count landed and an error count.
+//
+// This replaces reindexOtelEvents, which took a DB PATH, opened its own writable
+// handle, and reset every .index-offset to zero first. None of that survives the
+// cutover: there is no path to open, and the indexer's read position is now
+// in-memory and starts at zero anyway — so resetting the on-disk marker would
+// only have clobbered the progress signal that retention, prune and the
+// SessionEnd hook read (see observe/otel/indexer's package comment).
+func replayTelemetryShards(database *sql.DB, wipnoteDir string) (int, int) {
+	writer, err := otelreceiver.NewWriterFromDB(database)
+	if err != nil {
+		return 0, 1
+	}
+	idxr := indexer.New(wipnoteDir, sqls.New(writer)).
+		WithDB(database).
+		WithWriteDB(database)
+
+	ctx := context.Background()
+	for pass := 0; pass < maxTelemetryDrainPasses; pass++ {
+		idxr.RunOnce(ctx)
+		caughtUp := true
+		for _, info := range idxr.Status() {
+			if info.LagBytes > 0 {
+				caughtUp = false
+				break
 			}
+		}
+		if caughtUp {
+			break
 		}
 	}
 
-	if len(added) == 0 {
-		return 0, 0, 0
-	}
-
-	var total, upserted, errCount int
-	for _, path := range added {
-		total++
-		if isRecapHTMLPath(path, wipnoteDir) {
-			id := idFromHTMLPath(path)
-			row, parseErr := parseRecapHTML(path, id)
-			if parseErr != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex recaps: error: %s: %v\n", path, parseErr)
-				}
-				continue
-			}
-			createdAt, updatedAt := applyGitTimestamps(projectDir, path, time.Time{}, time.Time{})
-			if !createdAt.IsZero() {
-				t := createdAt
-				row.CreatedAt = &t
-			}
-			if !updatedAt.IsZero() {
-				t := updatedAt
-				row.UpdatedAt = &t
-			}
-			if err := dbpkg.UpsertRecap(database, row); err != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex recaps: error: %s: %v\n", path, err)
-				}
-				continue
-			}
-			upserted++
-			continue
-		}
-
-		node, parseErr := htmlparse.ParseFile(path)
-		if parseErr != nil {
+	errCount := 0
+	for _, info := range idxr.Status() {
+		if info.LastError != "" {
 			errCount++
-			if verbose {
-				fmt.Printf("reindex: error: %s: %v\n", path, parseErr)
-			}
-			continue
-		}
-
-		createdAt, updatedAt := normalizeTimes(node.CreatedAt, node.UpdatedAt)
-		createdAt, updatedAt = applyGitTimestamps(projectDir, path, createdAt, updatedAt)
-
-		if node.Type == "track" {
-			track := &dbpkg.Track{
-				ID:        node.ID,
-				Type:      "track",
-				Title:     node.Title,
-				Priority:  string(node.Priority),
-				Status:    normalizeStatus(string(node.Status)),
-				CreatedAt: createdAt,
-				UpdatedAt: updatedAt,
-			}
-			if err := dbpkg.UpsertTrack(database, track); err != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex: error: %s: %v\n", path, err)
-				}
-				continue
-			}
-		} else {
-			desc := node.Content
-			if len([]rune(desc)) > 500 {
-				desc = string([]rune(desc)[:499]) + "\u2026"
-			}
-			stepsTotal := len(node.Steps)
-			stepsCompleted := 0
-			for _, s := range node.Steps {
-				if s.Completed {
-					stepsCompleted++
-				}
-			}
-			feat := &dbpkg.Feature{
-				ID:             node.ID,
-				Type:           mapNodeType(node.Type),
-				Title:          node.Title,
-				Description:    desc,
-				Status:         normalizeStatus(string(node.Status)),
-				Priority:       string(node.Priority),
-				AssignedTo:     node.AgentAssigned,
-				TrackID:        node.TrackID,
-				CreatedAt:      createdAt,
-				UpdatedAt:      updatedAt,
-				StepsTotal:     stepsTotal,
-				StepsCompleted: stepsCompleted,
-			}
-			if err := dbpkg.UpsertFeature(database, feat); err != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex: error: %s: %v\n", path, err)
-				}
-				continue
-			}
-		}
-		validIDs[node.ID] = true
-		upserted++
-	}
-	return total, upserted, errCount
-}
-
-func isRecapHTMLPath(path, wipnoteDir string) bool {
-	rel, err := filepath.Rel(filepath.Join(wipnoteDir, "recaps"), path)
-	if err != nil {
-		return false
-	}
-	return rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." && strings.HasSuffix(path, ".html")
-}
-
-// isArchiveLedgerPath reports whether path is a work-item archive ledger
-// (.wipnote/archive/<type>s.html), as opposed to an individual work-item file.
-func isArchiveLedgerPath(path, wipnoteDir string) bool {
-	rel, err := filepath.Rel(filepath.Join(wipnoteDir, graph.ArchiveDirName), path)
-	if err != nil {
-		return false
-	}
-	return rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) &&
-		rel != ".." && strings.HasSuffix(path, ".html")
-}
-
-// archiveLedgerChangedSince reports whether any archive ledger under
-// .wipnote/archive/ was added, modified, or deleted between fromCommit and HEAD.
-// When true, runReindex falls back to a full (ledger-aware) reindex.
-func archiveLedgerChangedSince(projectDir, wipnoteDir, fromCommit string) bool {
-	added, deleted := gitChangedFiles(projectDir, fromCommit, wipnoteDir)
-	for _, path := range append(append([]string{}, added...), deleted...) {
-		if isArchiveLedgerPath(path, wipnoteDir) {
-			return true
 		}
 	}
-	return false
+	var signals int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM otel_signals`).Scan(&signals); err != nil {
+		return 0, errCount + 1
+	}
+	return signals, errCount
 }
 
 func gitHeadCommit(projectDir string) string {
@@ -472,146 +277,6 @@ func gitHeadCommit(projectDir string) string {
 func gitCommitExists(projectDir, commit string) bool {
 	err := exec.Command("git", "-C", projectDir, "cat-file", "-e", commit+"^{commit}").Run()
 	return err == nil
-}
-
-func gitChangedFiles(projectDir, fromCommit, wipnoteDir string) (added []string, deleted []string) {
-	relHg, err := filepath.Rel(projectDir, wipnoteDir)
-	if err != nil {
-		return nil, nil
-	}
-
-	out, err := exec.Command(
-		"git", "-C", projectDir,
-		"diff", "--name-status", fromCommit, "HEAD", "--", relHg,
-	).Output()
-	if err != nil {
-		return nil, nil
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "\t", 3)
-		if len(parts) < 2 {
-			continue
-		}
-		status := parts[0]
-		if strings.HasPrefix(status, "R") && len(parts) == 3 {
-			oldPath := filepath.Join(projectDir, parts[1])
-			newPath := filepath.Join(projectDir, parts[2])
-			if strings.HasSuffix(newPath, ".html") {
-				added = append(added, newPath)
-			}
-			if strings.HasSuffix(oldPath, ".html") {
-				deleted = append(deleted, oldPath)
-			}
-			continue
-		}
-		filePath := filepath.Join(projectDir, parts[1])
-		if !strings.HasSuffix(filePath, ".html") {
-			continue
-		}
-		switch status {
-		case "A", "M":
-			added = append(added, filePath)
-		case "D":
-			deleted = append(deleted, filePath)
-		}
-	}
-
-	untrackedOut, err := exec.Command(
-		"git", "-C", projectDir,
-		"ls-files", "--others", "--exclude-standard", "--", relHg,
-	).Output()
-	if err == nil {
-		for _, rel := range strings.Split(strings.TrimSpace(string(untrackedOut)), "\n") {
-			if rel == "" {
-				continue
-			}
-			path := filepath.Join(projectDir, rel)
-			if strings.HasSuffix(path, ".html") {
-				added = append(added, path)
-			}
-		}
-	}
-
-	// Include working-tree dirty files: modifications not yet committed (staged
-	// or unstaged). Commands like `bug move` write the HTML without committing,
-	// so git diff HEAD..HEAD misses them. Use `git diff --name-status` (unstaged)
-	// and `git diff --cached --name-status` (staged) to catch both cases, and
-	// distinguish modifications (A, M, R) from deletions (D).
-	added, deleted = appendDirtyHTMLFiles(projectDir, relHg, added, deleted)
-
-	return deduplicatePaths(added), deleted
-}
-
-// appendDirtyHTMLFiles appends any .wipnote HTML files that are modified or
-// deleted in the working tree (staged or unstaged) but not yet committed.
-// It uses git diff --name-status to distinguish modifications from deletions:
-// - A (added), M (modified), R (renamed) go to added list (upsert)
-// - D (deleted) goes to deleted list (remove from SQLite)
-func appendDirtyHTMLFiles(projectDir, relHg string, added, deleted []string) ([]string, []string) {
-	for _, args := range [][]string{
-		{"diff", "--name-status", "--", relHg},
-		{"diff", "--cached", "--name-status", "--", relHg},
-	} {
-		out, err := exec.Command("git", append([]string{"-C", projectDir}, args...)...).Output()
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			if line == "" {
-				continue
-			}
-			parts := strings.SplitN(line, "\t", 3)
-			if len(parts) < 2 {
-				continue
-			}
-			status := parts[0]
-			// Handle renames: old path is deleted, new path is added.
-			if strings.HasPrefix(status, "R") && len(parts) == 3 {
-				oldPath := filepath.Join(projectDir, parts[1])
-				newPath := filepath.Join(projectDir, parts[2])
-				if strings.HasSuffix(newPath, ".html") {
-					added = append(added, newPath)
-				}
-				if strings.HasSuffix(oldPath, ".html") {
-					deleted = append(deleted, oldPath)
-				}
-				continue
-			}
-			filePath := filepath.Join(projectDir, parts[1])
-			if !strings.HasSuffix(filePath, ".html") {
-				continue
-			}
-			switch status {
-			case "A", "M":
-				added = append(added, filePath)
-			case "D":
-				deleted = append(deleted, filePath)
-			}
-		}
-	}
-	return added, deleted
-}
-
-// deduplicatePaths returns paths with duplicates removed, preserving order.
-func deduplicatePaths(paths []string) []string {
-	seen := make(map[string]bool, len(paths))
-	out := paths[:0:0]
-	for _, p := range paths {
-		if !seen[p] {
-			seen[p] = true
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func idFromHTMLPath(path string) string {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, ".html")
 }
 
 func reindexTracks(database *sql.DB, wipnoteDir, projectDir string, validIDs map[string]bool, verbose bool) (int, int, int) {

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
@@ -51,16 +50,15 @@ func TestPromoteSlice_Approved_CreatesFeature(t *testing.T) {
 		t.Fatalf("write html: %v", err)
 	}
 
-	// Approve slice 1.
-	db, err := openPlanDB(dir)
-	if err != nil {
-		t.Fatalf("openPlanDB: %v", err)
-	}
-	if err := dbpkg.StorePlanFeedback(db, pID, "slice-1", "approve", "true", ""); err != nil {
-		db.Close()
+	// Approve slice 1 through the canonical YAML write path. storePlanFeedback
+	// (plan_feedback_yaml.go) writes plan.Feedback.Entries and mirrors
+	// ApprovalStatus into the slice; the old dbpkg.StorePlanFeedback call only
+	// touched the ephemeral :memory: projection handle openPlanDB returns
+	// (OpenEphemeralProjection), which vanishes the instant it's closed and
+	// never reached canonical storage at all (feat-fc3cc9e0).
+	if err := storePlanFeedback(dir, pID, "slice-1", "approve", "true", ""); err != nil {
 		t.Fatalf("store approval: %v", err)
 	}
-	db.Close()
 
 	// Promote slice 1.
 	featID, err := promoteSliceFromYAML(dir, pID, 1, false, false)
@@ -182,9 +180,9 @@ func TestPromoteSlice_BlockedByPendingDeps_Refuses(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "plans", pID+".html"), []byte("<html></html>"), 0o644)
 
 	// Approve slice 2 but NOT slice 1 (dep is not done).
-	db, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db, pID, "slice-2", "approve", "true", "")
-	db.Close()
+	if err := storePlanFeedback(dir, pID, "slice-2", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 
 	// Without --waive-deps: must refuse.
 	_, err := promoteSliceFromYAML(dir, pID, 2, false, false)
@@ -197,9 +195,9 @@ func TestPromoteSlice_BlockedByPendingDeps_Refuses(t *testing.T) {
 
 	// With --waive-deps: must succeed.
 	// Also approve slice 2 again (already done) to ensure idempotency of approval store.
-	db2, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db2, pID, "slice-2", "approve", "true", "")
-	db2.Close()
+	if err := storePlanFeedback(dir, pID, "slice-2", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 
 	featID, err := promoteSliceFromYAML(dir, pID, 2, true, false)
 	if err != nil {
@@ -239,9 +237,9 @@ func TestPromoteSlice_DepDoneViaSetSliceStatus_NoWaiveNeeded(t *testing.T) {
 
 	// Approve slice 2 (the one we'll promote) and mark slice 1's execution
 	// status as 'done' via the same code path the user docs describe.
-	db, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db, pID, "slice-2", "approve", "true", "")
-	db.Close()
+	if err := storePlanFeedback(dir, pID, "slice-2", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 	if err := runSetSliceStatus(dir, pID, "1", "done"); err != nil {
 		t.Fatalf("runSetSliceStatus: %v", err)
 	}
@@ -277,9 +275,9 @@ func TestPromoteSlice_Idempotent(t *testing.T) {
 	planyaml.Save(planPath, plan)
 	os.WriteFile(filepath.Join(dir, "plans", pID+".html"), []byte("<html></html>"), 0o644)
 
-	db, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db, pID, "slice-1", "approve", "true", "")
-	db.Close()
+	if err := storePlanFeedback(dir, pID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 
 	// First promote.
 	featID1, err := promoteSliceFromYAML(dir, pID, 1, false, false)
@@ -325,9 +323,9 @@ func TestPromoteSlice_SetsExecutionStatusPromoted(t *testing.T) {
 	planyaml.Save(planPath, plan)
 	os.WriteFile(filepath.Join(dir, "plans", pID+".html"), []byte("<html></html>"), 0o644)
 
-	db, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db, pID, "slice-1", "approve", "true", "")
-	db.Close()
+	if err := storePlanFeedback(dir, pID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 
 	if _, err := promoteSliceFromYAML(dir, pID, 1, false, false); err != nil {
 		t.Fatalf("promote: %v", err)
@@ -373,9 +371,9 @@ func TestPromoteSlice_PlanRemainsActive(t *testing.T) {
 	planyaml.Save(planPath, plan)
 	os.WriteFile(filepath.Join(dir, "plans", pID+".html"), []byte("<html></html>"), 0o644)
 
-	db, _ := openPlanDB(dir)
-	dbpkg.StorePlanFeedback(db, pID, "slice-1", "approve", "true", "")
-	db.Close()
+	if err := storePlanFeedback(dir, pID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store approval: %v", err)
+	}
 
 	if _, err := promoteSliceFromYAML(dir, pID, 1, false, false); err != nil {
 		t.Fatalf("promote: %v", err)
@@ -429,15 +427,9 @@ func TestExecutePreview_IncludesPromotedSliceFeatures(t *testing.T) {
 	}
 
 	// Approve and promote slice 1.
-	db, err := openPlanDB(hgDir)
-	if err != nil {
-		t.Fatalf("openPlanDB: %v", err)
-	}
-	if err := dbpkg.StorePlanFeedback(db, pID, "slice-1", "approve", "true", ""); err != nil {
-		db.Close()
+	if err := storePlanFeedback(hgDir, pID, "slice-1", "approve", "true", ""); err != nil {
 		t.Fatalf("store approval: %v", err)
 	}
-	db.Close()
 
 	featID, err := promoteSliceFromYAML(hgDir, pID, 1, false, false)
 	if err != nil {
@@ -513,15 +505,9 @@ func seedPromoteFixture(t *testing.T, decisionsNotes string) (hgDir, planID stri
 		t.Fatalf("write html: %v", err)
 	}
 
-	db, err := openPlanDB(hgDir)
-	if err != nil {
-		t.Fatalf("openPlanDB: %v", err)
-	}
-	if err := dbpkg.StorePlanFeedback(db, planID, "slice-1", "approve", "true", ""); err != nil {
-		db.Close()
+	if err := storePlanFeedback(hgDir, planID, "slice-1", "approve", "true", ""); err != nil {
 		t.Fatalf("store approval: %v", err)
 	}
-	db.Close()
 
 	return hgDir, planID
 }

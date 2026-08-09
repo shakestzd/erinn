@@ -1,31 +1,44 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/shakestzd/wipnote/core/sessionledger"
 )
 
-// TestSessionShowListStaleSchemaRegressions verifies that runSessionList and
-// runSessionShow use OpenReadOnlyMigrated (bootstrap+migrate then read-only)
-// rather than a bare OpenReadOnly or writable openDB, so they succeed against a
-// fresh or stale-schema DB instead of surfacing "no such table" errors.
-//
-// Bug-af107c36: before this fix both commands called openDB (writable open, no
-// RetryOnBusy), causing SQLITE_BUSY under contention.  The entire show/list
-// path is read-only (pure SELECT), so the correct fix is openReadOnlyDB, which
-// calls dbpkg.OpenReadOnlyMigrated.
-//
-// Each subtest gets its own fresh, schema-less DB (via setupStaleSchemaDB) to
-// prevent cross-subtest schema pollution from OpenReadOnlyMigrated
-// bootstrapping: if any callsite reverts to bare OpenReadOnly the schema won't
-// be bootstrapped and the "no such table" guard turns RED.
-//
-// The tests drive the ACTUAL command paths (runSessionList / runSessionShow),
-// not OpenReadOnlyMigrated directly — so a revert at the openReadOnlyDB call
-// site makes the subtest FAIL.
-func TestSessionShowListStaleSchemaRegressions(t *testing.T) {
+// TestSessionShowListUseCanonicalLedger verifies the read-only session commands
+// use the authoritative session ledger and never create/open the project DB as a
+// schema bootstrap fallback.
+func TestSessionShowListUseCanonicalLedger(t *testing.T) {
 	if testing.Short() {
-		t.Skip("drives stale-schema session integration flow")
+		t.Skip("drives session command integration flow")
+	}
+	tmpDir := t.TempDir()
+	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	dbPath := filepath.Join(tmpDir, "must-not-exist.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+
+	origProjectDir := projectDirFlag
+	projectDirFlag = tmpDir
+	t.Cleanup(func() { projectDirFlag = origProjectDir })
+
+	store := sessionledger.NewStore(wipnoteDir)
+	start := time.Date(2026, 8, 9, 10, 0, 0, 0, time.UTC)
+	if _, err := store.Open(sessionledger.Record{SessionID: "sess-aaaabbbb-cccc-dddd-eeee-ffff00001111", Harness: "codex", StartedAt: start}); err != nil {
+		t.Fatalf("open ledger session: %v", err)
+	}
+	if _, err := store.Open(sessionledger.Record{SessionID: "sess-bbbbaaaa-cccc-dddd-eeee-ffff00001111", Harness: "codex", StartedAt: start.Add(-time.Hour)}); err != nil {
+		t.Fatalf("open closed ledger session: %v", err)
+	}
+	if err := store.Close("sess-bbbbaaaa-cccc-dddd-eeee-ffff00001111", start.Add(-30*time.Minute)); err != nil {
+		t.Fatalf("close ledger session: %v", err)
 	}
 
 	tests := []struct {
@@ -34,50 +47,35 @@ func TestSessionShowListStaleSchemaRegressions(t *testing.T) {
 		wantErrorMsg string // non-empty: substring expected in error; empty: expect nil
 	}{
 		{
-			name: "runSessionList on fresh schema-less DB",
+			name: "runSessionList from ledger",
 			runFunc: func() error {
-				// runSessionList opens via openReadOnlyDB which calls
-				// OpenReadOnlyMigrated.  Against a fresh, schema-bootstrapped-but-empty
-				// DB the query returns zero rows and nil error.
 				return runSessionList(false, 10)
 			},
-			wantErrorMsg: "", // schema bootstrapped; empty result set → nil
+			wantErrorMsg: "",
 		},
 		{
-			name: "runSessionList active-only on fresh schema-less DB",
+			name: "runSessionList active-only from ledger",
 			runFunc: func() error {
 				return runSessionList(true, 5)
 			},
-			wantErrorMsg: "", // same path, active-only filter; empty result set → nil
+			wantErrorMsg: "",
 		},
 		{
-			name: "runSessionShow unknown session on fresh schema-less DB",
+			name: "runSessionShow known session from ledger",
 			runFunc: func() error {
-				// runSessionShow opens via openReadOnlyDB then calls GetSession.
-				// Against a schema-bootstrapped-but-empty DB there are no sessions,
-				// so GetSession returns a "not found" error — NOT a schema error.
-				return runSessionShow("sess-deadbeef")
+				return runSessionShow("sess-aaaabbbb-cccc-dddd-eeee-ffff00001111")
 			},
-			// GetSession wraps sql.ErrNoRows as "get session sess-deadbeef: …"
-			// which runSessionShow re-wraps as "session … not found".
-			wantErrorMsg: "not found",
+			wantErrorMsg: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Each subtest gets its own fresh, schema-less DB.  setupStaleSchemaDB
-			// (defined in trace_test.go) sets WIPNOTE_DB_PATH and projectDirFlag.
-			setupStaleSchemaDB(t)
-
 			err := tt.runFunc()
 
-			// RED guard: "no such table" means OpenReadOnlyMigrated was NOT used.
 			if err != nil && strings.Contains(err.Error(), "no such table") {
-				t.Fatalf("schema error (bare OpenReadOnly or openDB detected, not openReadOnlyDB/OpenReadOnlyMigrated): %v", err)
+				t.Fatalf("schema error (project DB fallback detected): %v", err)
 			}
-
-			// GREEN: assert the concrete expected outcome per case.
 			if tt.wantErrorMsg == "" {
 				if err != nil {
 					t.Fatalf("expected nil error but got: %v", err)
@@ -91,5 +89,8 @@ func TestSessionShowListStaleSchemaRegressions(t *testing.T) {
 				}
 			}
 		})
+	}
+	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
+		t.Fatalf("session read command created/opened project DB %s: %v", dbPath, err)
 	}
 }

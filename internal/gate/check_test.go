@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/storage"
 )
@@ -98,13 +99,14 @@ func TestRunSession_WritesSessionLocalRecord(t *testing.T) {
 	if !result.Passed {
 		t.Fatal("expected passing gate")
 	}
-	database := openGateTestDB(t, projectRoot)
-	defer database.Close()
-	record, err := dbpkg.LatestGateRecordForSession(database, "sess-gate-pass")
+	// The gate LEDGER is the record. The read-index mirror this used to assert
+	// against is gone (feat-fc3cc9e0), and asserting on it would only prove the
+	// mirror still exists — not that the run was durably recorded.
+	record, err := gateledger.StoreForProject(projectRoot).LatestForSession("sess-gate-pass")
 	if err != nil {
-		t.Fatalf("LatestGateRecordForSession: %v", err)
+		t.Fatalf("LatestForSession: %v", err)
 	}
-	if record == nil || record.Status != "pass" || !record.SignatureValid() {
+	if record == nil || record.Status != gateledger.StatusPass || !record.SignatureValid() {
 		t.Fatalf("unexpected record: %+v", record)
 	}
 	if record.Harness != "codex" {
@@ -128,14 +130,17 @@ func TestResolveWorkItem_FlagTakesPrecedence(t *testing.T) {
 	uniqueDir := t.TempDir()
 	uniqueSuffix := filepath.Base(filepath.Dir(uniqueDir)) + "-" + filepath.Base(uniqueDir)
 	featureID := "feat-flag-" + strings.ReplaceAll(t.Name(), "/", "-") + "-" + uniqueSuffix
-	database := openGateTestDB(t, projectRoot)
-	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
-		VALUES (?, 'feature', 'Flag test', 'done', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`, featureID)
-	if err != nil {
-		database.Close()
-		t.Fatalf("insert feature: %v", err)
+	// The canonical artifact is what makes the item "known to the project" now;
+	// there is no features table left to insert into (feat-fc3cc9e0).
+	featuresDir := filepath.Join(projectRoot, ".wipnote", "features")
+	if err := os.MkdirAll(featuresDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	database.Close()
+	if err := os.WriteFile(filepath.Join(featuresDir, featureID+".html"), []byte(
+		`<html><body><article id="`+featureID+`" data-type="feature" data-status="done">`+
+			`<header><h1>Flag test</h1></header></article></body></html>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var stderr strings.Builder
 	got := ResolveWorkItem(projectRoot, "sess-any", dbpkg.AgentRootSentinel, featureID, &stderr)
 	if got != featureID {

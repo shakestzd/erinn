@@ -682,17 +682,25 @@ func stepClaimEpisodesTable(db *sql.DB) error {
 // advanced as if the data had been stored. On the corpus this was measured
 // against that was 86,758 of 155,855 signals.
 //
-// WHY THE INDEX DROP ALONE FIXES NOTHING: the NDJSON indexer records a byte
-// offset per shard, and those offsets already sit at end-of-file on every
-// existing install. Dropping the index stops future loss but leaves the
-// historical hole untouched — a fresh database would look perfect while every
-// upgraded one stayed 56% empty. So this step also sets the re-ingest marker
-// that indexer.EnsureReingest consumes, which clears the per-shard checkpoints
-// exactly once so the canonical NDJSON is replayed in full.
+// WHY THE INDEX DROP ALONE ONCE FIXED NOTHING: the NDJSON indexer recorded a
+// byte offset per shard, and on every existing install those offsets already
+// sat at end-of-file. Dropping the index stopped future loss but left the
+// historical hole untouched — a fresh database looked perfect while every
+// upgraded one stayed 56% empty. This step therefore used to arm a re-ingest
+// marker (SetOtelReingestRequired) that indexer.EnsureReingest consumed by
+// clearing the per-shard checkpoints exactly once.
 //
-// Replay is safe and non-destructive: inserts are keyed on signal_id, so rows
-// already present are skipped, and rows whose NDJSON has since been swept by
-// retention are left alone rather than deleted and not re-derived.
+// THAT MARKER IS GONE, and so is the problem it solved. The indexer's read
+// position is now in memory and starts at zero in every process, because its
+// destination is a process-local projection that starts empty (feat-fc3cc9e0).
+// A full replay from byte zero is no longer a special recovery mode that has to
+// be requested — it is what every process already does, unconditionally. Arming
+// a marker to ask for it would leave a flag nothing reads, which is the husk
+// this migration would have become.
+//
+// Replay remains safe and non-destructive: inserts are keyed on signal_id, so
+// rows already present are skipped, and rows whose NDJSON has since been swept
+// by retention are left alone rather than deleted and not re-derived.
 func stepOtelSpanIDIndexNotUnique(db *sql.DB) error {
 	// DROP INDEX IF EXISTS is safe on a database without the table.
 	if _, err := db.Exec(`DROP INDEX IF EXISTS idx_otel_span_id_unique`); err != nil {
@@ -722,17 +730,8 @@ func stepOtelSpanIDIndexNotUnique(db *sql.DB) error {
 		}
 	}
 
-	// The marker lives in metadata; a partially-built legacy database may not
-	// have that table either. Nothing to recover on such a database anyway.
-	hasMetadata, err := tableExists(db, "metadata")
-	if err != nil {
-		return err
-	}
-	if hasMetadata {
-		if err := SetOtelReingestRequired(db, "022_otel_span_id_index_not_unique"); err != nil {
-			return fmt.Errorf("flag otel re-ingest: %w", err)
-		}
-	}
+	// No re-ingest marker is armed here any more — see the doc comment. The
+	// index change above is the whole of this step now.
 	return nil
 }
 

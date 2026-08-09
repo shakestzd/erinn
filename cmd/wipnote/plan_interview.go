@@ -34,8 +34,6 @@ import (
 	"syscall"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/plan/interview"
 	"github.com/shakestzd/wipnote/plan/planamend"
 	"github.com/shakestzd/wipnote/plan/planchat"
@@ -312,13 +310,11 @@ func serveInterviewForm(wipnoteDir, planID string, page interviewPage, stages []
 	// the real plan-review chat (Claude-answered, AMEND directives honored).
 	// Best-effort: if the DB can't open, the form still works (chat hidden).
 	page.ChatEnabled = false
-	if dbPath, derr := storage.CanonicalDBPath(filepath.Dir(wipnoteDir)); derr == nil {
-		if db, oerr := dbpkg.Open(dbPath); oerr == nil {
-			defer db.Close()
-			mux.Handle("/api/plans/", planRouter(db, db, wipnoteDir))
-			mux.Handle("/api/interview/chat", interviewChatHandler(db, wipnoteDir, planID, chatContext))
-			page.ChatEnabled = true
-		}
+	if db, oerr := openDB(wipnoteDir); oerr == nil {
+		defer db.Close()
+		mux.Handle("/api/plans/", planRouter(db, db, wipnoteDir))
+		mux.Handle("/api/interview/chat", interviewChatHandler(db, wipnoteDir, planID, chatContext))
+		page.ChatEnabled = true
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
@@ -543,8 +539,20 @@ func interviewChatHandler(db *sql.DB, wipnoteDir, planID string, buildContext fu
 		} else if full.Len() > 0 {
 			_ = backend.SaveMessage("assistant", full.String())
 			for _, a := range planamend.ParseAmendments(full.String()) {
+				section := fmt.Sprintf("slice-%d", a.SliceNum)
 				value, _ := json.Marshal(a)
-				if serr := dbpkg.StorePlanFeedback(db, planID, fmt.Sprintf("slice-%d", a.SliceNum), "amendment", string(value), ""); serr != nil {
+				// storePlanFeedback (plan_feedback_yaml.go) writes through the
+				// canonical YAML path — plan.Feedback.Entries — which is what
+				// the dashboard's /amendments endpoint (api_plans.go) actually
+				// reads via readPlanFeedbackEntries. The previous
+				// dbpkg.StorePlanFeedback call wrote only to the ephemeral
+				// :memory: projection handle (openDB / OpenEphemeralProjection)
+				// this request's db came from — gone the instant that handle
+				// closes and never read by anything, so an amendment proposed
+				// through the interview chat silently never appeared in the
+				// dashboard. api_plans.go's sibling plan-chat handler already
+				// used the correct call one line over; this just matches it.
+				if serr := storePlanFeedback(wipnoteDir, planID, section, "amendment", string(value), ""); serr != nil {
 					log.Printf("warning: store amendment for plan %s slice %d: %v", planID, a.SliceNum, serr)
 				}
 			}

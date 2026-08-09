@@ -1,5 +1,5 @@
 // SQLite writable-open enforcement boundary — slice 5 of plan-ae0c37b2,
-// updated through slice 7 (plan-2390966a).
+// updated through slice 7 (plan-2390966a), and again for feat-fc3cc9e0.
 //
 // Architectural rule: there must be exactly one writer process per project
 // database. Slice 6 introduced the dedicated writer service; slice 7
@@ -7,6 +7,24 @@
 // this enforcement gate, the codebase can drift back into "direct writable
 // opens", which silently recreates the SQLITE_BUSY contention the plan
 // eliminated.
+//
+// feat-fc3cc9e0 went further: there is no per-project SQLite FILE left at
+// all. Every command that used to hold a writable file-backed handle
+// (session.go:openDB and everything that delegated to it — openPlanDB,
+// openTrackDB, openRecapsIndex, runReindex, runServeChild, runWriterOnly,
+// core/hooks/dbgate.go:OpenHookDB, internal/gate/check.go, the whole
+// plan_*.go CLI cluster) now opens dbpkg.OpenEphemeralProjection() instead —
+// a private, process-local ":memory:" handle, rebuilt from canonical files on
+// every call, that structurally cannot contend for a shared file because
+// there is no shared file. OpenEphemeralProjection calls are NOT tracked by
+// this boundary (scanWritableOpens only watches for the Open/OpenWritable
+// method names, and OpenEphemeralProjection is neither) — deliberately: an
+// in-memory-per-call handle is exactly the property this boundary exists to
+// require, not a hazard it needs to police. The eighteen inventory entries
+// that named those call sites are gone as of this update, verified
+// individually against the current source (not assumed from the test
+// failure) — see the removal note above the empty
+// intentional-cli-mutation/reindex-only/migration-only section below.
 //
 // This file is the enforcement boundary. It maintains an explicit inventory
 // of every first-party Go callsite that opens a writable SQLite handle and
@@ -16,10 +34,15 @@
 //     indexer, event-capture) without being added to the inventory.
 //  2. An inventory entry no longer matches a real callsite (stale entry).
 //  3. A forbidden-path entry is mis-classified as something other than
-//     daemon-routed-writer-service or canonical-first-hook-fallback.
+//     daemon-routed-writer-service (the only forbidden-path classification
+//     still in use — see canonicalFirstHookFallback's retirement note).
 //     (daemon-routed-pending-slice-6 is RETIRED — no entries use it; any
 //     new forbidden-path open must go through the daemon, not add to the
 //     legacy pending classification.)
+//  4. An ephemeral-in-memory entry's call site does not resolve to a literal
+//     ":memory:" DSN (TestEphemeralInMemoryEntriesUseRealMemoryDSN) — the
+//     classification's entire safety argument is that literal, and nothing
+//     previously checked it.
 //
 // SCOPE — IMPORTANT:
 //
@@ -52,6 +75,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,19 +106,23 @@ const (
 	// no longer need their own entry in this inventory.
 	daemonRoutedWriterService writeSiteClassification = "daemon-routed-writer-service"
 
-	// canonicalFirstHookFallback marks the single writable open used by
-	// hook subprocesses (`wipnote hook <name>` spawned by Claude Code).
-	// Slice 7 (feat-33c26c74) consolidated the three formerly-direct
-	// `db.Open` call sites in cmd/wipnote/hook.go into one helper
-	// (internal/hooks/dbgate.go: OpenHookDB) so the failure-tolerance
-	// contract — log + count fallback, return canonical-success — lives
-	// at ONE auditable boundary.
+	// canonicalFirstHookFallback is RETIRED — no entries use it, and it is
+	// excluded from isForbiddenPathClassification's accepted set (same
+	// treatment as daemonRoutedPendingSlice6, kept only for historical
+	// vocabulary and so TestWriteSiteInventoryComplete's known[] map still
+	// compiles).
 	//
-	// Architectural rationale: hook subprocesses can't reach the in-process
-	// queue inside `wipnote serve`. They still need to read project context
-	// and emit derived-index rows synchronously while data is fresh. The
-	// canonical NDJSON write upstream (in the handler tree) makes any
-	// failed open safely recoverable on the next reindex cycle.
+	// It used to mark the single writable open used by hook subprocesses
+	// (`wipnote hook <name>` spawned by Claude Code): slice 7 (feat-33c26c74)
+	// consolidated the three formerly-direct `db.Open` call sites in
+	// cmd/wipnote/hook.go into one helper (core/hooks/dbgate.go:OpenHookDB).
+	// feat-fc3cc9e0 removed the writable open entirely — OpenHookDB (and its
+	// siblings OpenHookDBReadOnly, OpenHookDBWithBusyTimeout) now call
+	// db.OpenEphemeralProjection() instead of db.Open, so there is no
+	// file-backed handle left in the hook tree to classify. If a genuinely
+	// new forbidden-path open appears, it must be justified as
+	// daemon-routed-writer-service or reviewed as a new classification —
+	// not silently accepted under this retired label.
 	canonicalFirstHookFallback writeSiteClassification = "canonical-first-hook-fallback"
 
 	// intentionalCLIMutation marks user-driven CLI commands that legitimately
@@ -161,201 +189,63 @@ type writeSite struct {
 // to the matching classification block and insert in alphabetical order
 // by File. To remove an obsolete entry, delete the line.
 //
-// MAINTENANCE: daemon-routed-pending-slice-6 entries have been fully
-// retired (slices 3-7, plan-2390966a). The forbidden-path inventory now
-// contains only daemon-routed-writer-service (the slice-6 writer service's
-// own handle) and canonical-first-hook-fallback (the single daemon-miss
-// open in core/hooks/dbgate.go). isForbiddenPathClassification no longer
-// accepts the legacy pending classification — any new forbidden-path entry
-// must use one of the two currently-allowed classes.
+// MAINTENANCE: daemon-routed-pending-slice-6 and canonical-first-hook-fallback
+// are both fully retired (see their const doc comments). The forbidden-path
+// inventory now contains only daemon-routed-writer-service (the slice-6
+// writer service's own handle). isForbiddenPathClassification accepts no
+// other classification — any new forbidden-path entry must either be that
+// one or come with a fresh, individually-justified classification.
+//
+// feat-fc3cc9e0 REMOVAL NOTE: eighteen entries were deleted from this
+// inventory in one pass (the twenty TestWritableDBOpenBoundary reported as
+// stale, minus the two below that are still real). Each was verified
+// individually against current source — not assumed from the failure
+// message — per the file header's item 2. Every one of them now calls
+// dbpkg.OpenEphemeralProjection() (an in-memory, per-call handle the scanner
+// does not track, because it structurally cannot contend for the project DB
+// file) instead of the dbpkg.Open/db.Open/OpenWritable call this inventory
+// used to name, or — in one case, internal/gate/check.go:projectRecordToIndex
+// — has been reduced to a no-op stub with no I/O at all. None of the twenty
+// moved to a new call site under a different name; they are gone, full stop:
+//
+//	cmd/wipnote/init.go:initDatabase                    — file/function deleted
+//	cmd/wipnote/lazy_reindex.go:ensureIndexPopulated     — file deleted
+//	cmd/wipnote/lazy_reindex.go:runFullSyncReindex (x2)  — file deleted
+//	cmd/wipnote/plan_feedback_cmd.go:planFeedback        — now reads canonical YAML only, no DB
+//	cmd/wipnote/plan_finalize_yaml.go:finalizeYAML       — delegates to finalizeYAMLCanonical, no DB
+//	cmd/wipnote/plan_interview.go:serveInterviewForm     — now calls openDB() (ephemeral)
+//	cmd/wipnote/plan_typed_sections.go:buildTypedPlanSections — now calls openDB() (ephemeral)
+//	cmd/wipnote/plan_yaml_cmds.go:openPlanDB             — now delegates to openDB() (ephemeral)
+//	cmd/wipnote/plan_yaml_extras.go:applyAcceptedAmendments  — no DB use left
+//	cmd/wipnote/plan_yaml_extras.go:runReadFeedbackYAML  — no DB use left
+//	cmd/wipnote/recap_list.go:openRecapsIndex            — now calls OpenEphemeralProjection() directly
+//	cmd/wipnote/reindex.go:runReindex                    — now calls OpenEphemeralProjection() directly
+//	cmd/wipnote/reindex_otel_events.go:reindexOtelEvents — file deleted
+//	cmd/wipnote/serve_child.go:runServeChild             — now read-only (dbpkg.OpenReadOnlyMigrated)
+//	cmd/wipnote/serve_child.go:runWriterOnly             — now calls OpenEphemeralProjection() directly
+//	cmd/wipnote/session.go:openDB                        — now calls OpenEphemeralProjection() directly (the root of the migration; everything above delegates here)
+//	cmd/wipnote/track.go:openTrackDB                     — now delegates to openDB() (ephemeral)
+//	core/hooks/dbgate.go:OpenHookDB                      — now calls db.OpenEphemeralProjection() directly
+//	internal/gate/check.go:projectRecordToIndex          — now a no-op stub (`_, _ = projectRoot, record; return nil`)
+//
+// The two entries that remain are the only writable opens left anywhere
+// under scannedDirs (verified by grep across cmd/, internal/, core/, plan/,
+// port/, observe/, excluding core/db and _test.go): the slice-6 writer
+// service's own file-backed handle, and the pre-existing ephemeral-in-memory
+// virtual-table host. This is deliberately a short list — see the file
+// header's feat-fc3cc9e0 note for why OpenEphemeralProjection callers do not
+// need entries of their own.
 var approvedWriteSites = []writeSite{
 	// ----------------------------------------------------------------------
-	// daemon-routed-writer-service / canonical-first-hook-fallback
-	// (FORBIDDEN PATHS — explicitly classified)
+	// daemon-routed-writer-service (FORBIDDEN PATH — explicitly classified)
 	// ----------------------------------------------------------------------
-	// Slice 7 (feat-33c26c74, plan-2390966a) consolidated the former direct
-	// opens in cmd/wipnote/hook.go into a single helper at
-	// core/hooks/dbgate.go:OpenHookDB. Slices 3-7 then migrated the hot
-	// hooks (SessionStart, pretooluse, user-prompt, subagent-start, Stop) to
-	// RouteHookWrite / RouteInsertEvent (enqueue-only daemon seam), so
-	// OpenHookDB is now the DAEMON-MISS FALLBACK ONLY — never the primary
-	// path. The hook tree has exactly one approved writable open, reached
-	// rarely on healthy systems.
-	{
-		File:           "core/hooks/dbgate.go",
-		Function:       "OpenHookDB",
-		OpenExpr:       "db.Open",
-		Ordinal:        1,
-		Classification: canonicalFirstHookFallback,
-		Note:           "DAEMON-MISS FALLBACK ONLY (plan-2390966a slices 3-7). Hot hooks (SessionStart, pretooluse, user-prompt, subagent-start, Stop) route derived-index writes through RouteHookWrite / RouteInsertEvent (enqueue-only daemon seam, apply.RouteSQLAsync); this direct db.Open is reached ONLY when the daemon is unavailable/spawn-forbidden/queue-full. On a reachable-daemon system the open is rarely or never called. Logs a structured `writer_unavailable` fallback and returns nil-DB on open failure; callers MUST treat nil as canonical-success. The canonical NDJSON write upstream guarantees reindex recovers any rows neither path could write.",
-	},
 	{
 		File:           "observe/otel/receiver/writer.go",
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
 		Ordinal:        1,
 		Classification: daemonRoutedWriterService,
-		Note:           "Slice 6 writer service (feat-f3bcbcef): the single writable SQLite handle owned by the writequeue worker inside `wipnote serve`. Indexer + OTLP receiver no longer open writable handles directly — they submit batches through internal/db/writequeue to this writer.",
-	},
-
-	// ----------------------------------------------------------------------
-	// intentional-cli-mutation (CLI commands that mutate work items)
-	// ----------------------------------------------------------------------
-	{
-		File:           "cmd/wipnote/ingest_gemini.go",
-		Function:       "runIngestGemini",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote ingest gemini`; short-lived foreground process.",
-	},
-	{
-		File:           "cmd/wipnote/plan_feedback_cmd.go",
-		Function:       "planFeedback",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote plan feedback`; short-lived foreground process.",
-	},
-	{
-		File:           "cmd/wipnote/plan_finalize_yaml.go",
-		Function:       "finalizeYAML",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote plan finalize-yaml`; short-lived foreground process.",
-	},
-	{
-		File:           "cmd/wipnote/plan_typed_sections.go",
-		Function:       "buildTypedPlanSections",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Plan rendering helper used by CLI plan commands; best-effort optional open.",
-	},
-	{
-		File:           "cmd/wipnote/plan_yaml_cmds.go",
-		Function:       "openPlanDB",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Plan CLI helper for plan create/edit/finalize commands.",
-	},
-	{
-		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Function:       "applyAcceptedAmendments",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven plan amendment apply; short-lived foreground process.",
-	},
-	{
-		File:           "internal/gate/check.go",
-		Function:       "projectRecordToIndex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "`wipnote check --gate` mirrors the canonical gate-ledger record into the read index after foreground build/vet/test execution completes. The canonical write is a plain fsynced file append and never touches SQLite (feat-0e5ca43e).",
-	},
-	{
-		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Function:       "runReadFeedbackYAML",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote plan read-feedback-yaml`; short-lived.",
-	},
-	// bug-7dbaf552: `wipnote query` (runQuery) was switched from the writable
-	// dbpkg.Open to dbpkg.OpenReadOnly — graph.ExecuteDSL is strictly
-	// SELECT-only, so it no longer needs (and must not hold) the writer lock.
-	// Its former intentional-cli-mutation inventory entry is therefore
-	// removed; the read-only open is not a writable-boundary site.
-	// feat-075c110d increment 2: runServeChild (the HTTP dashboard child) NO
-	// LONGER opens a writable handle. It now opens the project DB read-only
-	// (dbpkg.OpenReadOnlyMigrated — a brief bootstrap Open inside internal/db,
-	// which is OUT of scan scope, then a read-only handle) and ensures the
-	// headless writer DAEMON is running for every write. Its former
-	// intentional-cli-mutation entry (serve_child.go:246, runServeChild) is
-	// therefore removed: with serve running there is exactly ONE writable
-	// SQLite handle per project — the daemon's (runWriterOnly below).
-	//
-	// runWriterOnly is the SOLE per-project writable opener while serve runs.
-	// It opens the writable handle to run schema/migrations AND to back the
-	// background maintenance loops (auto-ingest, ai-title backfill, indexer
-	// prompt-ID bridge, retention) that moved here from runServeChild; the
-	// daemon socket listener funnels all socket-delivered ops through the
-	// writequeue worker (receiver.NewWriter). No HTTP mux.
-	{
-		File:           "cmd/wipnote/link_commit.go",
-		Function:       "runLinkCommit",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote link commit`; short-lived foreground process that links a commit to a work item.",
-	},
-	{
-		File:           "cmd/wipnote/serve_child.go",
-		Function:       "runWriterOnly",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Headless writer-only daemon (feat-075c110d increment 2): the SOLE writable handle per project while serve runs. Backs schema/migrations, the background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge, retention — MOVED here from runServeChild), and the daemon socket listener's writequeue worker (receiver.NewWriter). The HTTP serve_child (runServeChild) is now strictly read-only and ensures+reaps this daemon.",
-	},
-	{
-		File:           "cmd/wipnote/plan_interview.go",
-		Function:       "serveInterviewForm",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "feat-2852d0c8 cross-harness plan interview web form: short-lived foreground server that mounts the same plan API as the dashboard (planRouter) so the embedded plan-review chat works. Needs a writable handle because the chat persists feedback/amendments. Process exits on submit; one open for the form's lifetime.",
-	},
-	{
-		File:           "cmd/wipnote/serve_child.go",
-		Function:       "runServeChild",
-		OpenExpr:       "dbpkg.OpenWritable",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "bug-528478ad: dashboard mutation endpoints (plan feedback POST, finalize, delete, chat, manual session ingest) require a writable handle. Read routes use the read-only `database` handle. MaxOpenConns=1 serialises with the writer daemon. These are low-frequency user-triggered writes that cannot yet be expressed as daemon op_types (no wire-protocol expansion in scope).",
-	},
-	{
-		File:           "cmd/wipnote/session.go",
-		Function:       "openDB",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Package-level writable-open helper used by many mutating CLI paths (session start/end, claim, ingest, backfill, blame, cleanup, compliance, report, who, …). Read-only commands must NOT use openDB — they open read-only, either via the cmd-level openReadOnlyDB helper or a direct dbpkg.OpenReadOnlyMigrated call. This inventory entry exists to catch any future read-only command that wrongly calls the writable openDB instead. feat-075c110d MVP-4: the two highest-contention session writes (start→InsertSession, end→UpdateSessionStatus) are now routed through the per-project writer daemon FIRST (apply.RouteSessionInsert / RouteSessionStatus, bounded ~2s, auto-spawn) and only use this direct handle as the fallback on daemon miss; the open itself stays direct because it still backs the read paths and other session mutations.",
-	},
-	{
-		File:           "cmd/wipnote/status.go",
-		Function:       "runStatus",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "`wipnote status` opens writable to run pending migrations (best-effort) before read.",
-	},
-	{
-		File:           "cmd/wipnote/sweep.go",
-		Function:       "sweepOrphanedEventsCmd",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "User-driven `wipnote sweep` orphan cleanup CLI command.",
-	},
-	{
-		File:           "cmd/wipnote/track.go",
-		Function:       "openTrackDB",
-		OpenExpr:       "db.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Helper for `wipnote track show` CLI command.",
-	},
-	{
-		File:           "core/workitem/project.go",
-		Function:       "Open",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: intentionalCLIMutation,
-		Note:           "Canonical entry point for every CLI work-item operation (feature/bug/spike/track start/complete). feat-075c110d MVP-4: the highest-contention work-item write — the start/complete status transition (UpdateFeatureStatus, bug-74a7bda7) — is now routed through the per-project writer daemon FIRST (apply.RouteFeatureStatus, bounded ~2s, auto-spawn) and only falls back to this direct handle on daemon miss; the open itself stays direct because it still backs reads, claim/release, and step-counter writes.",
+		Note:           "Slice 6 writer service (feat-f3bcbcef): the writable, file-backed SQLite handle this constructor opens on its own pool (own-pool mode). feat-fc3cc9e0: production no longer calls this constructor — cmd/wipnote/reindex_otel_events.go, its only caller, was deleted, and the daemon (serve_child.go:runWriterOnly) now opens dbpkg.OpenEphemeralProjection() and hands the SAME handle to the sibling constructor NewWriterFromDB (shared mode) instead of letting the Writer open its own pool. NewWriter itself is kept for tests/benchmarks that want an isolated writer against a real file; its sql.Open call is real and file-backed (dsn is dbPath + pragma string, not \":memory:\"), so it stays classified daemon-routed-writer-service rather than being removed as dead — if it is ever called from production again it is still the single approved writable handle for that call path.",
 	},
 
 	// ----------------------------------------------------------------------
@@ -367,112 +257,35 @@ var approvedWriteSites = []writeSite{
 		OpenExpr:       "sql.Open",
 		Ordinal:        1,
 		Classification: ephemeralInMemory,
-		Note:           "feat-ba544d57 phase 1: opens a private \":memory:\" database purely to host the read-only virtual table over .wipnote/sessions/*/events.ndjson. It never opens the project DB, writes nothing anywhere, and is discarded on Close, so it cannot contend for the write lock this boundary protects. The pool is capped at one connection because an in-memory SQLite database is per-connection, not for contention reasons.",
+		Note:           "feat-ba544d57 phase 1: opens a private \":memory:\" database purely to host the read-only virtual table over .wipnote/sessions/*/events.ndjson. It never opens the project DB, writes nothing anywhere, and is discarded on Close, so it cannot contend for the write lock this boundary protects. The pool is capped at one connection because an in-memory SQLite database is per-connection, not for contention reasons. DSN literal (\":memory:\") is verified by TestEphemeralInMemoryEntriesUseRealMemoryDSN.",
 	},
+
+	// ----------------------------------------------------------------------
+	// intentional-cli-mutation (CLI commands that mutate work items)
+	// ----------------------------------------------------------------------
+	// EMPTY as of feat-fc3cc9e0 — see the REMOVAL NOTE above. Every CLI
+	// mutation path now goes through session.go:openDB(), which is
+	// dbpkg.OpenEphemeralProjection() and therefore not a scanned site. Kept
+	// as a labelled section (not deleted) so a genuinely NEW file-backed CLI
+	// mutation — should the ephemeral-projection model ever need an
+	// exception — has an obvious place to land, reviewed on its own merits
+	// rather than folded silently into this list.
 
 	// ----------------------------------------------------------------------
 	// reindex-only (rebuilds SQLite from canonical HTML/NDJSON)
 	// ----------------------------------------------------------------------
-	{
-		File:           "cmd/wipnote/lazy_reindex.go",
-		Function:       "ensureIndexPopulated",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "bug-4b07fd94: brief writable open for cold-clone staleness check (COUNT on features/graph_edges). Closed immediately before any reindex write path runs.",
-	},
-	{
-		File:           "cmd/wipnote/lazy_reindex.go",
-		Function:       "runFullSyncReindex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "bug-4b07fd94: lazy full-reindex on cold clone — reuses the same reindex primitives as `wipnote reindex --full`.",
-	},
-	{
-		File:           "cmd/wipnote/lazy_reindex.go",
-		Function:       "runFullSyncReindex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        2,
-		Classification: reindexOnly,
-		Note:           "bug-4b07fd94: second open in runFullSyncReindex for plan-edge rebuild pass after main handle is closed.",
-	},
-	{
-		File:           "cmd/wipnote/purge_spikes.go",
-		Function:       "runFullReindex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "Full-reindex helper invoked after spike purge.",
-	},
-	{
-		File:           "cmd/wipnote/reindex.go",
-		Function:       "runReindex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "`wipnote reindex` top-level command.",
-	},
-	{
-		File:           "cmd/wipnote/reindex_orphans.go",
-		Function:       "runReindexBackfillOrphans",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "`wipnote reindex backfill-orphans` reindex variant.",
-	},
-	{
-		File:           "cmd/wipnote/reindex_otel_events.go",
-		Function:       "reindexOtelEvents",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "Slice 9 (feat-229f3333): bridge handle for the prompt_id correlation pass inside the OTel NDJSON replay. Reads orphans + writes UPDATE on agent_events.prompt_id only; the receiver.Writer owns the otel_signals write path. Disjoint tables, single-process reindex — no contention with the main writer.",
-	},
-	{
-		File:           "cmd/wipnote/recap_list.go",
-		Function:       "openRecapsIndex",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: reindexOnly,
-		Note:           "feat-7bc6410b (slice-10): writable open for `wipnote recap list|show|delete` to refresh the recaps read-index (reindexRecaps) from the canonical .wipnote/recaps/*.html before querying. Same reindex family as the other reindex-only sites; single-process CLI invocation.",
-	},
+	// EMPTY as of feat-fc3cc9e0 — see the REMOVAL NOTE above. `wipnote
+	// reindex` and every other reindex-family command now call
+	// dbpkg.OpenEphemeralProjection() directly.
 
 	// ----------------------------------------------------------------------
 	// migration-only (schema bootstrap / DDL upgrades)
 	// ----------------------------------------------------------------------
-	{
-		File:           "cmd/wipnote/init.go",
-		Function:       "initDatabase",
-		OpenExpr:       "db.Open",
-		Ordinal:        1,
-		Classification: migrationOnly,
-		Note:           "`wipnote init` runs the first-time schema migrations.",
-	},
-	{
-		File:           "cmd/wipnote/migrate.go",
-		Function:       "runMigrateSessions",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: migrationOnly,
-		Note:           "`wipnote migrate sessions` schema upgrade command.",
-	},
-	{
-		File:           "cmd/wipnote/migrate_attribution.go",
-		Function:       "runMigrateAttributionFix",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: migrationOnly,
-		Note:           "`wipnote migrate attribution-fix` schema upgrade command.",
-	},
-	{
-		File:           "cmd/wipnote/migrate_normalize.go",
-		Function:       "runMigrateNormalize",
-		OpenExpr:       "dbpkg.Open",
-		Ordinal:        1,
-		Classification: migrationOnly,
-		Note:           "`wipnote migrate normalize-paths` (feat-39b81fa6): one-shot data migration that rewrites absolute host paths in .wipnote/ artefacts to repo-relative form. Run-once foreground CLI command; same shape as the other migration entries.",
-	},
+	// EMPTY as of feat-fc3cc9e0 — see the REMOVAL NOTE above. `wipnote init`
+	// (cmd/wipnote/init.go:initDatabase) was deleted with the rest of the
+	// persistent-DB bootstrap path; RunMigrations now runs against whatever
+	// handle a caller already opened (see e.g. receiver/writer.go:NewWriter
+	// above), not a dedicated init command.
 }
 
 // forbiddenPathPrefixes is the set of first-party directories where a
@@ -510,6 +323,16 @@ type foundSite struct {
 	Function string
 	OpenExpr string
 	Ordinal  int // 1-based occurrence of OpenExpr within Function, in source order
+	// DSN is the literal string value of a sql.Open call's second argument,
+	// or "" when it is not a single string literal (a variable, a
+	// fmt.Sprintf result, concatenation, …) or when OpenExpr is not
+	// "sql.Open" at all (dbpkg.Open/OpenWritable take a path, not a raw
+	// DSN). Populated by dsnLiteralOf. Used by
+	// TestEphemeralInMemoryEntriesUseRealMemoryDSN to verify that an
+	// ephemeral-in-memory classification's entire safety argument — "the
+	// DSN is literally :memory:" — is actually true, not merely asserted in
+	// the Note field.
+	DSN string
 }
 
 // TestWritableDBOpenBoundary is the enforcement gate. It walks the
@@ -570,13 +393,14 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 	}
 
 	// 3. Forbidden-path entries must be daemon-routed-writer-service (the
-	// writer service's own internal Open — terminal state for slice 6) or
-	// canonical-first-hook-fallback (the single daemon-miss fallback open in
-	// core/hooks/dbgate.go). Any other classification on a forbidden path
-	// means someone added a direct writable open in the
-	// hook/indexer/receiver/collector tree that bypasses the daemon — this
-	// SHOULD be routed through RouteHookWrite / RouteInsertEvent instead.
-	// Note: daemon-routed-pending-slice-6 is retired and no longer accepted.
+	// writer service's own internal Open — terminal state for slice 6). Any
+	// other classification on a forbidden path means someone added a direct
+	// writable open in the hook/indexer/receiver/collector tree that bypasses
+	// the daemon — this SHOULD be routed through RouteHookWrite /
+	// RouteInsertEvent instead. Note: daemon-routed-pending-slice-6 and
+	// canonical-first-hook-fallback are both retired and no longer accepted
+	// (core/hooks/dbgate.go's OpenHookDB, the sole former user of the latter,
+	// now calls db.OpenEphemeralProjection() and has no writable open left).
 	var misclassified []writeSite
 	for _, ws := range approvedWriteSites {
 		if !isForbiddenPath(ws.File) {
@@ -647,10 +471,10 @@ func TestWritableDBOpenBoundary(t *testing.T) {
 		}
 		if len(misclassified) > 0 {
 			fmt.Fprintf(&b, "MISCLASSIFIED forbidden-path entries (%d):\n", len(misclassified))
-			fmt.Fprintf(&b, "  Hook / indexer / receiver / event-capture paths must use %q (writer service internal open) or %q (daemon-miss fallback open in core/hooks/dbgate.go).\n",
-				daemonRoutedWriterService, canonicalFirstHookFallback)
+			fmt.Fprintf(&b, "  Hook / indexer / receiver / event-capture paths must use %q (writer service internal open).\n",
+				daemonRoutedWriterService)
 			fmt.Fprintf(&b, "  Route new hook writes through RouteHookWrite / RouteInsertEvent instead of adding a direct open.\n")
-			fmt.Fprintf(&b, "  The retired %q classification is no longer accepted.\n", daemonRoutedPendingSlice6)
+			fmt.Fprintf(&b, "  The retired %q and %q classifications are no longer accepted.\n", daemonRoutedPendingSlice6, canonicalFirstHookFallback)
 			for _, ws := range misclassified {
 				fmt.Fprintf(&b, "  ! %s  func=%s#%d  class=%s\n",
 					ws.File, ws.Function, ws.Ordinal, ws.Classification)
@@ -722,6 +546,60 @@ func TestWriteSiteInventoryComplete(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("walk plugin/: %v", err)
+		}
+	}
+}
+
+// TestEphemeralInMemoryEntriesUseRealMemoryDSN closes a gap in the boundary:
+// TestWritableDBOpenBoundary matches call sites on (File, Function, OpenExpr,
+// Ordinal) alone, which says nothing about WHAT the call actually opens. The
+// ephemeral-in-memory classification's entire safety argument is "the DSN is
+// literally :memory:, so this handle can never be the shared project DB file
+// and therefore cannot contend for it" — but nothing verified that. Quietly
+// changing the DSN string at an already-approved ephemeral-in-memory site
+// (to a real path, to a variable, to a computed value) would pass both
+// TestWritableDBOpenBoundary and TestWriteSiteInventoryComplete unchanged,
+// because neither one looks past the call site's identity to its arguments.
+func TestEphemeralInMemoryEntriesUseRealMemoryDSN(t *testing.T) {
+	root := findModuleRoot(t)
+	found, err := scanWritableOpens(root)
+	if err != nil {
+		t.Fatalf("scan writable opens: %v", err)
+	}
+
+	type key struct {
+		File     string
+		Function string
+		OpenExpr string
+		Ordinal  int
+	}
+	foundByKey := make(map[key]foundSite, len(found))
+	for _, fs := range found {
+		foundByKey[key{fs.File, fs.Function, fs.OpenExpr, fs.Ordinal}] = fs
+	}
+
+	for _, ws := range approvedWriteSites {
+		if ws.Classification != ephemeralInMemory {
+			continue
+		}
+		if ws.OpenExpr != "sql.Open" {
+			t.Errorf("%s func=%s#%d is classified %q with OpenExpr=%q — only sql.Open calls carry a raw DSN argument this test can verify; dbpkg.Open/OpenWritable take a path, not a DSN, so this classification is not meaningful for them",
+				ws.File, ws.Function, ws.Ordinal, ephemeralInMemory, ws.OpenExpr)
+			continue
+		}
+		fs, ok := foundByKey[key{ws.File, ws.Function, ws.OpenExpr, ws.Ordinal}]
+		if !ok {
+			// Already reported as a stale entry by TestWritableDBOpenBoundary;
+			// there is no live call site here to check a DSN against.
+			continue
+		}
+		if fs.DSN != ":memory:" {
+			t.Errorf("%s func=%s#%d is classified %q but its DSN resolved to %q, not \":memory:\" — "+
+				"this classification's entire safety argument is that literal; a non-literal DSN (empty here means "+
+				"the scanner could not prove it statically — a variable, fmt.Sprintf, or concatenation) is just as "+
+				"disqualifying as a wrong one, since it means the value could be anything at runtime. Reclassify and "+
+				"review this site rather than leaving it approved as ephemeral-in-memory.",
+				ws.File, ws.Function, ws.Ordinal, ephemeralInMemory, fs.DSN)
 		}
 	}
 }
@@ -957,9 +835,34 @@ func inspectCall(n ast.Node, fnName string, funcIsReadOnly bool, fset *token.Fil
 			Function: fnName,
 			OpenExpr: "sql.Open",
 			Ordinal:  ordinalCounts["sql.Open"],
+			DSN:      dsnLiteralOf(call),
 		})
 	}
 	return true
+}
+
+// dsnLiteralOf returns the literal string value of a sql.Open call's second
+// argument (the DSN), or "" if it is not a single string literal — a
+// variable, a fmt.Sprintf result, string concatenation, or any other
+// non-literal expression. "" therefore means "cannot be statically verified
+// as any particular value", not "confirmed non-memory"; callers that need to
+// tell those apart (see TestEphemeralInMemoryEntriesUseRealMemoryDSN) must
+// treat both the same way — as a failure to prove the safety property, since
+// a computed DSN defeats the whole point of the ephemeral-in-memory
+// classification just as thoroughly as a wrong literal would.
+func dsnLiteralOf(call *ast.CallExpr) string {
+	if len(call.Args) < 2 {
+		return ""
+	}
+	lit, ok := call.Args[1].(*ast.BasicLit)
+	if !ok || lit.Kind != token.STRING {
+		return ""
+	}
+	v, err := strconv.Unquote(lit.Value)
+	if err != nil {
+		return ""
+	}
+	return v
 }
 
 // isReadOnlySQLOpenArg returns true when the DSN argument of a sql.Open
@@ -1001,21 +904,21 @@ func isForbiddenPath(relPath string) bool {
 }
 
 // isForbiddenPathClassification reports whether a classification is
-// permitted on a forbidden-path entry. Exactly two labels are accepted:
+// permitted on a forbidden-path entry. Exactly one label is accepted:
 //
-//   - daemon-routed-writer-service:  slice-6 writer service's own internal
+//   - daemon-routed-writer-service: slice-6 writer service's own internal
 //     writable open — the single handle per project while serve runs.
-//   - canonical-first-hook-fallback: the daemon-miss fallback open in
-//     core/hooks/dbgate.go:OpenHookDB — reached only when the daemon is
-//     unavailable; failure is logged + counted and recovered via reindex.
 //
-// daemon-routed-pending-slice-6 is RETIRED (no entries use it; excluded
-// here as the architectural ratchet: any new forbidden-path entry using
-// that classification will cause this check to fail, forcing the author to
-// route through RouteHookWrite / RouteInsertEvent instead).
+// Both daemon-routed-pending-slice-6 and canonical-first-hook-fallback are
+// RETIRED (no entries use either; excluded here as the architectural
+// ratchet: any new forbidden-path entry using either classification will
+// cause this check to fail, forcing the author to route through
+// RouteHookWrite / RouteInsertEvent instead, or to justify a genuinely new
+// classification). canonical-first-hook-fallback's only former user,
+// core/hooks/dbgate.go:OpenHookDB, now calls db.OpenEphemeralProjection()
+// and has no writable open left to classify (feat-fc3cc9e0).
 func isForbiddenPathClassification(c writeSiteClassification) bool {
-	return c == daemonRoutedWriterService ||
-		c == canonicalFirstHookFallback
+	return c == daemonRoutedWriterService
 }
 
 // isExcludedPath returns true when path lives under one of excludedDirs,

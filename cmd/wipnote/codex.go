@@ -12,7 +12,6 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/spf13/cobra"
@@ -1548,16 +1547,6 @@ func execCodex(opts codexLaunchOpts) error {
 		}
 	}
 
-	var dbPath string
-	if effectiveProjDir != "" {
-		var dbDir string
-		dbPath, dbDir, err = prepareCodexWritableDB(effectiveProjDir)
-		if err != nil {
-			return err
-		}
-		opts.WritableRoots = appendUniqueCodexWritableRoot(opts.WritableRoots, dbDir)
-	}
-
 	instructionArgs, instructionErr := buildCodexInstructionConfigArgs(codexPath, opts.ExtraArgs, opts.effectiveMode())
 	if instructionErr != nil {
 		fmt.Fprintf(os.Stderr, "wipnote: warning: codex orchestrator instructions skipped: %v\n", instructionErr)
@@ -1597,9 +1586,11 @@ func execCodex(opts codexLaunchOpts) error {
 		workDir = opts.ProjectRoot
 	}
 
-	if dbPath != "" {
-		env = setOrReplaceEnv(env, "WIPNOTE_DB_PATH", dbPath)
-	}
+	// No WIPNOTE_DB_PATH is injected: wipnote no longer keeps a per-project
+	// SQLite file, so there is no path to hand down. A stale value inherited
+	// from the parent environment is deliberately left alone rather than
+	// unset — nothing in the child reads it, and clearing it would be a
+	// silent mutation of the operator's own environment.
 	env = buildCodexOtelEnv(env, otelPort, otelSessionID)
 	env = buildCodexAgentEnv(env)
 	env = mergeLauncherEnv(env, opts.ExtraEnv...)
@@ -1647,17 +1638,6 @@ func execCodex(opts codexLaunchOpts) error {
 }
 
 var execCodexFn = execCodex
-
-func prepareCodexWritableDB(projectDir string) (dbPath string, dbDir string, err error) {
-	dbPath, err = storage.CanonicalDBPath(projectDir)
-	if err != nil {
-		return "", "", fmt.Errorf("resolving wipnote SQLite cache path for Codex: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return "", "", fmt.Errorf("creating wipnote SQLite cache directory for Codex: %w", err)
-	}
-	return dbPath, filepath.Dir(dbPath), nil
-}
 
 func appendUniqueCodexWritableRoot(roots []string, root string) []string {
 	if root == "" {

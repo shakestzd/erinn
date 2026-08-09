@@ -437,14 +437,26 @@ func TestPermissionRequest_NoToolName_RecordsGenericSummary(t *testing.T) {
 
 // --- ConfigChange ---
 
-// TestConfigChange_UpdatesSessionMetadata verifies that ConfigChange upserts
-// the permission_mode into the sessions.metadata JSON column.
-func TestConfigChange_UpdatesSessionMetadata(t *testing.T) {
+// TestConfigChange_RecordsPermissionMode verifies that ConfigChange persists
+// the permission_mode where the YOLO fallback reads it. It used to be an UPDATE
+// of the sessions.metadata JSON column in the per-project read index; that index
+// is gone, so the record is now a per-session file under .wipnote/
+// (feat-fc3cc9e0). The round trip is asserted through the reader the guards
+// actually use, not by inspecting the file directly.
+func TestConfigChange_RecordsPermissionMode(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
+
+	clearNestedEnv(t)
+	projectDir := t.TempDir()
+	wipnoteDir := filepath.Join(projectDir, ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
 
 	event := &CloudEvent{
 		SessionID:      sessionID,
-		CWD:            t.TempDir(),
+		CWD:            projectDir,
 		PermissionMode: "bypassPermissions",
 	}
 
@@ -456,27 +468,11 @@ func TestConfigChange_UpdatesSessionMetadata(t *testing.T) {
 		t.Error("expected Continue=true from ConfigChange")
 	}
 
-	var metadata string
-	if err := td.DB.QueryRow(
-		`SELECT COALESCE(metadata, '{}') FROM sessions WHERE session_id = ?`,
-		sessionID,
-	).Scan(&metadata); err != nil {
-		t.Fatalf("query sessions metadata: %v", err)
+	if got := recordedSessionPermissionMode(wipnoteDir, sessionID); got != "bypassPermissions" {
+		t.Errorf("expected recorded permission_mode=bypassPermissions, got %q", got)
 	}
-	if metadata == "{}" {
-		t.Error("expected metadata to be updated, still empty object")
-	}
-
-	// Verify the permission_mode was stored.
-	var permMode string
-	if err := td.DB.QueryRow(
-		`SELECT json_extract(metadata, '$.permission_mode') FROM sessions WHERE session_id = ?`,
-		sessionID,
-	).Scan(&permMode); err != nil {
-		t.Fatalf("query permission_mode from metadata: %v", err)
-	}
-	if permMode != "bypassPermissions" {
-		t.Errorf("expected permission_mode=bypassPermissions, got %q", permMode)
+	if !isYoloFromRecordedMode(wipnoteDir, sessionID) {
+		t.Error("recorded bypassPermissions must resolve as YOLO posture")
 	}
 }
 

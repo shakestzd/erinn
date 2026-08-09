@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/projection"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/internal/workowners"
 )
@@ -26,7 +26,7 @@ func autoCausedByEdge(p *workitem.Project, bugID, featureID string) {
 }
 
 // autoImplementedInEdge creates the canonical implemented_in edge (item→session,
-// written to both HTML and SQLite via the normal Collection.AddEdge dual-write).
+// written to canonical HTML via the normal Collection.AddEdge path).
 //
 // It deliberately does NOT also write an independent implements (session→item)
 // mirror row. Sessions have no Collection-backed AddEdge path — a session-side
@@ -70,25 +70,20 @@ func autoImplementedInEdge(col *workitem.Collection, itemID, sessionID string) {
 // autoImplementedInEdge for why that mirror is intentionally never written.
 // Because it is computed from the same HTML-backed edge every time, it can
 // never drift out of sync with .wipnote/*.html and survives any reindex.
-// Non-fatal: returns nil when database/sessionID is empty or the query fails.
-func SessionImplements(database *sql.DB, sessionID string) []string {
-	if database == nil || sessionID == "" {
+// Non-fatal: returns nil when wipnoteDir/sessionID is empty or projection load
+// fails.
+func SessionImplements(wipnoteDir, sessionID string) []string {
+	if wipnoteDir == "" || sessionID == "" {
 		return nil
 	}
-	rows, err := database.Query(
-		`SELECT from_node_id FROM graph_edges WHERE to_node_id = ? AND relationship_type = ?`,
-		sessionID, string(models.RelImplementedIn),
-	)
+	snap, err := projection.Load(wipnoteDir)
 	if err != nil {
 		return nil
 	}
-	defer rows.Close()
-
 	var out []string
-	for rows.Next() {
-		var id string
-		if scanErr := rows.Scan(&id); scanErr == nil {
-			out = append(out, id)
+	for _, e := range snap.Out[sessionID] {
+		if e.Relationship == string(models.RelImplements) {
+			out = append(out, e.ToID)
 		}
 	}
 	return out

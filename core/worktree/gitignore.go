@@ -23,6 +23,12 @@ import (
 // to git. sessions/ being ignored already covers session HTML, events.ndjson,
 // state.json, .index-offset, .collector-pid under sessions/<id>/ — the **/
 // patterns are belt-and-suspenders for any such markers outside sessions/.
+//
+// .index-offset carries a trailing * because the marker is written
+// temp-then-rename, and a crash between the two leaves a .index-offset-tmp-*
+// file behind (observe/otel/indexer/progress_marker.go). The exact-name
+// pattern matched the marker but not its debris, so leftovers surfaced as
+// untracked noise in a repo that already fights that.
 const wipnoteGitignoreContent = `# Managed by wipnote — do not edit this block manually.
 # Patterns are relative to .wipnote/ (this is a nested .gitignore).
 # See: https://git-scm.com/docs/gitignore
@@ -65,7 +71,7 @@ migrations/*.done
 # Process/collector pid and offset markers
 **/*.pid
 **/*.sock
-**/.index-offset
+**/.index-offset*
 **/.collector-pid
 **/state.json
 `

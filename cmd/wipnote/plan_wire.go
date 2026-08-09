@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
@@ -49,6 +50,17 @@ Example:
 // wirePlan is the testable implementation of planWireCmd.
 func wirePlan(wipnoteDir, planID, trackID string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0): wire reads the plan, wires edges via workitem writes in
+	// between, then saves the whole document back. A bare Load-then-Save let
+	// two concurrent writers interleave and the second save silently clobber
+	// the first. Mirrors storePlanFeedbackEntry.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
@@ -181,7 +193,7 @@ func wirePlan(wipnoteDir, planID, trackID string) error {
 	// Update YAML status to finalized.
 	plan.Meta.Status = "finalized"
 	plan.Meta.TrackID = trackID
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 

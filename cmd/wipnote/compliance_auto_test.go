@@ -15,7 +15,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/core/workitem"
 )
 
@@ -73,6 +73,38 @@ func setupTempGitRepo(t *testing.T, dir string, files map[string]string) string 
 	}
 
 	run("commit", "-m", "initial commit")
+	return run("rev-parse", "HEAD")
+}
+
+// setupTempGitRepoWithMessage is setupTempGitRepo with a caller-chosen commit
+// message. The message carries the work-item linkage, so a fixture that cannot
+// set it cannot exercise commit-derived diff building.
+func setupTempGitRepoWithMessage(t *testing.T, dir string, files map[string]string, message string) string {
+	t.Helper()
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run("init", "-b", "main")
+	run("config", "user.email", "test@example.com")
+	run("config", "user.name", "Test User")
+	for name, body := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+		run("add", name)
+	}
+	run("commit", "-m", message)
 	return run("rev-parse", "HEAD")
 }
 
@@ -598,11 +630,16 @@ func TestComplianceAuto_NoGitRepo(t *testing.T) {
 // NOTE: Cannot call t.Parallel() — uses global headlessInvoker.
 func TestComplianceAuto_SuccessPath(t *testing.T) {
 	tmpDir := t.TempDir()
-	featureID := "feat-success"
+	featureID := "feat-c0ffee01"
 
-	// Set up git repo.
+	// Set up git repo. The commit MESSAGE names the feature: that is the
+	// linkage buildDiffBlob reads now (canonicalLinkedCommits), replacing the
+	// hand-seeded git_commits row this test used to insert into a file DB
+	// nothing opens any more (feat-fc3cc9e0).
 	gitRoot := tmpDir
-	commitHash := setupTempGitRepo(t, gitRoot, map[string]string{"main.go": "package main\nfunc main(){}"})
+	commitHash := setupTempGitRepoWithMessage(t, gitRoot,
+		map[string]string{"main.go": "package main\nfunc main(){}"},
+		"feat: implement the thing ("+featureID+")")
 
 	// Set up wipnote dir inside the git repo.
 	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
@@ -691,7 +728,7 @@ func TestComplianceAuto_SuccessPath(t *testing.T) {
 
 	// Verify stdout summary line.
 	summary := outBuf.String()
-	if !strings.Contains(summary, "compliance feat-success score=90") {
+	if !strings.Contains(summary, "compliance "+featureID+" score=90") {
 		t.Errorf("expected summary line; got: %q", summary)
 	}
 }
@@ -745,11 +782,17 @@ func TestComplianceAuto_IncludesOutcomeEvidenceInPrompt(t *testing.T) {
 	}
 	defer db.Close()
 
-	if err := dbpkg.InsertGateRecord(db, &dbpkg.GateRecord{
-		SessionID: "sess-1", WorkItemID: featureID, ProjectType: "go",
-		GateCommand: "go test ./...", Status: "fail", Source: "check",
+	// Seed the CANONICAL gate ledger. Gate counts reach the prompt via
+	// GateRecordCountsForWorkItem, which reads the projection's gate_records
+	// table — and that table is hydrated from this ledger by reindexGateRecords.
+	// Inserting into a file-backed DB (as this did) wrote somewhere nothing
+	// opens, so the prompt reported "no gate runs recorded" (feat-fc3cc9e0).
+	if _, err := gateledger.NewStore(wipnoteDir).Append(gateledger.Record{
+		SessionID: "sess-1", WorkItemID: featureID, Harness: "claude-code",
+		ProjectType: "go", GateCommand: "go test ./...",
+		Status: gateledger.StatusFail, CheckedAt: time.Now().UTC(), Source: "check",
 	}); err != nil {
-		t.Fatalf("seed gate record: %v", err)
+		t.Fatalf("seed gate ledger: %v", err)
 	}
 
 	stubDiffBuilder(t, "diff --git a/main.go b/main.go\n+package main")
@@ -1478,89 +1521,75 @@ func TestBatchSince(t *testing.T) {
 	}
 }
 
-// TestComplianceAuto_FallbackDiff verifies fallback to feature_files when no attributed commits.
-// NOTE: Cannot call t.Parallel().
-func TestComplianceAuto_FallbackDiff(t *testing.T) {
+// TestComplianceAuto_NoNamingCommitYieldsNoDiff replaces
+// TestComplianceAuto_FallbackDiff (feat-fc3cc9e0).
+//
+// That test seeded a feature_files row and asserted buildDiffBlob fell back to
+// `git diff HEAD~1..HEAD` over those paths. feature_files is no longer
+// populated by anything, so the fallback could only ever fire on rows a test
+// inserted by hand — in production it was dead, and worse than dead: it made
+// "the diff is empty" indistinguishable from "the item has no linked commits".
+//
+// The behaviour now is explicit. Commits are found by message linkage; an item
+// no commit names produces an empty diff, and the caller skips rather than
+// grading a feature against nothing.
+func TestComplianceAuto_NoNamingCommitYieldsNoDiff(t *testing.T) {
 	tmpDir := t.TempDir()
-	featureID := "feat-fallback"
+	featureID := "feat-fa11bac4"
 
-	// Set up git repo with 2 commits so HEAD~1..HEAD works.
-	commitHash := setupTempGitRepo(t, tmpDir, map[string]string{"main.go": "package main\n"})
-	_ = commitHash
-
-	// Create a second commit.
+	// Two commits so HEAD~1..HEAD would have worked for the old fallback —
+	// neither names the feature.
+	setupTempGitRepo(t, tmpDir, map[string]string{"main.go": "package main\n"})
 	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main\nfunc main(){}\n"), 0o644); err != nil {
 		t.Fatalf("write main.go: %v", err)
 	}
 	run := func(args ...string) {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = tmpDir
-		cmd.Run()
+		_ = cmd.Run()
 	}
 	run("add", "main.go")
 	run("commit", "-m", "update main")
 
-	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
-	featuresDir := filepath.Join(wipnoteDir, "features")
-	if err := os.MkdirAll(featuresDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	specContent := "## Acceptance Criteria\n- [ ] Works"
-	featurePath := filepath.Join(featuresDir, featureID+".html")
-	if err := os.WriteFile(featurePath, []byte(minimalFeatureHTML(featureID, specContent, "")), 0o644); err != nil {
-		t.Fatalf("write feature HTML: %v", err)
-	}
-
-	// Set up DB with feature_files but NO git_commits.
-	db := openComplianceTestDB(t)
-	insertTestFeature(t, db, featureID)
-	if err := dbpkg.UpsertFeatureFile(db, &models.FeatureFile{
-		ID:        "ff-001",
-		FeatureID: featureID,
-		FilePath:  "main.go",
-		Operation: "edit",
-	}); err != nil {
-		t.Fatalf("upsert feature file: %v", err)
-	}
-
-	// Stub invoker to track if it was called.
-	llmCalled := false
-	orig := headlessInvoker
-	headlessInvoker = func(_ context.Context, _ headlessRequest) (*headlessResult, error) {
-		llmCalled = true
-		return &headlessResult{text: validFindingJSON(70), costUSD: 0.01}, nil
-	}
-	defer func() { headlessInvoker = orig }()
-
-	origProjectDir := projectDirFlag
-	projectDirFlag = tmpDir
-	defer func() { projectDirFlag = origProjectDir }()
-
-	devNull, _ := os.Open(os.DevNull)
-	origStdout := os.Stdout
-	os.Stdout = devNull
-	defer func() {
-		os.Stdout = origStdout
-		devNull.Close()
-	}()
-
-	// We need to call buildDiffBlob directly with the test DB since runComplianceAuto
-	// opens its own DB connection from the filesystem.
 	gitRoot, err := resolveGitRoot(tmpDir)
 	if err != nil {
 		t.Fatalf("resolveGitRoot: %v", err)
 	}
 
-	diffBlob, _, err := buildDiffBlob(context.Background(), db, featureID, gitRoot, 50000)
+	diffBlob, truncated, err := buildDiffBlob(context.Background(), nil, featureID, gitRoot, 50000)
 	if err != nil {
 		t.Fatalf("buildDiffBlob: %v", err)
 	}
-	// The fallback should find some diff via git diff HEAD~1..HEAD on main.go.
-	if diffBlob == "" {
-		t.Error("expected non-empty diff blob from fallback path")
+	if diffBlob != "" {
+		t.Errorf("expected an empty diff when no commit names the item; got %d chars", len(diffBlob))
 	}
-	_ = llmCalled
+	if truncated {
+		t.Error("an empty diff cannot be truncated")
+	}
+}
+
+// TestComplianceAuto_NamingCommitYieldsDiff is the positive half: a commit that
+// names the item produces its diff, with no derived index involved.
+func TestComplianceAuto_NamingCommitYieldsDiff(t *testing.T) {
+	tmpDir := t.TempDir()
+	featureID := "feat-fa11bac5"
+
+	setupTempGitRepoWithMessage(t, tmpDir,
+		map[string]string{"main.go": "package main\nfunc main(){}\n"},
+		"feat: add main ("+featureID+")")
+
+	gitRoot, err := resolveGitRoot(tmpDir)
+	if err != nil {
+		t.Fatalf("resolveGitRoot: %v", err)
+	}
+
+	diffBlob, _, err := buildDiffBlob(context.Background(), nil, featureID, gitRoot, 50000)
+	if err != nil {
+		t.Fatalf("buildDiffBlob: %v", err)
+	}
+	if !strings.Contains(diffBlob, "main.go") {
+		t.Errorf("expected the naming commit's diff to mention main.go; got %q", diffBlob)
+	}
 }
 
 // --- Integration tests -------------------------------------------------

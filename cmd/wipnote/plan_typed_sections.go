@@ -3,12 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/plan/plantmpl"
 )
 
@@ -48,11 +46,9 @@ func buildTypedPlanSections(nodePath, wipnoteDir string) ([]plantmpl.SliceCard, 
 	}
 
 	var database *sql.DB
-	if dbPath, pathErr := storage.CanonicalDBPath(filepath.Dir(wipnoteDir)); pathErr == nil {
-		if db, dbErr := dbpkg.Open(dbPath); dbErr == nil {
-			database = db
-			defer database.Close()
-		}
+	if db, dbErr := openDB(wipnoteDir); dbErr == nil {
+		database = db
+		defer database.Close()
 	}
 
 	var slices []plantmpl.SliceCard

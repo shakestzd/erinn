@@ -71,8 +71,9 @@ func TestPlanFeedbackPOST_WritesViaWritableHandle_UnderReadOnlyMux(t *testing.T)
 	}
 
 	const planID = "plan-ro-topology"
+	wipnoteDir := writeTempPlanHTML(t, planID)
 	// Production wiring: read routes on roDB, mutating routes on writeDB.
-	router := planRouter(roDB, writeDB, t.TempDir())
+	router := planRouter(roDB, writeDB, wipnoteDir)
 
 	// POST /feedback — mutating route, must succeed via writeDB.
 	reqBody, _ := json.Marshal(planFeedbackRequest{
@@ -93,10 +94,10 @@ func TestPlanFeedbackPOST_WritesViaWritableHandle_UnderReadOnlyMux(t *testing.T)
 		t.Fatalf("POST /feedback leaked a read-only error: %s", b)
 	}
 
-	// The write must actually be visible via the read-only handle.
-	entries, err := db.GetPlanFeedback(roDB, planID)
+	// The write must actually be visible through the canonical YAML feedback.
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 	if err != nil {
-		t.Fatalf("GetPlanFeedback via read-only handle: %v", err)
+		t.Fatalf("read feedback: %v", err)
 	}
 	if len(entries) != 1 || entries[0].Section != "design" {
 		t.Fatalf("feedback not persisted via writable handle: %+v", entries)

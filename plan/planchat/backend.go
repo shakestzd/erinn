@@ -49,6 +49,23 @@ func New(db *sql.DB, planID, planContext, projectDir string) *Backend {
 	return b
 }
 
+// NewWithSession creates a Backend whose session ID is supplied by a canonical
+// caller, allowing plan review chat to persist outside the project DB.
+func NewWithSession(planID, planContext, projectDir, sessionID string) *Backend {
+	return &Backend{
+		PlanID:      planID,
+		PlanContext: planContext,
+		ProjectDir:  projectDir,
+		sessionID:   sessionID,
+		firstMsg:    sessionID == "",
+	}
+}
+
+// SessionID returns the active Claude session ID, if one has been observed.
+func (b *Backend) SessionID() string {
+	return b.sessionID
+}
+
 // IsAvailable returns true if the claude CLI is on PATH or ANTHROPIC_API_KEY is set.
 func (b *Backend) IsAvailable() bool {
 	if _, err := exec.LookPath("claude"); err == nil {
@@ -85,6 +102,9 @@ func (b *Backend) Send(ctx context.Context, message string) (<-chan string, <-ch
 
 // LoadHistory retrieves the chat message history from the database.
 func (b *Backend) LoadHistory() ([]ChatMessage, error) {
+	if b.DB == nil {
+		return []ChatMessage{}, nil
+	}
 	entries, err := dbpkg.GetPlanFeedbackBySection(b.DB, b.PlanID, "chat")
 	if err != nil {
 		return nil, fmt.Errorf("load chat history: %w", err)
@@ -105,6 +125,9 @@ func (b *Backend) LoadHistory() ([]ChatMessage, error) {
 // SaveMessage appends a message to the chat history in the database.
 // Uses section='chat', action='messages' with the full history as a JSON array.
 func (b *Backend) SaveMessage(role, content string) error {
+	if b.DB == nil {
+		return nil
+	}
 	existing, err := b.LoadHistory()
 	if err != nil {
 		existing = []ChatMessage{}
@@ -328,6 +351,9 @@ func extractSessionID(event map[string]any) string {
 // Session persistence via plan_feedback table.
 
 func (b *Backend) loadSessionID() {
+	if b.DB == nil {
+		return
+	}
 	entries, err := dbpkg.GetPlanFeedbackBySection(b.DB, b.PlanID, "chat")
 	if err != nil {
 		return
@@ -342,6 +368,9 @@ func (b *Backend) loadSessionID() {
 }
 
 func (b *Backend) saveSessionID() {
+	if b.DB == nil {
+		return
+	}
 	value := b.sessionID
 	// Store empty string to clear.
 	_ = dbpkg.StorePlanFeedback(b.DB, b.PlanID, "chat", "session_id", value, "")

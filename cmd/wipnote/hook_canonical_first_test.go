@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -29,32 +30,86 @@ import (
 	"github.com/shakestzd/wipnote/core/models"
 )
 
-// TestWriterUnavailable_FallsBackToCanonicalAppend asserts that when the
-// writable DB cannot be opened, OpenHookDB returns a (nil, FallbackReason)
-// pair and records the fallback. The hook caller is expected to short-circuit
-// to the success HookResult so Claude Code never sees a hook error.
+// TestOpenHookDB_IgnoresPathAndYieldsUsableEphemeralProjection retires a
+// premise rather than an assertion.
+//
+// This test used to hand OpenHookDB a DIRECTORY, on the reasoning that SQLite
+// cannot bind to one, and assert the resulting (nil, writer_unavailable) pair.
+// That branch is unreachable now: OpenHookDB ignores dbPath entirely and returns
+// a process-local in-memory projection (feat-fc3cc9e0), so there is no
+// path-driven failure mode left to provoke. Asserting the old shape would only
+// have measured that the cutover had not happened.
+//
+// What is worth pinning instead is the property the cutover created, and it is
+// pinned with the same hostile input: a path that could never work as a SQLite
+// file must still yield a USABLE handle, must report no fallback, and must
+// leave nothing behind on disk at that path. Reintroduce a path-backed open and
+// every one of those fails.
+func TestOpenHookDB_IgnoresPathAndYieldsUsableEphemeralProjection(t *testing.T) {
+	hooks.ResetFallbackCounts()
+
+	// A directory: unopenable as a SQLite file by construction.
+	badPath := t.TempDir()
+
+	database, reason := hooks.OpenHookDB("test", "sess-writer-unavailable", filepath.Join(badPath))
+	if database == nil {
+		t.Fatalf("want a usable handle regardless of path, got nil (reason=%q)", reason)
+	}
+	t.Cleanup(func() { database.Close() })
+	if reason != "" {
+		t.Fatalf("want no fallback reason on a successful open, got %q", reason)
+	}
+
+	// Usable means migrated, not merely non-nil: a handle that cannot answer a
+	// schema query would fail every caller at the first read.
+	var n int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&n); err != nil {
+		t.Fatalf("projection is not schema-migrated: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("a fresh projection must start empty, got %d sessions", n)
+	}
+
+	// The whole point of the cutover: nothing was created at the path.
+	entries, err := os.ReadDir(badPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", badPath, err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("OpenHookDB created artifacts at the supplied path: %v", entries)
+	}
+
+	// A successful open is not a degradation and must not be counted as one.
+	if wu, _, _ := hooks.FallbackCounts(); wu != 0 {
+		t.Errorf("writer_unavailable counter: want 0 after a successful open, got %d", wu)
+	}
+}
+
+// TestWriterUnavailable_FallsBackToCanonicalAppend keeps the writer_unavailable
+// contract covered through a path that is still REACHABLE.
+//
+// The contract never went away — a hook that has neither a queue nor a usable
+// handle must record the degradation and return quietly, because the canonical
+// NDJSON write upstream is authoritative and Claude Code must never see a hook
+// error. Only the way of provoking it changed: it is no longer a failed open,
+// it is a caller arriving with nothing to write through.
 func TestWriterUnavailable_FallsBackToCanonicalAppend(t *testing.T) {
 	hooks.ResetFallbackCounts()
 
-	// Use a path that cannot be opened — point at a directory instead of a
-	// file. db.Open will fail because SQLite cannot bind to a directory.
-	badPath := t.TempDir()
-
-	wu0, _, _ := hooks.FallbackCounts()
-	if wu0 != 0 {
+	if wu0, _, _ := hooks.FallbackCounts(); wu0 != 0 {
 		t.Fatalf("baseline writer_unavailable count: want 0, got %d", wu0)
 	}
 
-	database, reason := hooks.OpenHookDB("test", "sess-writer-unavailable", filepath.Join(badPath))
-	if database != nil {
-		t.Fatalf("expected nil DB on directory open, got non-nil")
-	}
-	if reason != hooks.FallbackWriterUnavailable {
-		t.Fatalf("want reason=%q, got %q", hooks.FallbackWriterUnavailable, reason)
-	}
+	ran := false
+	hooks.SubmitDerivedOp("test", "sess-writer-unavailable", nil /*queue*/, nil /*db*/, func(*sql.DB) error {
+		ran = true
+		return fmt.Errorf("op must never run without a writer")
+	})
 
-	wu1, _, _ := hooks.FallbackCounts()
-	if wu1 != 1 {
+	if ran {
+		t.Error("the derived op ran with no queue and no DB; it must be skipped, not executed against nil")
+	}
+	if wu1, _, _ := hooks.FallbackCounts(); wu1 != 1 {
 		t.Errorf("writer_unavailable counter: want 1, got %d", wu1)
 	}
 }

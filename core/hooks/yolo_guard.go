@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // mergeInProgressFn is injected for testing. In production, it checks the real
@@ -40,9 +40,9 @@ func isYoloFromEvent(event *CloudEvent, wipnoteDir string) bool {
 	if event.PermissionMode != "" {
 		return false
 	}
-	// Fallback: check DB for session's last known permission_mode.
-	// This is populated by the ConfigChange hook handler.
-	return isYoloFromDB(wipnoteDir, event.SessionID)
+	// Fallback: the session's last recorded permission_mode, persisted by the
+	// ConfigChange hook handler.
+	return isYoloFromRecordedMode(wipnoteDir, event.SessionID)
 }
 
 // isYoloWithInheritance checks YOLO mode for the current session and, when the
@@ -73,74 +73,123 @@ func isYoloWithInheritance(event *CloudEvent, wipnoteDir string, database *sql.D
 	if !isSubagent && event.PermissionMode != "" {
 		return false
 	}
-	// Walk the parent chain (subagents always reach here; top-level sessions
-	// reach here only when they have no declared mode).
-	if database == nil || sessionID == "" {
-		return false
+	// Inherit from the session family root (subagents always reach here;
+	// top-level sessions reach here only when they have no declared mode).
+	// database is no longer consulted — ancestry comes from the canonical
+	// session-family index, not the vanished sessions table.
+	_ = database
+	root := yoloFamilyRoot(wipnoteDir, sessionID)
+	if root == "" {
+		return false // no distinct ancestor
 	}
-	sessionIDs := getSessionAndParent(database, sessionID)
-	if len(sessionIDs) < 2 {
-		return false // no parent
-	}
-	for _, parentID := range sessionIDs[1:] {
-		if isYoloFromDB(wipnoteDir, parentID) {
-			debugLog(projectDir, "[wipnote] yolo inherited: session=%s parent=%s",
-				sessionID, parentID)
-			return true
-		}
+	if isYoloFromRecordedMode(wipnoteDir, root) {
+		debugLog(projectDir, "[wipnote] yolo inherited: session=%s parent=%s",
+			sessionID, root)
+		return true
 	}
 	return false
 }
 
-// anyParentSessionYolo returns true when any ancestor session in the immediate
-// parent chain of sessionID is in YOLO posture per isYoloFromDB. Used as a
-// resilient defense-in-depth signal for the worktree-isolation guard so that a
-// yolo-context subagent is still blocked from editing main/master even if the
-// primary IsYoloMode detection resolved false. Returns false on nil DB / empty
-// session / no parent.
+// anyParentSessionYolo returns true when sessionID's session-family root is in
+// YOLO posture. Used as a resilient defense-in-depth signal for the
+// worktree-isolation guard so that a yolo-context subagent is still blocked from
+// editing main/master even if the primary IsYoloMode detection resolved false.
+// Returns false on an empty session or when there is no distinct ancestor.
+//
+// database is accepted for call-shape compatibility and ignored: ancestry is
+// read from the canonical session-family index (see yoloFamilyRoot).
 func anyParentSessionYolo(database *sql.DB, wipnoteDir, sessionID string) bool {
-	if database == nil || sessionID == "" {
-		return false
-	}
-	sessionIDs := getSessionAndParent(database, sessionID)
-	if len(sessionIDs) < 2 {
-		return false
-	}
-	for _, parentID := range sessionIDs[1:] {
-		if isYoloFromDB(wipnoteDir, parentID) {
-			return true
-		}
-	}
-	return false
+	_ = database
+	root := yoloFamilyRoot(wipnoteDir, sessionID)
+	return root != "" && isYoloFromRecordedMode(wipnoteDir, root)
 }
 
-// isYoloFromDB looks up the session's permission_mode from the sessions.metadata
-// JSON column. This is populated by the ConfigChange hook when the user toggles
-// permission mode in Claude Code.
-func isYoloFromDB(wipnoteDir, sessionID string) bool {
-	if sessionID == "" {
-		return false
+// permissionModeFileName is the per-session marker recording the last
+// permission mode the harness reported for that session. It lives beside the
+// existing .session-pid / .collector-pid anchors in
+// .wipnote/sessions/<session-id>/, which is already the canonical home for
+// per-session process facts (session_liveness.go).
+//
+// This replaces the sessions.metadata JSON column the ConfigChange hook used to
+// UPDATE. That column lived only in the per-project SQLite read index; once the
+// hook tree moved to a process-local in-memory projection (feat-fc3cc9e0) the
+// write went to a throwaway database and every YOLO-posture read came back
+// false — silently disarming the inheritance half of the guard. A file also
+// satisfies the project's own hook rule: gates answer from durable file state,
+// not from state that evaporates with the process.
+const permissionModeFileName = ".permission-mode"
+
+// permissionModePath is the marker path for one session. Empty when either
+// component is missing, which every caller treats as "no record".
+func permissionModePath(wipnoteDir, sessionID string) string {
+	if wipnoteDir == "" || sessionID == "" {
+		return ""
 	}
-	projectDir := filepath.Dir(wipnoteDir)
-	dbPath, err := storage.CanonicalDBPath(projectDir)
+	return filepath.Join(wipnoteDir, "sessions", sessionID, permissionModeFileName)
+}
+
+// RecordSessionPermissionMode durably records the harness-reported permission
+// mode for sessionID. Best-effort by contract: the ConfigChange hook must never
+// fail a session over a marker write, and a missing marker degrades to
+// "no recorded posture" (not YOLO), which is the safe direction — guards stay
+// ON rather than being skipped.
+func RecordSessionPermissionMode(wipnoteDir, sessionID, mode string) error {
+	path := permissionModePath(wipnoteDir, sessionID)
+	if path == "" || strings.TrimSpace(mode) == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.TrimSpace(mode)+"\n"), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// recordedSessionPermissionMode reads back the marker, or "" when absent.
+func recordedSessionPermissionMode(wipnoteDir, sessionID string) string {
+	path := permissionModePath(wipnoteDir, sessionID)
+	if path == "" {
+		return ""
+	}
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return false
+		return ""
 	}
-	// Use lightweight read-only open — no pragmas, no migrations.
-	database, err := sql.Open("sqlite", dbPath+"?mode=ro&_busy_timeout=5000")
-	if err != nil {
-		return false
+	return strings.TrimSpace(string(raw))
+}
+
+// isYoloFromRecordedMode reports whether the session's last recorded permission
+// mode was bypassPermissions. It is the fallback consulted when the live
+// CloudEvent carries no permission_mode of its own.
+func isYoloFromRecordedMode(wipnoteDir, sessionID string) bool {
+	return recordedSessionPermissionMode(wipnoteDir, sessionID) == "bypassPermissions"
+}
+
+// yoloFamilyRoot returns the family-root session for sessionID when that root is
+// a DIFFERENT session — i.e. sessionID is a descendant whose posture may be
+// inherited. Empty when there is no distinct ancestor to inherit from.
+//
+// The session family index (.wipnote/session-families.json, written by
+// SessionStart) is the canonical ancestry record now that sessions.parent_session_id
+// is gone with the read index. For posture inheritance the family ROOT is the
+// right ancestor to consult — the launch that established the YOLO posture in
+// the first place — rather than one immediate parent hop.
+func yoloFamilyRoot(wipnoteDir, sessionID string) string {
+	if wipnoteDir == "" || sessionID == "" {
+		return ""
 	}
-	defer database.Close()
-	var mode sql.NullString
-	err = database.QueryRow(
-		"SELECT json_extract(metadata, '$.permission_mode') FROM sessions WHERE session_id = ?",
-		sessionID,
-	).Scan(&mode)
-	if err != nil || !mode.Valid {
-		return false
+	root := agent.SessionFamilyFor(filepath.Dir(wipnoteDir), sessionID)
+	if root == "" || root == sessionID {
+		return ""
 	}
-	return mode.String == "bypassPermissions"
+	return root
 }
 
 // checkYoloWorkItemGuard blocks Write/Edit tools when no active work item

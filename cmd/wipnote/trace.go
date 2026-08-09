@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -97,11 +95,7 @@ func runTrace(arg string, jsonOut, testsOnly bool) error {
 		if err != nil {
 			return err
 		}
-		dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-		if err != nil {
-			return fmt.Errorf("resolve db path: %w", err)
-		}
-		database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
+		database, err := openReadOnlyDB(dir)
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}
@@ -146,11 +140,7 @@ func runTraceCommit(sha string, jsonOut bool) error {
 		return err
 	}
 
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
+	database, err := openReadOnlyDB(dir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
@@ -240,11 +230,7 @@ func runTraceFile(filePath string, jsonOut bool) error {
 		return err
 	}
 
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
+	database, err := openReadOnlyDB(dir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

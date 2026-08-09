@@ -55,10 +55,22 @@ type Indexer struct {
 	writeDB    *sql.DB           // optional; writable handle used for prompt-ID bridge when no queue
 	queue      *writequeue.Queue // optional; when set, prompt-ID bridge goes through the queue
 
-	// reingestOnce gates the pending-re-ingest check to the first pass of
-	// this Indexer's life. The marker is cleared when consumed, so a second
-	// check would be a wasted query on every subsequent poll.
-	reingestOnce sync.Once
+	// offsets is the per-session read position, held IN MEMORY for the life of
+	// this Indexer and deliberately not seeded from disk.
+	//
+	// The destination is now a process-local projection that starts empty
+	// (feat-fc3cc9e0). Resuming from a checkpoint left by an earlier process
+	// would skip every line before it while the rows those lines produced no
+	// longer exist anywhere — the projection would be permanently and silently
+	// holed, which is the same failure shape as bug-0fc17d53 but with no schema
+	// defect to find. Starting at zero each time makes a full replay the
+	// guaranteed behaviour of every process; replay is cheap to get right
+	// because the writer keys inserts on signal_id, so re-read lines collapse
+	// onto rows already present.
+	//
+	// This also retired EnsureReingest and its migration-armed marker: forcing
+	// a full re-ingest was only necessary while checkpoints survived restarts.
+	offsets map[string]int64
 
 	mu     sync.RWMutex
 	status map[string]FileInfo
@@ -70,6 +82,7 @@ func New(wipnoteDir string, snk sink.SignalSink) *Indexer {
 	return &Indexer{
 		wipnoteDir: wipnoteDir,
 		snk:        snk,
+		offsets:    make(map[string]int64),
 		status:     make(map[string]FileInfo),
 	}
 }
@@ -145,8 +158,6 @@ func (idx *Indexer) RunOnce(ctx context.Context) {
 
 // runOnce discovers all sessions and processes any new data.
 func (idx *Indexer) runOnce(ctx context.Context) {
-	idx.maybeReingest()
-
 	sessions, err := idx.discoverSessions()
 	if err != nil {
 		log.Printf("indexer: discover sessions: %v", err)
@@ -161,30 +172,6 @@ func (idx *Indexer) runOnce(ctx context.Context) {
 			idx.recordError(sid, err)
 		}
 	}
-}
-
-// maybeReingest consumes a pending re-ingest marker once per Indexer.
-//
-// It runs here, at the top of the first pass, rather than in New, so it uses
-// whichever database handle the caller attached afterwards and so a caller
-// that never runs a pass never pays for the query. The writable handle is
-// preferred: consuming the marker deletes a metadata row.
-func (idx *Indexer) maybeReingest() {
-	idx.reingestOnce.Do(func() {
-		database := idx.writeDB
-		if database == nil {
-			database = idx.database
-		}
-		cleared, err := EnsureReingest(idx.wipnoteDir, database)
-		if err != nil {
-			log.Printf("indexer: re-ingest check: %v", err)
-			return
-		}
-		if cleared > 0 {
-			log.Printf("indexer: cleared %d NDJSON checkpoint(s) for a full re-ingest "+
-				"— the derived OTel index is being rebuilt from canonical shards", cleared)
-		}
-	})
 }
 
 // discoverSessions returns session IDs that have an events.ndjson file.
@@ -219,17 +206,15 @@ func (idx *Indexer) discoverSessions() ([]string, error) {
 	return sessions, nil
 }
 
-// processSession tails events.ndjson for sessionID from the last checkpoint,
-// parses each line, and applies the batch to snk. On success, writes a new checkpoint.
+// processSession tails events.ndjson for sessionID from this Indexer's in-memory
+// read position, parses each line, and applies the batch to snk. On success it
+// advances the in-memory position and republishes the on-disk progress marker.
 func (idx *Indexer) processSession(ctx context.Context, sessionID string) error {
 	sessDir := filepath.Join(idx.wipnoteDir, "sessions", sessionID)
 	ndjsonPath := filepath.Join(sessDir, "events.ndjson")
 	checkpointPath := filepath.Join(sessDir, ".index-offset")
 
-	offset, err := readCheckpoint(checkpointPath)
-	if err != nil {
-		return err
-	}
+	offset := idx.resumeOffset(sessionID)
 
 	info, err := os.Stat(ndjsonPath)
 	if err != nil {
@@ -254,19 +239,42 @@ func (idx *Indexer) processSession(ctx context.Context, sessionID string) error 
 		return err
 	}
 	if len(parsed) == 0 {
-		return writeCheckpoint(checkpointPath, newOffset)
+		idx.setResumeOffset(sessionID, newOffset)
+		return publishProgress(checkpointPath, newOffset)
 	}
 
 	if err := idx.writeParsedBatch(ctx, parsed); err != nil {
 		return err
 	}
 
-	if err := writeCheckpoint(checkpointPath, newOffset); err != nil {
+	// Advance the in-memory position ONLY after the batch is committed. The
+	// sync-sink path exists so a queue rejection cannot leave records counted
+	// as read while the insert never happened (roborev #1501); that guarantee
+	// now protects the in-memory position rather than the file.
+	idx.setResumeOffset(sessionID, newOffset)
+
+	if err := publishProgress(checkpointPath, newOffset); err != nil {
 		return err
 	}
 
 	idx.recordSuccess(sessionID, newOffset, currentSize)
 	return nil
+}
+
+// resumeOffset returns where this Indexer left off for sessionID within THIS
+// process. A session it has not read yet resumes at zero — see the offsets
+// field for why that is the required behaviour, not a simplification.
+func (idx *Indexer) resumeOffset(sessionID string) int64 {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	return idx.offsets[sessionID]
+}
+
+// setResumeOffset records how far this Indexer has committed for sessionID.
+func (idx *Indexer) setResumeOffset(sessionID string, offset int64) {
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	idx.offsets[sessionID] = offset
 }
 
 // readNewSignals opens ndjsonPath, seeks to offset, reads complete

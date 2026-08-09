@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
@@ -61,7 +62,19 @@ func handleExitPlanMode(event *hooks.CloudEvent, database *sql.DB, projectDir st
 	}
 
 	yamlPath := filepath.Join(plansDir, planID+".yaml")
-	if err := planyaml.Save(yamlPath, plan); err != nil {
+
+	// No preceding Load here — planID is a fresh, randomly-generated ID
+	// (workitem.GenerateID mixes a title hash with a timestamp and crypto/rand
+	// entropy), so there is no prior on-disk state for this specific path to
+	// lose. The lock is still taken for the same discipline as every other
+	// plan-YAML writer (defect 4, feat-fc3cc9e0) rather than carving out a
+	// silent exception.
+	releaseFile := filelock.Guard(yamlPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(yamlPath)
+	defer releasePlan()
+
+	if err := planyaml.SaveLocked(yamlPath, plan); err != nil {
 		hooks.LogError("exit-plan-mode", event.SessionID, fmt.Sprintf("save YAML: %v", err))
 		return &hooks.HookResult{Continue: true}, nil
 	}

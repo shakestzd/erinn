@@ -1,16 +1,16 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 
@@ -22,28 +22,30 @@ var featureIDRe = regexp.MustCompile(`(?:^|[^0-9a-f])((?:feat|bug|spk|trk|pln|sp
 func reindexBackfillOrphansCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backfill-orphans",
-		Short: "Backfill feature_files for features with zero file attribution",
-		Long: `Walks git log to find commits that reference orphan features (features
-with zero feature_files rows) and inserts attribution rows.
+		Short: "Backfill affected_files for work items with no file attribution",
+		Long: `Walks git log to find commits that reference orphan work items (features,
+bugs, and spikes whose canonical HTML carries no affected_files property) and
+records the files those commits touched.
 
 By default runs in dry-run mode: prints what would happen without writing.
-Pass --write to actually insert rows into feature_files.
+Pass --write to set the affected_files property on each item's HTML.
 
 A commit is matched when the commit message subject or body contains a
 canonical work-item ID (e.g. feat-9b767422). Both parenthesized references
 (feat-XXXXXXXX) and plain inline references are matched. False-match guard:
 IDs that appear as a prefix of a longer hex string are skipped.
 
-Only commits reachable from HEAD on the current branch are considered.`,
+Attribution is derived entirely from git and written to the canonical store:
+both the input (which items are orphans) and the output (affected_files) live
+in .wipnote/ HTML, so a backfill survives the process that produced it.`,
 		RunE: runReindexBackfillOrphans,
 	}
-	cmd.Flags().Bool("write", false, "Insert rows into feature_files (default is dry-run)")
-	cmd.Flags().BoolP("verbose", "v", false, "Print per-feature progress")
+	cmd.Flags().Bool("write", false, "Set affected_files on the work item HTML (default is dry-run)")
+	cmd.Flags().BoolP("verbose", "v", false, "Print per-item progress")
 	return cmd
 }
 
-// orphanFeature holds an orphan feature's ID and whether it exists in the
-// features table (used for the skip-unknown guard).
+// orphanFeature holds an orphan work item's ID and title.
 type orphanFeature struct {
 	id    string
 	title string
@@ -72,33 +74,29 @@ func runReindexBackfillOrphans(cmd *cobra.Command, _ []string) error {
 	}
 	projectDir := filepath.Dir(wipnoteDir)
 
-	dbPath, err := storage.CanonicalDBPath(projectDir)
+	orphans, err := findOrphanWorkItems(wipnoteDir)
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("ensure db dir: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open database: %w", err)
-	}
-	defer database.Close()
-
-	orphans, err := findOrphanFeatures(database)
-	if err != nil {
-		return fmt.Errorf("find orphan features: %w", err)
+		return fmt.Errorf("find orphan work items: %w", err)
 	}
 
 	if len(orphans) == 0 {
-		fmt.Println("No orphan features found — all features have file attribution.")
+		fmt.Println("No orphan work items found — every item already has file attribution.")
 		return nil
 	}
 
 	if !writeMode {
-		fmt.Printf("Dry-run mode: %d orphan feature(s) found. Pass --write to insert rows.\n\n", len(orphans))
+		fmt.Printf("Dry-run mode: %d orphan work item(s) found. Pass --write to record attribution.\n\n", len(orphans))
 	} else {
-		fmt.Printf("Write mode: backfilling %d orphan feature(s)...\n\n", len(orphans))
+		fmt.Printf("Write mode: backfilling %d orphan work item(s)...\n\n", len(orphans))
+	}
+
+	var project *workitem.Project
+	if writeMode {
+		project, err = workitem.Open(wipnoteDir, "claude-code")
+		if err != nil {
+			return fmt.Errorf("open project: %w", err)
+		}
+		defer project.Close()
 	}
 
 	totalFeatures := 0
@@ -113,20 +111,18 @@ func runReindexBackfillOrphans(cmd *cobra.Command, _ []string) error {
 		}
 
 		commitCount := len(matches)
-		fileCount := 0
-		for _, m := range matches {
-			fileCount += len(m.files)
-		}
+		files := distinctFilesFromMatches(matches)
+		fileCount := len(files)
 
 		if verbose || commitCount > 0 {
 			if writeMode {
-				fmt.Printf("%s: %d commits found, %d files indexed\n", orphan.id, commitCount, fileCount)
+				fmt.Printf("%s: %d commits found, %d files attributed\n", orphan.id, commitCount, fileCount)
 			} else {
-				fmt.Printf("%s: %d commits found, %d files would be indexed\n", orphan.id, commitCount, fileCount)
+				fmt.Printf("%s: %d commits found, %d files would be attributed\n", orphan.id, commitCount, fileCount)
 			}
 		}
 
-		if commitCount == 0 {
+		if commitCount == 0 || fileCount == 0 {
 			continue
 		}
 		totalFeatures++
@@ -134,52 +130,114 @@ func runReindexBackfillOrphans(cmd *cobra.Command, _ []string) error {
 		totalFiles += fileCount
 
 		if writeMode {
-			inserted, insertErr := insertFeatureFileRows(database, orphan.id, matches)
-			if insertErr != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: insert for %s: %v\n", orphan.id, insertErr)
-			}
-			if verbose && inserted != fileCount {
-				fmt.Printf("  %s: %d new rows inserted (%d already existed)\n", orphan.id, inserted, fileCount-inserted)
+			if saveErr := setAffectedFiles(project, orphan.id, files); saveErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: write attribution for %s: %v\n", orphan.id, saveErr)
 			}
 		}
 	}
 
 	fmt.Println()
 	if writeMode {
-		fmt.Printf("Backfill complete: %d features, %d commits, %d file rows inserted.\n",
+		fmt.Printf("Backfill complete: %d work items, %d commits, %d files attributed.\n",
 			totalFeatures, totalCommits, totalFiles)
 	} else {
-		fmt.Printf("Dry-run summary: %d features, %d commits, %d file rows would be inserted.\n",
+		fmt.Printf("Dry-run summary: %d work items, %d commits, %d files would be attributed.\n",
 			totalFeatures, totalCommits, totalFiles)
 		fmt.Println("Run with --write to apply changes.")
 	}
 	return nil
 }
 
-// findOrphanFeatures returns all features that have zero feature_files rows.
-func findOrphanFeatures(database *sql.DB) ([]orphanFeature, error) {
-	rows, err := database.Query(`
-		SELECT f.id, COALESCE(f.title, '')
-		FROM features f
-		WHERE NOT EXISTS (
-			SELECT 1 FROM feature_files ff WHERE ff.feature_id = f.id
-		)
-		ORDER BY f.id
-	`)
+// findOrphanWorkItems returns every feature, bug, and spike in the canonical
+// store whose HTML carries no non-empty affected_files property.
+//
+// The orphan set used to come from a SQL anti-join against feature_files. That
+// table is derived and no longer persisted, so the question is now asked of the
+// canonical artifacts directly — which is also the only place the answer stays
+// true between runs.
+func findOrphanWorkItems(wipnoteDir string) ([]orphanFeature, error) {
+	nodes, err := graph.LoadAll(wipnoteDir)
 	if err != nil {
-		return nil, fmt.Errorf("query orphan features: %w", err)
+		return nil, fmt.Errorf("load work items: %w", err)
 	}
-	defer rows.Close()
-
 	var out []orphanFeature
-	for rows.Next() {
-		var o orphanFeature
-		if err := rows.Scan(&o.id, &o.title); err != nil {
+	for _, n := range nodes {
+		switch n.Type {
+		case "feature", "bug", "spike":
+		default:
 			continue
 		}
-		out = append(out, o)
+		if strings.TrimSpace(nodeAffectedFiles(n)) != "" {
+			continue
+		}
+		out = append(out, orphanFeature{id: n.ID, title: n.Title})
 	}
-	return out, rows.Err()
+	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
+	return out, nil
+}
+
+// nodeAffectedFiles returns a node's affected_files property as a string, or ""
+// when it is absent or not a string. Properties is map[string]any, so a
+// hand-edited or JSON-escaped value of another type must not panic here.
+func nodeAffectedFiles(n *models.Node) string {
+	if n == nil {
+		return ""
+	}
+	s, _ := n.Properties[affectedFilesProp].(string)
+	return s
+}
+
+// affectedFilesProp is the canonical node property holding the comma-separated
+// list of files a work item touched. `wipnote <type> create --files` writes it;
+// this backfill fills it in for items created before that flag was used.
+const affectedFilesProp = "affected_files"
+
+// distinctFilesFromMatches flattens the per-commit file lists into one
+// deduplicated, sorted slice. A file touched by three of an item's commits is
+// one entry in its attribution, not three.
+func distinctFilesFromMatches(matches []commitMatch) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, m := range matches {
+		for _, fs := range m.files {
+			if fs.path == "" || seen[fs.path] {
+				continue
+			}
+			seen[fs.path] = true
+			out = append(out, fs.path)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// setAffectedFiles writes the derived file list onto the work item's canonical
+// HTML as its affected_files property.
+func setAffectedFiles(project *workitem.Project, itemID string, files []string) error {
+	col := editCollectionForID(project, itemID)
+	if col == nil {
+		return fmt.Errorf("cannot determine collection for %s", itemID)
+	}
+	return col.Edit(itemID).SetProperty(affectedFilesProp, strings.Join(files, ",")).Save()
+}
+
+// editCollectionForID maps a work-item ID to the collection that owns its file.
+// Only the three types this backfill covers are mapped; anything else returns
+// nil so the caller reports rather than writes to the wrong place.
+func editCollectionForID(project *workitem.Project, id string) *workitem.Collection {
+	if project == nil {
+		return nil
+	}
+	switch {
+	case strings.HasPrefix(id, "feat-"):
+		return project.Features.Collection
+	case strings.HasPrefix(id, "bug-"):
+		return project.Bugs.Collection
+	case strings.HasPrefix(id, "spk-"):
+		return project.Spikes.Collection
+	default:
+		return nil
+	}
 }
 
 // findCommitsForFeature walks git log on the current branch and returns commits
@@ -324,27 +382,3 @@ func parseStatInt(s string) int {
 	return n
 }
 
-// insertFeatureFileRows inserts feature_files rows for the given commits.
-// Returns the count of rows that were new (not already present).
-// Idempotent: UpsertFeatureFile uses ON CONFLICT DO UPDATE.
-func insertFeatureFileRows(database *sql.DB, featureID string, matches []commitMatch) (int, error) {
-	inserted := 0
-	for _, m := range matches {
-		hashPrefix := m.hash
-		if len(hashPrefix) > 8 {
-			hashPrefix = hashPrefix[:8]
-		}
-		for _, fs := range m.files {
-			ff := &models.FeatureFile{
-				ID:        featureID + "-" + hashPrefix + "-" + sanitizePathID(fs.path),
-				FeatureID: featureID,
-				FilePath:  fs.path,
-				Operation: "backfill",
-			}
-			if err := dbpkg.UpsertFeatureFile(database, ff); err == nil {
-				inserted++
-			}
-		}
-	}
-	return inserted, nil
-}

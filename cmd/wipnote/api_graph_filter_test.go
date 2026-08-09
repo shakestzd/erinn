@@ -4,39 +4,32 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/claimledger"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/projection"
+	"github.com/shakestzd/wipnote/core/sessionledger"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func TestGraphAPI_TypesFilter(t *testing.T) {
-	database, err := dbpkg.Open(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
+	wipnoteDir := graphAPIFixture(t)
+	handler := graphAPIHandler(nil, wipnoteDir)
 
-	// Seed features and tracks.
-	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('f1', 'feature', 'feat 1', 'done')`)
-	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('b1', 'bug', 'bug 1', 'done')`)
-	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('t1', 'track 1', 'done')`)
-
-	handler := graphAPIHandler(database, t.TempDir())
-
-	// Request only features.
 	req := httptest.NewRequest("GET", "/api/graph?types=feature&all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("status: %d", w.Code)
 	}
-
 	var data graphData
 	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-
 	for _, n := range data.Nodes {
 		if n.Type != "feature" {
 			t.Errorf("expected only features, got type=%q id=%q", n.Type, n.ID)
@@ -45,55 +38,47 @@ func TestGraphAPI_TypesFilter(t *testing.T) {
 }
 
 func TestGraphAPI_DefaultReturnsAllTypes(t *testing.T) {
-	database, err := dbpkg.Open(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-
-	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('f1', 'feature', 'feat 1', 'done')`)
-	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('b1', 'bug', 'bug 1', 'done')`)
-	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('t1', 'track 1', 'done')`)
-
-	handler := graphAPIHandler(database, t.TempDir())
+	wipnoteDir := graphAPIFixture(t)
+	handler := graphAPIHandler(nil, wipnoteDir)
 	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
 	var data graphData
-	json.Unmarshal(w.Body.Bytes(), &data)
-
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
 	types := make(map[string]bool)
 	for _, n := range data.Nodes {
 		types[n.Type] = true
 	}
-	if !types["feature"] || !types["bug"] || !types["track"] {
-		t.Errorf("expected feature, bug, track types; got %v", types)
+	if !types["feature"] || !types["bug"] || !types["track"] || !types["session"] {
+		t.Errorf("expected feature, bug, track, session types; got %v", types)
 	}
 }
 
 func TestGraphAPI_PerTypeCaps(t *testing.T) {
-	database, err := dbpkg.Open(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-
-	// Insert 5 sessions with parent_session_id so they qualify.
+	wipnoteDir := newGraphAPIWipnoteDir(t)
+	store := sessionledger.NewStore(wipnoteDir)
 	for i := 0; i < 5; i++ {
-		database.Exec(`INSERT INTO sessions (session_id, agent_assigned, parent_session_id, status, created_at) VALUES (?, 'claude', 'parent', 'completed', '2026-04-16')`,
-			"sess-"+string(rune('A'+i)))
+		id := "sess-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa" + string(rune('0'+i))
+		if _, err := store.Open(sessionledger.Record{
+			SessionID: id,
+			Harness:   "claude",
+			StartedAt: time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC),
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	handler := graphAPIHandler(database, t.TempDir())
+	handler := graphAPIHandler(nil, wipnoteDir)
 	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
-
 	var data graphData
-	json.Unmarshal(w.Body.Bytes(), &data)
-
-	// With only 5 sessions, cap of 300 should not truncate.
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
 	if data.Caps != nil {
 		if ci, ok := data.Caps["session"]; ok && ci.Total != ci.Shown {
 			t.Errorf("expected no truncation for 5 sessions, got total=%d shown=%d", ci.Total, ci.Shown)
@@ -101,52 +86,77 @@ func TestGraphAPI_PerTypeCaps(t *testing.T) {
 	}
 }
 
-// TestFilterByAgent_AssignedOnlySource is a regression test for the
-// case where an agent appears in sessions.agent_assigned but not in
-// agent_lineage_trace. agentsHandler lists the agent, so
-// filterByAgent must also match it or the dropdown selection yields
-// an empty graph. See roborev job 109 finding #1.
+// TestFilterByAgent_AssignedOnlySource exercises the INDIRECT claim-ledger
+// branch of filterByAgentProjection (api_graph.go's loop over snap.Claims),
+// not just the trivial n.Agent == agentName branch. The previous version of
+// this test set the claiming session's own Harness to the exact filtered
+// agent name, so the work item was already kept by the first (trivial) loop
+// before the claim-ledger loop ever ran — and its negative assertion checked
+// a literal "feat-other" string that workitem.GenerateID's random-hash IDs
+// can never actually produce, so it always passed regardless of correctness.
+// Both defects made this test pass for the wrong reason (feat-fc3cc9e0).
+//
+// This version claims a work item through a ROOT session that ran as the
+// filtered agent while the actual executing (child) session ran as a
+// DIFFERENT agent. addClaimImplementationEdges only wires an edge from the
+// work item to the CHILD session, never to the root, so nothing but the
+// claim-ledger loop can connect the root session — the only node whose Agent
+// literally equals the filter — to either the child session or the claimed
+// work item.
 func TestFilterByAgent_AssignedOnlySource(t *testing.T) {
-	database, err := dbpkg.Open(":memory:")
+	wipnoteDir := newGraphAPIWipnoteDir(t)
+	p, err := workitem.Open(wipnoteDir, "unrelated-creator")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer database.Close()
-
-	// Seed: a feature, a session with agent_assigned only (no lineage
-	// row), and an agent_event tying the session to the feature.
-	_, err = database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('feat-a', 'feature', 'Feat A', 'done')`)
+	claimed, err := p.Features.Create("Indirectly Claimed", workitem.FeatWithStatus("todo"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = database.Exec(`INSERT INTO sessions (session_id, agent_assigned, status, created_at) VALUES ('sess-x', 'assigned-only-agent', 'completed', '2026-04-16')`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = database.Exec(`INSERT INTO agent_events (event_id, session_id, agent_id, feature_id, event_type, created_at) VALUES ('evt-1', 'sess-x', 'any', 'feat-a', 'tool_call', '2026-04-16T00:00:00Z')`)
+	unrelated, err := p.Features.Create("Unrelated", workitem.FeatWithStatus("todo"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	nodes := []graphNode{
-		{ID: "feat-a", Type: "feature", Title: "Feat A"},
-		{ID: "sess-x", Type: "session", Title: "sess"},
-		{ID: "feat-other", Type: "feature", Title: "Other"},
+	rootSession := "sess-11111111-1111-1111-1111-111111111111"
+	childSession := "sess-22222222-2222-2222-2222-222222222222"
+	start := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+	sessions := sessionledger.NewStore(wipnoteDir)
+	if _, err := sessions.Open(sessionledger.Record{SessionID: rootSession, Harness: "graph-agent", StartedAt: start}); err != nil {
+		t.Fatal(err)
 	}
-	filtered := filterByAgent(database, nodes, "assigned-only-agent")
+	if _, err := sessions.Open(sessionledger.Record{SessionID: childSession, Harness: "child-worker", StartedAt: start}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := claimledger.NewStore(wipnoteDir).Open(childSession, claimledger.Episode{
+		WorkItemID: claimed.ID, SessionID: childSession, RootSessionID: rootSession,
+		AgentID: "__root__", StartedAt: start.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, err := projection.Load(wipnoteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, _ := projectionGraphPayload(snap)
+	filtered := filterByAgentProjection(snap, nodes, "graph-agent")
 
 	kept := map[string]bool{}
 	for _, n := range filtered {
 		kept[n.ID] = true
 	}
-	if !kept["sess-x"] {
-		t.Error("expected assigned-only session sess-x to be kept")
+	if !kept[claimed.ID] {
+		t.Errorf("expected work item %s to be kept via the indirect claim-ledger branch (root session ran as graph-agent)", claimed.ID)
 	}
-	if !kept["feat-a"] {
-		t.Error("expected feature feat-a (linked via agent_events) to be kept")
+	if !kept[childSession] {
+		t.Errorf("expected claiming (child) session %s to be kept", childSession)
 	}
-	if kept["feat-other"] {
-		t.Error("expected feat-other to be filtered out")
+	if !kept[rootSession] {
+		t.Errorf("expected root session %s to be kept", rootSession)
+	}
+	if kept[unrelated.ID] {
+		t.Errorf("expected unrelated work item %s to be filtered out", unrelated.ID)
 	}
 }
 
@@ -163,44 +173,11 @@ func TestSortByActivity(t *testing.T) {
 	}
 }
 
-// TestGraphAPI_NoDanglingEdgeEndpoints pins the invariant the D3 renderer
-// depends on: every edge in the payload names two nodes that are also in the
-// payload. d3.forceLink throws on a link referencing an unknown id, and one
-// throw blanks the whole graph.
-//
-// It is checked under ?all=true because that path used to skip the endpoint
-// filter entirely. The tombstone policy (feat-d1439606) makes the gap
-// reachable in normal operation: an item→pruned-session edge is now kept in
-// graph_edges by design, and a pruned session has no sessions row to become a
-// node from.
 func TestGraphAPI_NoDanglingEdgeEndpoints(t *testing.T) {
-	database, err := dbpkg.Open(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-
-	database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('feat-graph-1', 'feature', 'feat 1', 'done')`)
-	database.Exec(`INSERT INTO tracks (id, title, status) VALUES ('trk-graph-1', 'track 1', 'done')`)
-
-	const prunedSession = "aaaa1111-bbbb-2222-cccc-333344445555"
-	if err := dbpkg.InsertEdge(database,
-		"feat-graph-1-implemented_in-"+prunedSession, "feat-graph-1", "feature",
-		prunedSession, "unknown", "implemented_in",
-		map[string]string{"tombstoned": "session"},
-	); err != nil {
-		t.Fatalf("insert tombstoned edge: %v", err)
-	}
-	if err := dbpkg.InsertEdge(database,
-		"feat-graph-1-part_of-trk-graph-1", "feat-graph-1", "feature",
-		"trk-graph-1", "track", "part_of", nil,
-	); err != nil {
-		t.Fatalf("insert live edge: %v", err)
-	}
-
+	wipnoteDir := graphAPIFixture(t)
 	for _, url := range []string{"/api/graph?all=true", "/api/graph"} {
 		t.Run(url, func(t *testing.T) {
-			handler := graphAPIHandler(database, t.TempDir())
+			handler := graphAPIHandler(nil, wipnoteDir)
 			req := httptest.NewRequest("GET", url, nil)
 			w := httptest.NewRecorder()
 			handler(w, req)
@@ -216,26 +193,150 @@ func TestGraphAPI_NoDanglingEdgeEndpoints(t *testing.T) {
 				present[n.ID] = true
 			}
 			for _, e := range data.Edges {
-				if !present[e.Source] {
-					t.Errorf("edge %s -%s-> %s names a SOURCE that is not a node in the payload",
-						e.Source, e.Type, e.Target)
-				}
-				if !present[e.Target] {
-					t.Errorf("edge %s -%s-> %s names a TARGET that is not a node in the payload",
-						e.Source, e.Type, e.Target)
+				if !present[e.Source] || !present[e.Target] {
+					t.Errorf("edge %s -%s-> %s names missing endpoint", e.Source, e.Type, e.Target)
 				}
 			}
 		})
 	}
-
-	// Guard against the check passing because the payload is empty.
-	handler := graphAPIHandler(database, t.TempDir())
+	handler := graphAPIHandler(nil, wipnoteDir)
 	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
 	var data graphData
-	json.Unmarshal(w.Body.Bytes(), &data)
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
 	if len(data.Edges) == 0 {
 		t.Fatalf("payload has no edges at all — the endpoint check is vacuous")
 	}
+}
+
+// TestGraphAPI_EdgeBadgeMatchesActualEdgeCount is the dispatcher-level
+// regression for defect 2 (feat-fc3cc9e0): the SQL-era graph_edges table had
+// edge_id TEXT PRIMARY KEY plus INSERT OR REPLACE, which silently collapsed a
+// declaration repeated in canonical HTML (e.g. `wipnote link add` run twice)
+// to one row. models.Node.AddEdge has always been an unconditional append —
+// safe only because that primary key absorbed the duplicate on read. Without
+// projection-side dedup, a real /api/graph response computed the node's edge
+// badge as len(snap.Out)+len(snap.In) (api_graph.go's projectionGraphPayload)
+// while the edges array went through a separate deduplicateEdges pass — an
+// internally inconsistent payload where the badge says 2 but only 1 edge is
+// drawn.
+func TestGraphAPI_EdgeBadgeMatchesActualEdgeCount(t *testing.T) {
+	wipnoteDir := newGraphAPIWipnoteDir(t)
+	p, err := workitem.Open(wipnoteDir, "graph-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocker, err := p.Features.Create("Repeated Blocker", workitem.FeatWithStatus("done"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature, err := p.Features.Create("Repeated Consumer", workitem.FeatWithStatus("todo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge := models.Edge{TargetID: blocker.ID, Relationship: "blocked_by"}
+	if _, err := p.Features.AddEdge(feature.ID, edge); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Features.AddEdge(feature.ID, edge); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := graphAPIHandler(nil, wipnoteDir)
+	req := httptest.NewRequest("GET", "/api/graph?all=true", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: %d", w.Code)
+	}
+	var data graphData
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	var featureNode *graphNode
+	for i, n := range data.Nodes {
+		if n.ID == feature.ID {
+			featureNode = &data.Nodes[i]
+		}
+	}
+	if featureNode == nil {
+		t.Fatalf("feature node %s missing from /api/graph response", feature.ID)
+	}
+	if featureNode.Edges != 1 {
+		t.Errorf("node edge badge = %d, want 1 (deduplicated)", featureNode.Edges)
+	}
+
+	matching := 0
+	for _, e := range data.Edges {
+		if e.Source == feature.ID && e.Target == blocker.ID && e.Type == "blocked_by" {
+			matching++
+		}
+	}
+	if matching != 1 {
+		t.Errorf("edges array has %d blocked_by entries for %s->%s, want 1", matching, feature.ID, blocker.ID)
+	}
+	if featureNode.Edges != matching {
+		t.Errorf("edge badge (%d) disagrees with the drawn edge count (%d) — internally inconsistent payload", featureNode.Edges, matching)
+	}
+}
+
+func graphAPIFixture(t *testing.T) string {
+	t.Helper()
+	wipnoteDir := newGraphAPIWipnoteDir(t)
+	p, err := workitem.Open(wipnoteDir, "graph-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	track, err := p.Tracks.Create("track 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature, err := p.Features.Create("feat 1", workitem.FeatWithStatus("done"), workitem.FeatWithTrack(track.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Bugs.Create("bug 1", workitem.BugWithStatus("done")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Features.Create("Other", workitem.FeatWithStatus("todo")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Features.AddEdge(feature.ID, models.Edge{TargetID: track.ID, Relationship: models.RelPartOf}); err != nil {
+		t.Fatal(err)
+	}
+	addGraphAPISessionClaim(t, wipnoteDir, feature.ID)
+	return wipnoteDir
+}
+
+func addGraphAPISessionClaim(t *testing.T, wipnoteDir, featureID string) {
+	t.Helper()
+	sessionID := "sess-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	start := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+	if _, err := sessionledger.NewStore(wipnoteDir).Open(sessionledger.Record{
+		SessionID: sessionID,
+		Harness:   "graph-agent",
+		StartedAt: start,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := claimledger.NewStore(wipnoteDir).Open(sessionID, claimledger.Episode{
+		WorkItemID: featureID, SessionID: sessionID, RootSessionID: sessionID,
+		AgentID: "__root__", StartedAt: start.Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func newGraphAPIWipnoteDir(t *testing.T) string {
+	t.Helper()
+	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return wipnoteDir
 }

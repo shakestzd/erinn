@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 	"time"
@@ -19,67 +20,94 @@ func init() {
 	mergeInProgressFn = func() bool { return false }
 }
 
-// TestIsYoloFromDB verifies the SQLite-backed fallback for YOLO detection.
-func TestIsYoloFromDB(t *testing.T) {
-	// Create a temp directory with a real on-disk DB.
+// seedPermissionMode records a session's permission mode through the SAME
+// canonical writer the ConfigChange hook uses, so these tests exercise the real
+// round trip rather than a hand-built fixture.
+func seedPermissionMode(t *testing.T, hgDir, sessionID, mode string) {
+	t.Helper()
+	if err := RecordSessionPermissionMode(hgDir, sessionID, mode); err != nil {
+		t.Fatalf("RecordSessionPermissionMode(%s=%s): %v", sessionID, mode, err)
+	}
+}
+
+// seedSessionFamily registers child as a member of the family rooted at root,
+// which is how SessionStart records ancestry canonically.
+func seedSessionFamily(t *testing.T, projectDir, child, root string) {
+	t.Helper()
+	if err := agent.RegisterSessionFamily(projectDir, child, root); err != nil {
+		t.Fatalf("RegisterSessionFamily(%s -> %s): %v", child, root, err)
+	}
+}
+
+// TestIsYoloFromRecordedMode verifies the durable per-session fallback for YOLO
+// detection: the marker the ConfigChange hook writes under
+// .wipnote/sessions/<id>/, which replaced the sessions.metadata read-index
+// column (feat-fc3cc9e0).
+func TestIsYoloFromRecordedMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
-	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-
-	// Open and initialise the DB via the project's Open helper.
-	database, err := db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
 
-	// Insert a test session with bypassPermissions in metadata.
-	_, err = database.Exec(
-		`INSERT INTO sessions (session_id, agent_assigned, status, created_at)
-		 VALUES (?, ?, ?, datetime('now'))`,
-		"yolo-sess", "claude-code", "active",
-	)
-	if err != nil {
-		t.Fatalf("insert session: %v", err)
-	}
-	_, err = database.Exec(
-		`UPDATE sessions SET metadata = json_set(COALESCE(metadata, '{}'), '$.permission_mode', ?) WHERE session_id = ?`,
-		"bypassPermissions", "yolo-sess",
-	)
-	if err != nil {
-		t.Fatalf("update metadata: %v", err)
-	}
-
-	// Insert a session with a non-YOLO permission mode.
-	_, err = database.Exec(
-		`INSERT INTO sessions (session_id, agent_assigned, status, created_at, metadata)
-		 VALUES (?, ?, ?, datetime('now'), json_object('permission_mode', 'default'))`,
-		"default-sess", "claude-code", "active",
-	)
-	if err != nil {
-		t.Fatalf("insert default session: %v", err)
-	}
-	database.Close()
+	seedPermissionMode(t, hgDir, "yolo-sess", "bypassPermissions")
+	seedPermissionMode(t, hgDir, "default-sess", "default")
 
 	// YOLO session → true.
-	if !isYoloFromDB(hgDir, "yolo-sess") {
-		t.Error("expected isYoloFromDB=true for bypassPermissions session")
+	if !isYoloFromRecordedMode(hgDir, "yolo-sess") {
+		t.Error("expected isYoloFromRecordedMode=true for bypassPermissions session")
 	}
 
 	// Non-YOLO session → false.
-	if isYoloFromDB(hgDir, "default-sess") {
-		t.Error("expected isYoloFromDB=false for default permission mode session")
+	if isYoloFromRecordedMode(hgDir, "default-sess") {
+		t.Error("expected isYoloFromRecordedMode=false for default permission mode session")
 	}
 
 	// Unknown session → false.
-	if isYoloFromDB(hgDir, "missing-sess") {
-		t.Error("expected isYoloFromDB=false for missing session")
+	if isYoloFromRecordedMode(hgDir, "missing-sess") {
+		t.Error("expected isYoloFromRecordedMode=false for missing session")
 	}
 
 	// Empty session ID → false.
-	if isYoloFromDB(hgDir, "") {
-		t.Error("expected isYoloFromDB=false for empty session ID")
+	if isYoloFromRecordedMode(hgDir, "") {
+		t.Error("expected isYoloFromRecordedMode=false for empty session ID")
+	}
+}
+
+// TestConfigChange_RecordsPermissionModeCanonically closes the loop the
+// ephemeral-projection cutover broke: the hook handler itself must leave a
+// record that the YOLO fallback can read back. Before the canonical marker, the
+// handler's UPDATE landed in a throwaway in-memory database and this read
+// always came back false.
+func TestConfigChange_RecordsPermissionModeCanonically(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	clearNestedEnv(t)
+	t.Setenv("WIPNOTE_PROJECT_DIR", tmpDir)
+
+	ev := &CloudEvent{
+		SessionID:      "config-change-sess",
+		CWD:            tmpDir,
+		PermissionMode: "bypassPermissions",
+	}
+	if _, err := ConfigChange(ev, nil); err != nil {
+		t.Fatalf("ConfigChange: %v", err)
+	}
+	if !isYoloFromRecordedMode(hgDir, "config-change-sess") {
+		t.Fatal("ConfigChange did not durably record bypassPermissions")
+	}
+
+	// A later non-bypass ConfigChange must overwrite the posture, not leave the
+	// stale YOLO marker behind.
+	ev.PermissionMode = "default"
+	if _, err := ConfigChange(ev, nil); err != nil {
+		t.Fatalf("ConfigChange(default): %v", err)
+	}
+	if isYoloFromRecordedMode(hgDir, "config-change-sess") {
+		t.Fatal("ConfigChange left a stale bypassPermissions marker after a default-mode change")
 	}
 }
 
@@ -100,53 +128,24 @@ func TestIsYoloFromEvent(t *testing.T) {
 		t.Error("expected non-yolo when permission_mode=default")
 	}
 
-	// Empty permission_mode + no DB → not yolo.
-	event = &CloudEvent{PermissionMode: "", SessionID: "no-db-sess"}
+	// Empty permission_mode + no recorded posture → not yolo.
+	event = &CloudEvent{PermissionMode: "", SessionID: "no-record-sess"}
 	if isYoloFromEvent(event, hgDir) {
-		t.Error("expected non-yolo with no permission_mode and no DB")
+		t.Error("expected non-yolo with no permission_mode and no recorded posture")
 	}
 
-	// Empty permission_mode + DB with bypassPermissions → yolo.
-	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-	database, err := db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
-	}
-	_, err = database.Exec(
-		`INSERT INTO sessions (session_id, agent_assigned, status, created_at, metadata)
-		 VALUES (?, ?, ?, datetime('now'), json_object('permission_mode', 'bypassPermissions'))`,
-		"yolo-event-sess", "claude-code", "active",
-	)
-	if err != nil {
-		t.Fatalf("insert session: %v", err)
-	}
-	database.Close()
-
+	// Empty permission_mode + recorded bypassPermissions → yolo.
+	seedPermissionMode(t, hgDir, "yolo-event-sess", "bypassPermissions")
 	event = &CloudEvent{PermissionMode: "", SessionID: "yolo-event-sess"}
 	if !isYoloFromEvent(event, hgDir) {
-		t.Error("expected yolo from DB fallback when permission_mode is empty and DB has bypassPermissions")
+		t.Error("expected yolo from the recorded-mode fallback when permission_mode is empty")
 	}
 
-	// Empty permission_mode + DB with default mode → not yolo.
-	database, err = db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
-	}
-	_, err = database.Exec(
-		`INSERT INTO sessions (session_id, agent_assigned, status, created_at, metadata)
-		 VALUES (?, ?, ?, datetime('now'), json_object('permission_mode', 'default'))`,
-		"default-event-sess", "claude-code", "active",
-	)
-	if err != nil {
-		t.Fatalf("insert default session: %v", err)
-	}
-	database.Close()
-
+	// Empty permission_mode + recorded default mode → not yolo.
+	seedPermissionMode(t, hgDir, "default-event-sess", "default")
 	event = &CloudEvent{PermissionMode: "", SessionID: "default-event-sess"}
 	if isYoloFromEvent(event, hgDir) {
-		t.Error("expected non-yolo from DB fallback for default permission mode")
+		t.Error("expected non-yolo from the recorded-mode fallback for default permission mode")
 	}
 }
 
@@ -1263,50 +1262,20 @@ func TestGetClaimFromParentChain(t *testing.T) {
 // session has no permission_mode set. isYoloWithInheritance must return true
 // for the child so that all guards (e.g. checkYoloBudgetGuard) fire correctly.
 func TestIsYoloWithInheritance(t *testing.T) {
-	// Set up an isolated project directory so that isYoloFromDB resolves the
-	// correct DB path via WIPNOTE_DB_PATH.
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
-	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-
-	database, err := db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	defer database.Close()
+	var database *sql.DB // ancestry is canonical now; the handle is unused
 
-	now := time.Now().UTC()
-
-	// Insert parent (orchestrator) session in YOLO mode.
+	// Parent (orchestrator) session in YOLO mode.
 	parentSessID := "parent-yolo-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID:     parentSessID,
-		AgentAssigned: "claude-code",
-		Status:        "active",
-		CreatedAt:     now,
-	}); err != nil {
-		t.Fatalf("InsertSession(parent): %v", err)
-	}
-	if _, err := database.Exec(
-		`UPDATE sessions SET metadata = json_set(COALESCE(metadata,'{}'),'$.permission_mode',?) WHERE session_id = ?`,
-		"bypassPermissions", parentSessID,
-	); err != nil {
-		t.Fatalf("set parent YOLO metadata: %v", err)
-	}
+	seedPermissionMode(t, hgDir, parentSessID, "bypassPermissions")
 
-	// Insert child (sub-agent) session with no YOLO marker, parented to the YOLO session.
+	// Child (sub-agent) session with no YOLO marker, in the parent's family.
 	childSessID := "child-no-yolo-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID:       childSessID,
-		AgentAssigned:   "claude-code",
-		Status:          "active",
-		CreatedAt:       now,
-		ParentSessionID: parentSessID,
-	}); err != nil {
-		t.Fatalf("InsertSession(child): %v", err)
-	}
+	seedSessionFamily(t, tmpDir, childSessID, parentSessID)
 
 	// Child event has no permission_mode set — no direct YOLO signal.
 	childEvent := &CloudEvent{
@@ -1349,9 +1318,18 @@ func TestIsYoloWithInheritance(t *testing.T) {
 		t.Error("expected isYoloWithInheritance=false: explicit non-YOLO mode on a top-level session must not be overridden by parent")
 	}
 
-	// nil database → returns false, no panic.
-	if isYoloWithInheritance(childEvent, hgDir, nil, childSessID, tmpDir, true) {
-		t.Error("expected isYoloWithInheritance=false with nil database")
+	// A session with no registered family ancestor has nothing to inherit from.
+	orphanEvent := &CloudEvent{PermissionMode: "", SessionID: "unfamilied-sess"}
+	if isYoloWithInheritance(orphanEvent, hgDir, database, "unfamilied-sess", tmpDir, true) {
+		t.Error("expected isYoloWithInheritance=false for a session with no family ancestor")
+	}
+
+	// A family whose root is NOT in YOLO posture must not confer it.
+	seedPermissionMode(t, hgDir, "plain-parent-sess", "default")
+	seedSessionFamily(t, tmpDir, "plain-child-sess", "plain-parent-sess")
+	plainEvent := &CloudEvent{PermissionMode: "", SessionID: "plain-child-sess"}
+	if isYoloWithInheritance(plainEvent, hgDir, database, "plain-child-sess", tmpDir, true) {
+		t.Error("expected isYoloWithInheritance=false when the family root is not YOLO")
 	}
 }
 
@@ -1364,37 +1342,16 @@ func TestIsYoloWithInheritance(t *testing.T) {
 func TestIsYoloWithInheritance_SubagentNonBypassModeInherits(t *testing.T) {
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
-	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-
-	database, err := db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	defer database.Close()
+	var database *sql.DB // ancestry is canonical now; the handle is unused
 
-	now := time.Now().UTC()
 	parentSessID := "parent-yolo-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID: parentSessID, AgentAssigned: "claude-code", Status: "active", CreatedAt: now,
-	}); err != nil {
-		t.Fatalf("InsertSession(parent): %v", err)
-	}
-	if _, err := database.Exec(
-		`UPDATE sessions SET metadata = json_set(COALESCE(metadata,'{}'),'$.permission_mode',?) WHERE session_id = ?`,
-		"bypassPermissions", parentSessID,
-	); err != nil {
-		t.Fatalf("set parent YOLO metadata: %v", err)
-	}
+	seedPermissionMode(t, hgDir, parentSessID, "bypassPermissions")
 
 	childSessID := "child-subagent-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID: childSessID, AgentAssigned: "claude-code", Status: "active",
-		CreatedAt: now, ParentSessionID: parentSessID,
-	}); err != nil {
-		t.Fatalf("InsertSession(child): %v", err)
-	}
+	seedSessionFamily(t, tmpDir, childSessID, parentSessID)
 
 	for _, mode := range []string{"default", "acceptEdits"} {
 		ev := &CloudEvent{PermissionMode: mode, SessionID: childSessID}
@@ -1418,46 +1375,28 @@ func TestIsYoloWithInheritance_SubagentBypassFastPath(t *testing.T) {
 	}
 }
 
-// setupYoloParentDB creates an isolated DB with a YOLO parent session and a
-// child session (no YOLO marker of its own) parented to it. Returns the wipnote
-// dir, the child session ID, and the open DB.
+// setupYoloParentDB creates an isolated project with a parent session in the
+// requested posture and a child session (no marker of its own) registered into
+// the parent's family. Returns the wipnote dir, the child session ID, and a nil
+// DB handle — ancestry and posture are both canonical now, and the handle only
+// remains so the call shape of the guards under test is unchanged.
 func setupYoloParentDB(t *testing.T, parentIsYolo bool) (string, string, *sql.DB) {
 	t.Helper()
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
-	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-
-	database, err := db.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { database.Close() })
 
-	now := time.Now().UTC()
-	parentSessID := "parent-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID: parentSessID, AgentAssigned: "claude-code", Status: "active", CreatedAt: now,
-	}); err != nil {
-		t.Fatalf("InsertSession(parent): %v", err)
-	}
+	const parentSessID = "parent-sess"
+	const childSessID = "child-sess"
+	mode := "default"
 	if parentIsYolo {
-		if _, err := database.Exec(
-			`UPDATE sessions SET metadata = json_set(COALESCE(metadata,'{}'),'$.permission_mode',?) WHERE session_id = ?`,
-			"bypassPermissions", parentSessID,
-		); err != nil {
-			t.Fatalf("set parent YOLO metadata: %v", err)
-		}
+		mode = "bypassPermissions"
 	}
-	childSessID := "child-sess"
-	if err := db.InsertSession(database, &models.Session{
-		SessionID: childSessID, AgentAssigned: "claude-code", Status: "active",
-		CreatedAt: now, ParentSessionID: parentSessID,
-	}); err != nil {
-		t.Fatalf("InsertSession(child): %v", err)
-	}
-	return hgDir, childSessID, database
+	seedPermissionMode(t, hgDir, parentSessID, mode)
+	seedSessionFamily(t, tmpDir, childSessID, parentSessID)
+	return hgDir, childSessID, nil
 }
 
 // TestWorktreeGuardDefenseInDepth_SubagentYoloParent is the defense-in-depth

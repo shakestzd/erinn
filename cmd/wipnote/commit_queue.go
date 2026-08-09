@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/commitqueue"
 )
 
@@ -17,11 +16,7 @@ import (
 // (an outbox inside .wipnote/ would itself need committing: recursion). It is a
 // package-level seam so tests can redirect it without touching the real cache.
 var commitOutboxPath = func(repoRoot string) (string, error) {
-	dbPath, err := storage.CanonicalDBPath(repoRoot)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(filepath.Dir(dbPath), "commit-outbox.ndjson"), nil
+	return projectRuntimeCachePath(repoRoot, "commit-outbox", "commit-outbox.ndjson")
 }
 
 // openCommitOutbox resolves the outbox for repoRoot.

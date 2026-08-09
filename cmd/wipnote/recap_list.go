@@ -10,7 +10,6 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -95,16 +94,9 @@ HTML file is removed from the working tree; commit the removal yourself.`,
 // canonical HTML files so list/show/delete always operate on current data.
 func openRecapsIndex(wipnoteDir string) (*sql.DB, error) {
 	projectDir := filepath.Dir(wipnoteDir)
-	dbPath, err := storage.CanonicalDBPath(projectDir)
+	database, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return nil, fmt.Errorf("ensure db dir: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, fmt.Errorf("open ephemeral database: %w", err)
 	}
 	reindexRecaps(database, wipnoteDir, projectDir, false)
 	return database, nil

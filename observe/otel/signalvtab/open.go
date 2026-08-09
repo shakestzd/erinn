@@ -96,6 +96,7 @@ func openWith(sessionsDir, name string, m *Module) (*sql.DB, *Module, error) {
 		return nil, nil, fmt.Errorf("signalvtab: open sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	// Register before any statement runs. Nothing above this line has
 	// touched the pool, so the connection opened by the Exec below will
@@ -111,6 +112,18 @@ func openWith(sessionsDir, name string, m *Module) (*sql.DB, *Module, error) {
 	}
 	if name == "" {
 		name = ModuleName
+	}
+	for _, stmt := range []string{
+		"PRAGMA journal_mode = MEMORY",
+		"PRAGMA temp_store = MEMORY",
+		"PRAGMA synchronous = OFF",
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA mmap_size = 0",
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			db.Close()
+			return nil, nil, fmt.Errorf("signalvtab: %s: %w", stmt, err)
+		}
 	}
 
 	// %q quotes the path. SQLite hands module arguments to Create as raw

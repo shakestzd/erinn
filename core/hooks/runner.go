@@ -18,7 +18,6 @@ import (
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // Runner bundles the optional dependencies needed by in-process hook
@@ -326,19 +325,13 @@ func IswipnoteProject(projectDir string) bool {
 	return err == nil
 }
 
-// DBPath returns the canonical SQLite path for the given project directory.
-// Delegates to storage.CanonicalDBPath so the DB always lives in the host
-// OS cache dir (never inside the project tree), ensuring WAL/SHM mmap
-// works regardless of the project filesystem (virtiofs, NFS, FUSE, etc.).
-//
-// Returns an error when os.UserCacheDir() fails. There is intentionally no
-// silent fallback to a project-local path: a fallback caused bug-62f14f8c
-// where the indexer wrote to ~/.cache/wipnote/<hash>/wipnote.db while
-// the YOLO PreToolUse gate read .wipnote/.db/wipnote.db, leaving the
-// gate's view of agent_events permanently stale. Callers must propagate
-// the error (typically by skipping the hook with the configured fallback).
+// DBPath is retained for hook call-shape compatibility during the cutover from
+// persistent project SQLite. Hook DB open helpers now ignore the value and use a
+// private in-memory compatibility projection, so resolving this path must never
+// create or require a per-project cache directory.
 func DBPath(projectDir string) (string, error) {
-	return storage.CanonicalDBPath(projectDir)
+	_ = projectDir
+	return ":memory:", nil
 }
 
 // NormaliseSessionID extracts a UUID from a path-style session_id that Claude

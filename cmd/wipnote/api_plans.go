@@ -80,7 +80,7 @@ func plansListHandler(wipnoteDir string, database *sql.DB) http.HandlerFunc {
 }
 
 // parsePlanListItem reads a plan HTML file and extracts list metadata.
-// Merges approval counts from SQLite (live feedback) with HTML (static defaults).
+// Approval counts come from canonical YAML feedback/native slice state.
 func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem, error) {
 	info, err := os.Stat(planPath)
 	if err != nil {
@@ -106,12 +106,12 @@ func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem,
 	status := ""
 	version := 0
 	var yamlSliceCount int
-	var yamlSlices []planyaml.PlanSlice
+	var yamlPlan *planyaml.PlanYAML
 	yamlPath := strings.TrimSuffix(planPath, ".html") + ".yaml"
-	if yamlPlan, yamlErr := planyaml.Load(yamlPath); yamlErr == nil {
+	if loaded, yamlErr := planyaml.Load(yamlPath); yamlErr == nil {
+		yamlPlan = loaded
 		status = yamlPlan.Meta.Status
 		version = yamlPlan.Meta.Version
-		yamlSlices = yamlPlan.Slices
 		yamlSliceCount = len(yamlPlan.Slices)
 	}
 	if status == "" {
@@ -139,45 +139,11 @@ func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem,
 		})
 	}
 
-	// Get live approval count from SQLite.
-	// For YAML plans: count approved "slice-N" keys (consistent with finalize gate).
-	// For legacy plans (zero slices): count any approve=true feedback rows.
 	approved := 0
-	if database != nil {
-		if yamlSliceCount > 0 {
-			approved = countApprovedSlices(database, planID, yamlSlices)
-		} else {
-			feedback, err := dbpkg.GetPlanFeedback(database, planID)
-			if err == nil {
-				for _, fb := range feedback {
-					if fb.Action == "approve" && dbpkg.IsPlanApprovalValueApproved(fb.Value) {
-						approved++
-					}
-				}
-			}
-		}
-		// Also check if finalized in SQLite — either fully approved or explicit flag.
-		// Pass YAML slices for canonical-first fallback (bug-eca8141d): if
-		// plan_feedback has no rows (e.g. after a cache rebuild), the check falls
-		// back to the slice ApprovalStatus/Approved fields baked into the YAML.
-		if status != "finalized" {
-			yamlSliceApprovals := toPlanSliceApprovals(yamlSlices)
-			isApproved, _ := dbpkg.IsPlanFullyApproved(database, planID, yamlSliceApprovals)
-			if isApproved {
-				status = "finalized"
-			}
-		}
-		// Final fallback: check explicit finalize flag stored during API finalize call.
-		if status != "finalized" {
-			var flagVal string
-			_ = database.QueryRow(
-				"SELECT value FROM plan_feedback WHERE plan_id = ? AND section = 'meta' AND action = 'finalize'",
-				planID,
-			).Scan(&flagVal)
-			if flagVal == "true" {
-				status = "finalized"
-			}
-		}
+	if yamlPlan != nil && yamlSliceCount > 0 {
+		approved = countApprovedCanonicalSlices(yamlPlan.Slices)
+	} else if yamlPlan != nil {
+		approved = countApprovedFeedbackEntries(feedbackEntriesFromPlan(planID, yamlPlan))
 	}
 
 	// For legacy plans with no YAML: fall back to HTML checked attrs if SQLite empty.
@@ -201,35 +167,25 @@ func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem,
 	}, nil
 }
 
-// countApprovedSlices counts the number of slices with an approved "slice-N"
-// feedback key in SQLite, consistent with the logic used by loadPlanApprovals
-// in plan_finalize_yaml.go and the finalize-enable gate in the dashboard.
-// Falls back to PlanSlice.ApprovalStatus=="approved" for slices missing DB rows.
-func countApprovedSlices(database *sql.DB, planID string, slices []planyaml.PlanSlice) int {
-	// Read live approvals from SQLite (keyed "slice-N").
-	rows, err := database.Query(
-		"SELECT section, value FROM plan_feedback WHERE plan_id = ? AND action = 'approve'",
-		planID,
-	)
-	dbApprovals := map[string]bool{}
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var section, value string
-			rows.Scan(&section, &value) //nolint:errcheck
-			dbApprovals[section] = dbpkg.IsPlanApprovalValueApproved(value)
-		}
-	}
+// countApprovedSlices counts the number of canonical YAML-approved slices.
+func countApprovedSlices(_ *sql.DB, _ string, slices []planyaml.PlanSlice) int {
+	return countApprovedCanonicalSlices(slices)
+}
 
+func countApprovedCanonicalSlices(slices []planyaml.PlanSlice) int {
 	count := 0
 	for _, s := range slices {
-		key := fmt.Sprintf("slice-%d", s.Num)
-		if approved, ok := dbApprovals[key]; ok {
-			if approved {
-				count++
-			}
-		} else if s.ApprovalStatus == "approved" || s.Approved {
-			// Fallback: YAML-baked approval for plans with no live DB rows.
+		if s.ApprovalStatus == "approved" || s.Approved {
+			count++
+		}
+	}
+	return count
+}
+
+func countApprovedFeedbackEntries(entries []dbpkg.PlanFeedback) int {
+	count := 0
+	for _, fb := range entries {
+		if fb.Action == "approve" && dbpkg.IsPlanApprovalValueApproved(fb.Value) {
 			count++
 		}
 	}
@@ -287,6 +243,7 @@ type planAnnotationEntry struct {
 
 type sectionFeedback struct {
 	Approved bool   `json:"approved"`
+	Value    string `json:"value,omitempty"`
 	Comment  string `json:"comment"`
 }
 
@@ -366,7 +323,7 @@ func planStatusHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			return
 		}
 
-		approvedCount, totalSections, err := countPlanSections(database, planID)
+		approvedCount, totalSections, err := countPlanSections(wipnoteDir, planID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("querying feedback: %v", err), http.StatusInternalServerError)
 			return
@@ -402,7 +359,7 @@ var validSectionRe = regexp.MustCompile(`^(design|outline|meta|critique|chat|sli
 
 // planFeedbackSubmitHandler stores a feedback entry for a plan section.
 // POST /api/plans/{id}/feedback
-func planFeedbackSubmitHandler(database *sql.DB) http.HandlerFunc {
+func planFeedbackSubmitHandler(_ *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req planFeedbackRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -438,15 +395,7 @@ func planFeedbackSubmitHandler(database *sql.DB) http.HandlerFunc {
 		// dedicated StorePlanAnnotation upsert. All other actions
 		// (approve/comment/answer/finalize) use the original feedback path.
 		if req.Action == "annotation" {
-			if err := dbpkg.StorePlanAnnotation(database, planID, dbpkg.PlanAnnotation{
-				Section:          req.Section,
-				Anchor:           req.Anchor,
-				Value:            req.Value,
-				QuestionID:       req.QuestionID,
-				Consumed:         req.Consumed,
-				Resolved:         req.Resolved,
-				ResolutionTarget: req.ResolutionTarget,
-			}); err != nil {
+			if err := storePlanAnnotation(wipnoteDir, planID, req); err != nil {
 				http.Error(w, fmt.Sprintf("storing annotation: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -454,7 +403,7 @@ func planFeedbackSubmitHandler(database *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if err := dbpkg.StorePlanFeedback(database, planID, req.Section, req.Action, req.Value, req.QuestionID); err != nil {
+		if err := storePlanFeedback(wipnoteDir, planID, req.Section, req.Action, req.Value, req.QuestionID); err != nil {
 			http.Error(w, fmt.Sprintf("storing feedback: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -465,7 +414,7 @@ func planFeedbackSubmitHandler(database *sql.DB) http.HandlerFunc {
 
 // planFinalizeHandler finalizes a plan once all sections are approved.
 // POST /api/plans/{id}/finalize
-func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
+func planFinalizeHandler(_ *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -477,78 +426,21 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			return
 		}
 
-		// Load YAML slices for canonical-first fallback (bug-eca8141d): if
-		// plan_feedback has no rows after a cache rebuild, IsPlanFullyApproved
-		// falls back to the ApprovalStatus / Approved fields baked into the YAML.
-		var finalizeYAMLSlices []dbpkg.PlanSliceApproval
-		if planForLoad, lerr := planyaml.Load(filepath.Join(wipnoteDir, "plans", planID+".yaml")); lerr == nil {
-			finalizeYAMLSlices = toPlanSliceApprovals(planForLoad.Slices)
-		}
-
-		approved, err := dbpkg.IsPlanFullyApproved(database, planID, finalizeYAMLSlices)
+		approved, pending, err := canonicalPlanApproved(wipnoteDir, planID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("checking approval: %v", err), http.StatusInternalServerError)
 			return
 		}
 		if !approved {
-			http.Error(w, "not all sections approved", http.StatusBadRequest)
-			return
-		}
-
-		// Defense-in-depth: require EVERY slice in the plan YAML to have an
-		// approved row, not merely that the existing approval rows are all
-		// approved (a slice with no row would otherwise slip through a direct
-		// API call). The dashboard already enforces this client-side.
-		// Canonical-first fallback (bug-eca8141d): when plan_feedback has no
-		// slice rows (e.g. after a cache rebuild), fall back to YAML
-		// ApprovalStatus / Approved fields for each slice.
-		if len(finalizeYAMLSlices) > 0 {
-			sliceApprovals, aerr := dbpkg.GetSliceApprovals(database, planID)
-			if aerr != nil {
-				http.Error(w, fmt.Sprintf("checking slice approvals: %v", aerr), http.StatusInternalServerError)
-				return
-			}
-			var pending []int
-			for _, sc := range finalizeYAMLSlices {
-				key := fmt.Sprintf("slice-%d", sc.Num)
-				if dbStatus, ok := sliceApprovals[key]; ok {
-					// DB row present: use it.
-					if dbStatus != "approved" {
-						pending = append(pending, sc.Num)
-					}
-				} else {
-					// No DB row: fall back to YAML canonical state.
-					if sc.ApprovalStatus != "approved" && !sc.Approved {
-						pending = append(pending, sc.Num)
-					}
-				}
-			}
+			message := "not all sections approved"
 			if len(pending) > 0 {
-				http.Error(w, fmt.Sprintf("not all slices approved (pending: %v)", pending), http.StatusBadRequest)
-				return
+				message = fmt.Sprintf("not all slices approved (pending: %v)", pending)
 			}
-		}
-
-		if err := dbpkg.FinalizePlan(database, planID); err != nil {
-			http.Error(w, fmt.Sprintf("finalizing plan: %v", err), http.StatusInternalServerError)
+			http.Error(w, message, http.StatusBadRequest)
 			return
 		}
 
-		// Store explicit finalization flag so list queries detect finalized state
-		// even when the HTML write fails (HTML is canonical but SQLite is fallback).
-		if err := dbpkg.StorePlanFeedback(database, planID, "meta", "finalize", "true", ""); err != nil {
-			log.Printf("warning: store finalize flag for %s: %v", planID, err)
-		}
-
-		// Write finalized HTML snapshot with all feedback baked in.
-		planPath, err := resolvePlanPath(wipnoteDir, planID)
-		if err == nil {
-			if err := finalizePlanHTML(planPath, database, planID); err != nil {
-				log.Printf("warning: finalizePlanHTML failed for %s: %v", planID, err)
-			}
-		}
-
-		feedback, err := dbpkg.GetPlanFeedback(database, planID)
+		feedback, err := readPlanFeedbackEntries(wipnoteDir, planID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("reading feedback: %v", err), http.StatusInternalServerError)
 			return
@@ -559,13 +451,9 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// reported in the response — a finalized plan with N/M features created is
 		// better than aborting and leaving the plan in a half-finalized state.
 		//
-		// NOTE: updatePlanStatus("finalized") is called AFTER finalizeYAMLWithDB so
-		// that finalizeYAMLWithDB does not see status="finalized" in the YAML and
-		// short-circuit before creating features. finalizeYAMLWithDB sets the status
-		// itself as part of saving the reconciled YAML.
-		createdFeatures, featFailures, featErr := finalizeYAMLWithDB(database, wipnoteDir, planID)
+		createdFeatures, featFailures, featErr := finalizeYAMLCanonical(wipnoteDir, planID)
 		if featErr != nil {
-			log.Printf("warning: finalizeYAMLWithDB failed for %s: %v", planID, featErr)
+			log.Printf("warning: finalizeYAMLCanonical failed for %s: %v", planID, featErr)
 		}
 		for _, f := range featFailures {
 			log.Printf("warning: plan %s slice %d (%s): feature creation failed: %s", planID, f.SliceNum, f.Title, f.Error)
@@ -587,7 +475,7 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			failureInfos = []failureInfo{}
 		}
 
-		// Read track ID from YAML (written by finalizeYAMLWithDB) for the
+		// Read track ID from YAML (written by finalizeYAMLCanonical) for the
 		// next-step commands surfaced in the dashboard finalize result panel.
 		trackID := ""
 		yamlPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
@@ -611,7 +499,7 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 
 // planFeedbackReadHandler returns structured feedback for a plan.
 // GET /api/plans/{id}/feedback
-func planFeedbackReadHandler(database *sql.DB) http.HandlerFunc {
+func planFeedbackReadHandler(_ *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		planID, err := extractPlanID(r.URL.Path, "/feedback")
 		if err != nil {
@@ -619,7 +507,7 @@ func planFeedbackReadHandler(database *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		entries, err := dbpkg.GetPlanFeedback(database, planID)
+		entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("reading feedback: %v", err), http.StatusInternalServerError)
 			return
@@ -632,9 +520,9 @@ func planFeedbackReadHandler(database *sql.DB) http.HandlerFunc {
 // planFeedbackHandler routes GET and POST for /api/plans/{id}/feedback.
 // bug-74a7bda7: POST (StorePlanFeedback) uses the writable handle; GET
 // (GetPlanFeedback) stays on the read-only handle.
-func planFeedbackHandler(database, writeDB *sql.DB) http.HandlerFunc {
-	submitH := planFeedbackSubmitHandler(writeDB)
-	readH := planFeedbackReadHandler(database)
+func planFeedbackHandler(database, writeDB *sql.DB, wipnoteDir string) http.HandlerFunc {
+	submitH := planFeedbackSubmitHandler(writeDB, wipnoteDir)
+	readH := planFeedbackReadHandler(database, wipnoteDir)
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -649,7 +537,7 @@ func planFeedbackHandler(database, writeDB *sql.DB) http.HandlerFunc {
 
 // planDeleteHandler deletes a draft plan's HTML file and feedback.
 // DELETE /api/plans/{id}/delete
-func planDeleteHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
+func planDeleteHandler(_ *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -684,12 +572,6 @@ func planDeleteHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			return
 		}
 
-		// Delete feedback from SQLite
-		if err := dbpkg.DeletePlanFeedback(database, planID); err != nil {
-			http.Error(w, fmt.Sprintf("deleting feedback: %v", err), http.StatusInternalServerError)
-			return
-		}
-
 		respondJSON(w, map[string]string{"status": "deleted", "plan_id": planID})
 	}
 }
@@ -701,7 +583,7 @@ type planChatRequest struct {
 
 // planChatHandler streams Claude responses as SSE for a plan chat session.
 // POST /api/plans/{id}/chat
-func planChatHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
+func planChatHandler(_ *sql.DB, wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -735,7 +617,7 @@ func planChatHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// Resolve project dir (parent of .wipnote/).
 		projectDir := filepath.Dir(wipnoteDir)
 
-		backend := planchat.New(database, planID, planContext, projectDir)
+		backend := planchat.NewWithSession(planID, planContext, projectDir, planChatSessionID(wipnoteDir, planID))
 		if !backend.IsAvailable() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -746,7 +628,7 @@ func planChatHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		}
 
 		// Store user message.
-		_ = backend.SaveMessage("user", req.Message)
+		_ = appendPlanChatMessage(wipnoteDir, planID, "user", req.Message)
 
 		// Set SSE headers.
 		flusher, ok := w.(http.Flusher)
@@ -785,14 +667,17 @@ func planChatHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 
 		// Store assistant message.
 		if fullResponse.Len() > 0 {
-			_ = backend.SaveMessage("assistant", fullResponse.String())
+			_ = appendPlanChatMessage(wipnoteDir, planID, "assistant", fullResponse.String())
+			if sessionID := backend.SessionID(); sessionID != "" {
+				_ = storePlanFeedback(wipnoteDir, planID, "chat", "session_id", sessionID, "")
+			}
 
 			// Detect and store AMEND directives from the assistant response.
 			amendments := planamend.ParseAmendments(fullResponse.String())
 			for _, a := range amendments {
 				section := fmt.Sprintf("slice-%d", a.SliceNum)
 				value, _ := json.Marshal(a)
-				if err := dbpkg.StorePlanFeedback(database, planID, section, "amendment", string(value), ""); err != nil {
+				if err := storePlanFeedback(wipnoteDir, planID, section, "amendment", string(value), ""); err != nil {
 					log.Printf("warning: store amendment for plan %s slice %d: %v", planID, a.SliceNum, err)
 				}
 			}
@@ -830,14 +715,14 @@ func loadPlanContext(wipnoteDir, planID string) string {
 // handle `writeDB` so they don't fail with SQLITE_READONLY.
 func planRouter(database, writeDB *sql.DB, wipnoteDir string) http.HandlerFunc {
 	statusH := planStatusHandler(database, wipnoteDir)
-	feedbackH := planFeedbackHandler(database, writeDB)
+	feedbackH := planFeedbackHandler(database, writeDB, wipnoteDir)
 	finalizeH := planFinalizeHandler(writeDB, wipnoteDir)
 	deleteH := planDeleteHandler(writeDB, wipnoteDir)
 	chatH := planChatHandler(writeDB, wipnoteDir)
-	amendmentsH := planAmendmentsHandler(database)
+	amendmentsH := planAmendmentsHandler(wipnoteDir)
 	yamlH := planYAMLHandler(wipnoteDir)
 	renderH := planRenderHandler(database, wipnoteDir)
-	eventsH := planEventsHandler(database)
+	eventsH := planEventsHandler(wipnoteDir)
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		switch {
@@ -1031,7 +916,7 @@ func enrichRelatedWork(database *sql.DB, page *plantmpl.PlanPage) {
 
 // planEventsHandler streams plan feedback changes as SSE.
 // GET /api/plans/{id}/events
-func planEventsHandler(database *sql.DB) http.HandlerFunc {
+func planEventsHandler(wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -1048,12 +933,7 @@ func planEventsHandler(database *sql.DB) http.HandlerFunc {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		var lastRowID int64
-		database.QueryRow(
-			`SELECT COALESCE(MAX(id), 0) FROM plan_feedback WHERE plan_id = ?`,
-			planID,
-		).Scan(&lastRowID)
-
+		seen := make(map[string]time.Time)
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -1061,37 +941,34 @@ func planEventsHandler(database *sql.DB) http.HandlerFunc {
 			case <-r.Context().Done():
 				return
 			case <-ticker.C:
-				// No wal_checkpoint here: the dashboard mux handle is
-				// read-only (bug-74a7bda7) so it cannot (and must not)
-				// drive a checkpoint, and the checkpoint is a no-op under
-				// DELETE journal mode anyway. WAL checkpointing is owned by
-				// the writable handles that actually commit.
-				rows, err := database.Query(`
-					SELECT id, section, action, value
-					FROM plan_feedback
-					WHERE plan_id = ? AND id > ?
-					ORDER BY id ASC LIMIT 20`, planID, lastRowID)
+				entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 				if err != nil {
 					continue
 				}
-				for rows.Next() {
-					var id int64
-					var section, action, value string
-					if err := rows.Scan(&id, &section, &action, &value); err != nil {
+				for _, e := range entries {
+					key := planEventKey(e)
+					updated := e.UpdatedAt
+					if updated.IsZero() {
+						updated = e.CreatedAt
+					}
+					if last, ok := seen[key]; ok && !updated.After(last) {
 						continue
 					}
 					payload, _ := json.Marshal(map[string]string{
-						"plan_id": planID, "section": section,
-						"action": action, "value": value,
+						"plan_id": planID, "section": e.Section,
+						"action": e.Action, "value": e.Value,
 					})
 					fmt.Fprintf(w, "data: %s\n\n", payload)
-					lastRowID = id
+					seen[key] = updated
 				}
-				rows.Close()
 				flusher.Flush()
 			}
 		}
 	}
+}
+
+func planEventKey(e dbpkg.PlanFeedback) string {
+	return e.Section + "\x00" + e.Action + "\x00" + e.QuestionID + "\x00" + e.Anchor
 }
 
 // planYAMLHandler serves the raw YAML source for a plan.
@@ -1119,7 +996,7 @@ func planYAMLHandler(wipnoteDir string) http.HandlerFunc {
 
 // planAmendmentsHandler returns amendments parsed from plan feedback entries.
 // GET /api/plans/{id}/amendments
-func planAmendmentsHandler(database *sql.DB) http.HandlerFunc {
+func planAmendmentsHandler(wipnoteDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -1130,7 +1007,7 @@ func planAmendmentsHandler(database *sql.DB) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		entries, err := dbpkg.GetPlanFeedback(database, planID)
+		entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("reading feedback: %v", err), http.StatusInternalServerError)
 			return
@@ -1229,7 +1106,7 @@ func parsePlanHTMLStatus(planPath string) (string, error) {
 // baked into the HTML: checkboxes checked, radio buttons selected, comments
 // filled, and data-status set to "finalized". The HTML file becomes a
 // self-contained record of the finalized plan.
-func finalizePlanHTML(planPath string, database *sql.DB, planID string) error {
+func finalizePlanHTML(planPath string, feedback []dbpkg.PlanFeedback) error {
 	data, err := os.ReadFile(planPath)
 	if err != nil {
 		return err
@@ -1241,12 +1118,6 @@ func finalizePlanHTML(planPath string, database *sql.DB, planID string) error {
 
 	// Set article status to finalized
 	doc.Find("article").First().SetAttr("data-status", "finalized")
-
-	// Read all feedback from SQLite
-	feedback, err := dbpkg.GetPlanFeedback(database, planID)
-	if err != nil {
-		return err
-	}
 
 	for _, fb := range feedback {
 		switch fb.Action {
@@ -1303,8 +1174,8 @@ func finalizePlanHTML(planPath string, database *sql.DB, planID string) error {
 
 // countPlanSections returns the count of approved UI-exposed approval sections
 // and the total UI-exposed approval sections with feedback for the given plan.
-func countPlanSections(database *sql.DB, planID string) (approved, total int, err error) {
-	entries, err := dbpkg.GetPlanFeedback(database, planID)
+func countPlanSections(wipnoteDir, planID string) (approved, total int, err error) {
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -1348,6 +1219,7 @@ func buildFeedbackResponse(planID string, entries []dbpkg.PlanFeedback) planFeed
 		case "approve":
 			sf := sections[e.Section]
 			sf.Approved = dbpkg.IsPlanApprovalValueApproved(e.Value)
+			sf.Value = approvalStatusFromValue(e.Value)
 			sections[e.Section] = sf
 			if sf.Approved {
 				approvedSections[e.Section] = true

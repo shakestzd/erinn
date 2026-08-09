@@ -9,7 +9,6 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -83,21 +82,7 @@ func runStatus(_ *cobra.Command, _ []string) error {
 		}
 	}
 
-	// DB path, filesystem type, journal_mode, and attribution diagnostics.
-	if dbInfo, pathErr := storage.CanonicalDBPathWithInfo(filepath.Dir(dir)); pathErr == nil {
-		fmt.Printf("\nDB: %s\n", dbInfo.Path)
-		fmt.Printf("  fstype=%s  reason: %s\n", dbInfo.FsType, dbInfo.Reason)
-		if database, dbErr := dbpkg.Open(dbInfo.Path); dbErr == nil {
-			defer database.Close()
-			jm := dbpkg.QueryJournalMode(database)
-			fmt.Printf("  journal_mode=%s\n", jm)
-			total, attributed := dbpkg.CommitAttributionRate(database)
-			if total > 0 {
-				pct := float64(attributed) / float64(total) * 100
-				fmt.Printf("  attribution: %d/%d commits (%.1f%%)\n", attributed, total, pct)
-			}
-		}
-	}
+	fmt.Println("\nStorage: canonical HTML/ledgers (project DB disabled for status reads)")
 
 	// Slice-10 contention observability: surface the in-process BUSY
 	// counters + writer queue depth so operators can see contention at

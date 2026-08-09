@@ -6,10 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +27,9 @@ A spike is KEPT if any of the following are true:
   - The spike ID appears in any track's contains edges
   - The filename does not follow the auto-generated spk-XXXXXXXX.html pattern
 
-After deletion, runs a full reindex to sync SQLite.`,
+Deleting the HTML file is the whole operation: .wipnote/ is the canonical
+store, so a purged spike is gone the moment its file is. Nothing has to be
+resynced afterwards.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runPurgeSpikes(cmd, dryRun)
 		},
@@ -105,51 +105,12 @@ func runPurgeSpikes(cmd *cobra.Command, dryRun bool) error {
 		deleted++
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "\nDeleted %d stale spikes. Reindexing...\n", deleted)
-
-	// 4. Full reindex to sync SQLite after deletion.
-	if reindexErr := runFullReindex(wipnoteDir, cmd); reindexErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: reindex: %v\n", reindexErr)
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "Reindex complete. %d spikes remaining.\n", len(toKeep))
-	return nil
-}
-
-// runFullReindex opens the SQLite db and performs a full reindex of all HTML
-// files in the given wipnoteDir.
-func runFullReindex(wipnoteDir string, cmd *cobra.Command) error {
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open database: %w", err)
-	}
-	defer database.Close()
-
-	projectDir := filepath.Dir(wipnoteDir)
-	validIDs := make(map[string]bool)
-
-	trackTotal, trackUpserted, trackErrs := reindexTracks(database, wipnoteDir, projectDir, validIDs, false)
-	featTotal, featUpserted, featErrs := reindexFeatureDir(database, wipnoteDir, projectDir, "features", validIDs, false)
-	bugTotal, bugUpserted, bugErrs := reindexFeatureDir(database, wipnoteDir, projectDir, "bugs", validIDs, false)
-	spikeTotal, spikeUpserted, spikeErrs := reindexFeatureDir(database, wipnoteDir, projectDir, "spikes", validIDs, false)
-
-	total := trackTotal + featTotal + bugTotal + spikeTotal
-	upserted := trackUpserted + featUpserted + bugUpserted + spikeUpserted
-	errCount := trackErrs + featErrs + bugErrs + spikeErrs
-
-	purged, edgesPurged := purgeStaleEntries(database, validIDs)
-
-	fmt.Fprintf(cmd.OutOrStdout(), "  Reindexed: %d upserted, %d errors (of %d HTML files)\n",
-		upserted, errCount, total)
-	if purged > 0 || edgesPurged > 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "  Purged: %d stale entries, %d stale edges\n",
-			purged, edgesPurged)
-	}
-
+	// Deleting the file is the complete operation. The purge used to end with
+	// a full reindex to sync a per-project SQLite file; there is no such file
+	// any more, and the in-memory projection every command builds is derived
+	// from whatever HTML is on disk at the time it runs (feat-fc3cc9e0).
+	fmt.Fprintf(cmd.OutOrStdout(), "\nDeleted %d stale spikes. %d spikes remaining.\n",
+		deleted, len(toKeep))
 	return nil
 }
 

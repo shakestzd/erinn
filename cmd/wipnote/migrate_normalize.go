@@ -7,15 +7,22 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/migrate"
 	"github.com/spf13/cobra"
 )
 
 // migrateNormalizePathsCmd wires `wipnote migrate normalize-paths` onto the
-// parent migrate command. The command rewrites absolute host paths in seven
-// stored artefacts to repo-relative form so existing data matches the shape
-// produced by the runtime paths.NormalizeToRepoRelative path.
+// parent migrate command. The command rewrites absolute host paths in stored
+// artefacts to repo-relative form so existing data matches the shape produced
+// by the runtime paths.NormalizeToRepoRelative path.
+//
+// Five of the rewriter's seven targets were columns in the per-project SQLite
+// read index. That index is no longer persisted (feat-fc3cc9e0), so those five
+// have nothing left to rewrite; the two canonical HTML targets do, and they are
+// what this command still exists for. The library is still driven with a
+// projection handle because its entry point takes one — an empty, process-local
+// one, so the SQL passes report a truthful zero rather than a number produced
+// against a throwaway copy of real data.
 //
 // See internal/migrate/normalize.go for the rewriter contract and the
 // per-target rules. The command is intentionally a thin shell — all logic
@@ -28,18 +35,19 @@ func migrateNormalizePathsCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "normalize-paths",
-		Short: "Rewrite absolute host paths in .wipnote/ to repo-relative form",
-		Long: `Walk .wipnote/ HTML and the SQLite read index, rewriting absolute
-host paths (/Users/..., /home/..., /workspaces/...) to repo-relative form
-across seven targets:
+		Short: "Rewrite absolute host paths in .wipnote/ HTML to repo-relative form",
+		Long: `Walk .wipnote/ HTML, rewriting absolute host paths (/Users/...,
+/home/..., /workspaces/...) to repo-relative form across two targets:
 
-  1. agent_events.tool_input — single-encoded JSON; path keys re-marshalled
-  2. agent_events.input_summary — free-text embeds rewritten in place
-  3. feature_files.file_path — collision-aware (default merge; --no-merge-collisions to abort)
-  4. pending_subagent_starts.cwd
-  5. sessions.project_dir
-  6. data-project-dir attribute in .wipnote/sessions/*.html
-  7. affected_files property strings in .wipnote/{features,bugs,spikes}/*.html
+  1. data-project-dir attribute in .wipnote/sessions/*.html
+  2. affected_files property strings in .wipnote/{features,bugs,spikes}/*.html
+
+Historically this also rewrote five columns of the per-project SQLite read
+index (agent_events.tool_input, agent_events.input_summary,
+feature_files.file_path, pending_subagent_starts.cwd, sessions.project_dir).
+wipnote no longer keeps that index on disk, so those passes run against an
+empty process-local projection and always report zero. They are kept in the
+summary rather than hidden so the report matches the rewriter's contract.
 
 Out of scope:
   • sessions.transcript_path — Claude's private machine-local store
@@ -81,13 +89,12 @@ func runMigrateNormalize(dryRun, allowDirty, noMerge, backup bool) error {
 		}
 	}
 
-	dbPath, err := storage.CanonicalDBPath(repoRoot)
+	// Empty and process-local on purpose: see the command's doc comment. The
+	// rewriter's SQL passes need a handle with the schema on it, and this one
+	// carries no rows, so their reported counts are a truthful zero.
+	database, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return fmt.Errorf("open projection: %w", err)
 	}
 	defer database.Close()
 

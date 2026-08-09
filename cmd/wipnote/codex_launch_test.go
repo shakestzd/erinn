@@ -346,24 +346,46 @@ func TestBuildCodexArgs_PutsWritableRootsBeforeResume(t *testing.T) {
 	}
 }
 
-func TestPrepareCodexWritableDBCreatesParent(t *testing.T) {
+// TestCodexLauncherNeverPropagatesDBPath pins the removal of the Codex
+// launcher's WIPNOTE_DB_PATH hand-down (feat-fc3cc9e0). The launcher used to
+// resolve a per-project SQLite path, add its directory to Codex's writable
+// roots, and inject the path into the child environment. All three are gone.
+//
+// It replaces TestPrepareCodexWritableDBIsDisabled, which called a function
+// that no longer exists. Both halves of that test are preserved:
+//
+//   - the ENV PIN. WIPNOTE_DB_PATH is set to a path under a temp dir and the
+//     test asserts nothing in the launch path materialises it. Keeping a pin
+//     here matters beyond this one assertion: TestMain redirects the variable
+//     process-wide so no test can write into the user's real cache dir, and
+//     cache_pollution_test.go is the guard that the redirect still works. The
+//     variable, its reader in core/storage, and every pin on it stay until no
+//     code path can create a DB file at all — see that guard for why.
+//   - the SOURCE ASSERTION. The child env is assembled inline in execCodex,
+//     which needs a real Codex binary to exercise, so the removal of the
+//     propagation itself is pinned by scanning the source.
+func TestCodexLauncherNeverPropagatesDBPath(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "cache", "wipnote.db")
 	t.Setenv("WIPNOTE_DB_PATH", dbPath)
 
-	gotPath, gotDir, err := prepareCodexWritableDB(t.TempDir())
+	data, err := os.ReadFile("codex.go")
 	if err != nil {
-		t.Fatalf("prepareCodexWritableDB: %v", err)
+		t.Fatalf("read codex.go: %v", err)
 	}
-	if gotPath != dbPath {
-		t.Fatalf("db path = %q, want %q", gotPath, dbPath)
+	src := string(data)
+	for _, forbidden := range []string{
+		`setOrReplaceEnv(env, "WIPNOTE_DB_PATH"`,
+		"prepareCodexWritableDB",
+		"CanonicalDBPath(",
+		"EnsureDBDir(",
+	} {
+		if strings.Contains(src, forbidden) {
+			t.Fatalf("codex.go still references %q — the Codex launcher must not know about a project DB", forbidden)
+		}
 	}
-	if gotDir != filepath.Dir(dbPath) {
-		t.Fatalf("db dir = %q, want %q", gotDir, filepath.Dir(dbPath))
-	}
-	if info, err := os.Stat(gotDir); err != nil {
-		t.Fatalf("expected db parent to exist: %v", err)
-	} else if !info.IsDir() {
-		t.Fatalf("expected db parent to be a directory")
+
+	if _, err := os.Stat(filepath.Dir(dbPath)); !os.IsNotExist(err) {
+		t.Fatalf("the DB parent dir exists or stat failed unexpectedly: %v", err)
 	}
 }
 

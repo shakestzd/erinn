@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // setupColdCloneFixture creates a temp project with .wipnote/*.html containing
@@ -93,13 +91,18 @@ func featureCount(t *testing.T, db *sql.DB) int {
 }
 
 // TestLazyReindex_ColdClone_LineageQueryReturnsEdges is the TDD regression for
-// bug-4b07fd94. With a fresh clone (HTML has edges but no SQLite index), the
-// lineage command must lazily build the index and return results instead of
-// "no related nodes".
+// bug-4b07fd94. With a fresh clone (HTML has edges but no index), the lineage
+// command must build the projection and return results instead of "no related
+// nodes".
 //
-// Pre-fix: the test FAILS because openReadOnlyDB returns an empty graph_edges
-// table. Post-fix: the test PASSES because ensureIndexPopulated runs a
-// synchronous full reindex before the read.
+// The bug was fixed by rebuilding before the read. That rebuild is now
+// unconditional — openReadOnlyDB goes through openDB, which hydrates the
+// ephemeral projection from canonical HTML every time (feat-fc3cc9e0) — so the
+// cold-clone case this guards is the only case there is. Its companion,
+// TestLazyReindex_WarmIndex_NoRebuild, was deleted with the warmth check it
+// drove: it asserted that a pre-populated persistent DB skipped the rebuild,
+// and once no DB persists between processes it could only ever pass
+// vacuously.
 func TestLazyReindex_ColdClone_LineageQueryReturnsEdges(t *testing.T) {
 	wipnoteDir := setupColdCloneFixture(t)
 
@@ -133,58 +136,5 @@ func TestLazyReindex_ColdClone_LineageQueryReturnsEdges(t *testing.T) {
 	}
 	if !strings.Contains(out, "bug-cold-0001") {
 		t.Errorf("cold-clone lineage output missing 'bug-cold-0001'\noutput:\n%s", out)
-	}
-}
-
-// TestLazyReindex_WarmIndex_NoRebuild verifies that a warm (already-populated)
-// index is NOT rebuilt on the hot path. We seed the DB directly, open with
-// openReadOnlyDB, and confirm that the lazySyncReindexHook is never called.
-func TestLazyReindex_WarmIndex_NoRebuild(t *testing.T) {
-	projectDir := t.TempDir()
-	wipnoteDir := filepath.Join(projectDir, ".wipnote")
-	for _, sub := range []string{"features", "bugs", "spikes", "tracks"} {
-		if err := os.MkdirAll(filepath.Join(wipnoteDir, sub), 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", sub, err)
-		}
-	}
-
-	// Pre-build a warm DB.
-	dbPath := filepath.Join(t.TempDir(), "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-	t.Setenv("WIPNOTE_PROJECT_DIR", "")
-	t.Setenv("CLAUDE_PROJECT_DIR", "")
-	t.Setenv("WIPNOTE_SESSION_ID", "")
-	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(projectDir))
-
-	warmDB, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open warm db: %v", err)
-	}
-	// Seed one feature so the warm-index check sees a non-zero count.
-	if _, err := warmDB.Exec(`INSERT OR REPLACE INTO features
-		(id, type, title, status, priority, created_at, updated_at)
-		VALUES ('feat-warm-0001','feature','Warm Feature','todo','medium',
-		        datetime('now'), datetime('now'))`); err != nil {
-		t.Fatalf("seed warm feature: %v", err)
-	}
-	warmDB.Close()
-
-	// Install a spy hook that counts rebuild invocations.
-	rebuildCount := 0
-	origHook := lazySyncReindexHook
-	lazySyncReindexHook = func(string) error {
-		rebuildCount++
-		return nil
-	}
-	t.Cleanup(func() { lazySyncReindexHook = origHook })
-
-	db, err := openReadOnlyDB(wipnoteDir)
-	if err != nil {
-		t.Fatalf("openReadOnlyDB (warm): %v", err)
-	}
-	defer db.Close()
-
-	if rebuildCount != 0 {
-		t.Errorf("warm index triggered %d rebuild(s), want 0 (hot-path no-op)", rebuildCount)
 	}
 }

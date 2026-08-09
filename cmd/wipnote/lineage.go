@@ -12,6 +12,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/projection"
 	"github.com/shakestzd/wipnote/internal/lineage"
 	"github.com/spf13/cobra"
 )
@@ -143,6 +144,15 @@ type lineageJSON struct {
 // carry causal meaning depending on the slice in question.
 var allLineageRels = lineage.AllRels
 
+func isCanonicalLineageKind(kind lineageKind) bool {
+	switch kind {
+	case kindFeature, kindBug, kindSpike, kindPlan, kindTrack, kindSession:
+		return true
+	default:
+		return false
+	}
+}
+
 // newLineageCmd registers `wipnote lineage <id>` — the headline unified
 // causal chain command. It auto-detects the input type, walks graph_edges in
 // both directions across all 10 relationship types, and renders a tree.
@@ -170,24 +180,16 @@ Examples:
 			if err != nil {
 				return err
 			}
-			// bug-7dbaf552: lineage performs ZERO writes through this
-			// handle — bfsWalk, annotateTimestamps, ResolveToMap,
-			// RenderAgentTree, TraceCommit and TraceFile are all SELECT-only
-			// (trace.go already opens the same TraceCommit/TraceFile
-			// primitives read-only). openReadOnlyDB bootstraps the schema /
-			// runs migrations on a brief writable handle FIRST (roborev
-			// followup: restores the migrate-on-open guarantee for fresh /
-			// schema-behind workspaces that a bare mode=ro open dropped) and
-			// then hands back a mode=ro handle, so the long bfsWalk read path
-			// can never hold the writer's RESERVED lock and the engine
-			// hard-rejects any accidental write.
+			opts.depthSet = cmd.Flags().Changed("depth")
+			opts.timelineSet = cmd.Flags().Changed("timeline")
+			if isCanonicalLineageKind(detectLineageKind(args[0])) {
+				return runLineageProjection(os.Stdout, dir, args[0], opts)
+			}
 			db, err := openReadOnlyDB(dir)
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			opts.depthSet = cmd.Flags().Changed("depth")
-			opts.timelineSet = cmd.Flags().Changed("timeline")
 			return runLineage(os.Stdout, db, args[0], opts)
 		},
 	}
@@ -255,6 +257,23 @@ func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {
 		fmt.Fprint(w, agentTree)
 	}
 	return nil
+}
+
+func runLineageProjection(w io.Writer, wipnoteDir, arg string, opts lineageOpts) error {
+	if opts.depth <= 0 {
+		opts.depth = 5
+	}
+	kind := detectLineageKind(arg)
+	snap, err := projection.Load(wipnoteDir)
+	if err != nil {
+		return fmt.Errorf("load canonical projection: %w", err)
+	}
+	forward := lineage.ForwardProjectionWalk(snap, arg, allLineageRels, opts.depth)
+	backward := lineage.BackwardProjectionWalk(snap, arg, allLineageRels, opts.depth)
+	if opts.jsonOut {
+		return renderLineageJSON(w, arg, kind, forward, backward, "")
+	}
+	return renderLineageProjectionTree(w, snap, arg, kind, forward, backward, opts.timeline)
 }
 
 // sortLineageTimeline sorts nodes in place by ascending Timestamp, pushing
@@ -331,6 +350,53 @@ func renderLineageTree(
 		return nil
 	}
 
+	if len(backward) > 0 {
+		fmt.Fprintf(w, "\n  Ancestors (%d):\n", len(backward))
+		printLineageBranches(w, root, backward)
+	}
+	fmt.Fprintf(w, "\n  Pivot: %s\n", rootLabel)
+	if len(forward) > 0 {
+		fmt.Fprintf(w, "\n  Descendants (%d):\n", len(forward))
+		printLineageBranches(w, root, forward)
+	}
+	if len(forward) == 0 && len(backward) == 0 {
+		fmt.Fprintln(w, "\n  (no related nodes — try `wipnote trace` for file/commit attribution)")
+	}
+	return nil
+}
+
+func renderLineageProjectionTree(
+	w io.Writer,
+	snap *projection.Snapshot,
+	root string,
+	kind lineageKind,
+	forward, backward []lineageNode,
+	timeline bool,
+) error {
+	rootLabel := graph.FormatNodeLabel(root, snap.ResolveToMap([]string{root}))
+	sep := strings.Repeat("─", 60)
+	fmt.Fprintln(w, sep)
+	fmt.Fprintf(w, "  Lineage: %s  [%s]\n", rootLabel, kind)
+	fmt.Fprintln(w, sep)
+	if timeline {
+		all := make([]lineageNode, 0, len(forward)+len(backward))
+		all = append(all, backward...)
+		all = append(all, forward...)
+		sortLineageTimeline(all)
+		fmt.Fprintln(w, "\n  Timeline (oldest first):")
+		if len(all) == 0 {
+			fmt.Fprintln(w, "    (no related nodes)")
+			return nil
+		}
+		for _, n := range all {
+			ts := n.Timestamp
+			if ts == "" {
+				ts = "—"
+			}
+			fmt.Fprintf(w, "    %s  %s  (%s, d%d)%s\n", ts, n.ID, n.EdgeType, n.Depth, edgeCaveat(n.Metadata))
+		}
+		return nil
+	}
 	if len(backward) > 0 {
 		fmt.Fprintf(w, "\n  Ancestors (%d):\n", len(backward))
 		printLineageBranches(w, root, backward)

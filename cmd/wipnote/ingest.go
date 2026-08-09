@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -32,7 +30,13 @@ func ingestCmd() *cobra.Command {
 		Use:   "ingest",
 		Short: "Ingest Claude Code session transcripts from JSONL files",
 		Long: `Reads Claude Code session JSONL files from ~/.claude/projects/ and
-stores structured messages and tool calls in the wipnote database.
+renders each one as a canonical session HTML file in .wipnote/sessions/.
+
+That HTML file is the whole durable product. The messages and tool calls the
+parser produces are also loaded into the process-local query projection so the
+renderer can resolve a session's active feature, but that projection is
+discarded when the command exits — it is not, and no longer claims to be, a
+database this writes to.
 
 By default, discovers sessions for the current project. Use --all to
 ingest all projects, or --session to target a specific session.`,
@@ -46,7 +50,6 @@ ingest all projects, or --session to target a specific session.`,
 	cmd.Flags().BoolVar(&all, "all", false, "ingest all discovered sessions")
 	cmd.Flags().BoolVar(&force, "force", false, "re-ingest even if already synced")
 
-	cmd.AddCommand(ingestCommitsCmd())
 	cmd.AddCommand(ingestGeminiCmd())
 
 	return cmd
@@ -105,12 +108,13 @@ func runIngest(sessionID, project string, all, force bool) error {
 	var ingested, skipped, errCount int
 	var subIngested, subSkipped int
 	for _, sf := range files {
-		if !force {
-			count, _ := dbpkg.CountMessages(database, sf.SessionID)
-			if count > 0 {
-				skipped++
-				continue
-			}
+		// "Already ingested" is a question about the canonical artifact, not
+		// about rows in a projection that starts empty every run. Asking
+		// CountMessages here always returned 0, which made --force meaningless
+		// and every session re-render (feat-fc3cc9e0).
+		if !force && sessionHTMLExists(wipnoteDir, sf.SessionID) {
+			skipped++
+			continue
 		}
 
 		n, toolN, err := ingestFile(database, sf, force)
@@ -202,14 +206,13 @@ func ingestSubagents(database *sql.DB, parent ingest.SessionFile, force bool) (i
 	if err != nil || len(subFiles) == 0 {
 		return 0, 0, 0
 	}
+	wipnoteDir, dirErr := findWipnoteDir()
 
 	for _, sf := range subFiles {
-		if !force {
-			count, _ := dbpkg.CountMessages(database, sf.SessionID)
-			if count > 0 {
-				skipped++
-				continue
-			}
+		// Same canonical skip check as the parent loop above.
+		if !force && dirErr == nil && sessionHTMLExists(wipnoteDir, sf.SessionID) {
+			skipped++
+			continue
 		}
 		n, toolN, err := ingestFileWithAgent(database, sf, sf.SessionID, force)
 		if err != nil {
@@ -431,6 +434,18 @@ func sessionActiveFeature(database *sql.DB, sessionID string) string {
 	return featureID
 }
 
+// sessionProjectDir returns the project_dir column for a session, or "".
+// It lived in migrate.go next to `wipnote migrate sessions`; that command was
+// removed with the per-project SQLite file (feat-fc3cc9e0) and this is now the
+// only caller's package-mate.
+func sessionProjectDir(database *sql.DB, sessionID string) string {
+	var dir sql.NullString
+	_ = database.QueryRow(
+		`SELECT project_dir FROM sessions WHERE session_id = ?`, sessionID,
+	).Scan(&dir)
+	return dir.String
+}
+
 // ingestFileOp maps tool names to feature_files operation labels for ingest.
 // Returns "" for tools that don't operate on a specific file path.
 func ingestFileOp(toolName string) string {
@@ -466,150 +481,6 @@ func extractIngestFilePath(inputJSON string) string {
 				return s
 			}
 		}
-	}
-	return ""
-}
-
-// ingestCommitsCmd returns a subcommand that bulk-imports git log history into
-// git_commits. It uses "backfill" as the session_id sentinel since the original
-// session that produced each commit is unknown.
-func ingestCommitsCmd() *cobra.Command {
-	var since string
-	var limit int
-
-	cmd := &cobra.Command{
-		Use:   "commits",
-		Short: "Bulk-import git commit history into git_commits table",
-		Long: `Reads git log from the current repository and inserts commits into the
-git_commits table. Each backfilled commit uses session_id="backfill".
-
-Feature attribution is extracted from commit messages using two patterns:
-  - Parenthetical: (feat-abc12345)
-  - Closing keywords: completes/closes/fixes/resolves feat-abc12345`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runIngestCommits(since, limit)
-		},
-	}
-
-	cmd.Flags().StringVar(&since, "since", "", "only import commits after this date (e.g. 2024-01-01)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of commits to import (0 = no limit)")
-
-	return cmd
-}
-
-func runIngestCommits(since string, limit int) error {
-	wipnoteDir, err := findWipnoteDir()
-	if err != nil {
-		return err
-	}
-
-	database, err := openDB(wipnoteDir)
-	if err != nil {
-		return err
-	}
-	defer database.Close()
-
-	repoDir := filepath.Dir(wipnoteDir)
-
-	inserted, attributed, err := ingestCommitsFromRepo(database, repoDir, since, limit)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Done: %d commits ingested (%d with feature attribution)\n", inserted, attributed)
-	return nil
-}
-
-// ingestCommitsFromRepo reads git log from repoDir and inserts commits into
-// the git_commits table. It returns the number of newly inserted rows and the
-// subset that carry a work-item feature_id.
-//
-// Parameters:
-//   - since: ISO date string for --after filter (empty = all history)
-//   - limit: max commits to read (0 = no limit)
-func ingestCommitsFromRepo(database *sql.DB, repoDir, since string, limit int) (inserted, attributed int, err error) {
-	args := []string{"log", "--all", "--format=%H|%s|%aI"}
-	if since != "" {
-		args = append(args, "--after="+since)
-	}
-	if limit > 0 {
-		args = append(args, fmt.Sprintf("--max-count=%d", limit))
-	}
-
-	cmd := exec.Command("git", args...)
-	cmd.Dir = repoDir
-	out, gitErr := cmd.Output()
-	if gitErr != nil {
-		if len(out) == 0 {
-			return 0, 0, nil
-		}
-		return 0, 0, fmt.Errorf("git log: %w", gitErr)
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	now := time.Now().UTC()
-
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "|", 3)
-		if len(parts) < 2 {
-			continue
-		}
-		hash := strings.TrimSpace(parts[0])
-		msg := strings.TrimSpace(parts[1])
-		ts := now
-		if len(parts) == 3 {
-			if parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(parts[2])); parseErr == nil {
-				ts = parsed
-			}
-		}
-
-		featureID := extractFeatureIDFromCommitMsg(msg)
-
-		gitCommit := &models.GitCommit{
-			CommitHash: hash,
-			SessionID:  "backfill",
-			FeatureID:  featureID,
-			Message:    msg,
-			Timestamp:  ts,
-		}
-
-		n, insertErr := dbpkg.InsertGitCommitResult(database, gitCommit)
-		if insertErr != nil {
-			fmt.Fprintf(os.Stderr, "warn: insert commit %s: %v\n", truncate(hash, 10), insertErr)
-			continue
-		}
-
-		if n > 0 {
-			inserted++
-			if featureID != "" {
-				attributed++
-			}
-		}
-	}
-
-	return inserted, attributed, nil
-}
-
-// ingestCommitClosingRe matches closing keywords followed by a work item ID.
-var ingestCommitClosingRe = regexp.MustCompile(`(?:completes?|closes?|fix(?:es)?|resolves?)\s+((?:feat|bug|spk)-[0-9a-f]{8})`)
-
-// ingestCommitParenRe matches parenthetical work item references, e.g. "(feat-abc12345)" or "(bug-900f6655, #114)".
-// Allows trailing tokens (e.g. issue numbers) inside the parens via [^)]*.
-var ingestCommitParenRe = regexp.MustCompile(`\(\s*((?:feat|bug|spk)-[0-9a-f]{8})\b[^)]*\)`)
-
-// extractFeatureIDFromCommitMsg returns the first work-item ID found in a
-// commit message. Checks closing-keyword pattern first, then parenthetical.
-// Returns "" when no ID is found. Matching is case-insensitive.
-func extractFeatureIDFromCommitMsg(msg string) string {
-	lower := strings.ToLower(msg)
-	if m := ingestCommitClosingRe.FindStringSubmatch(lower); len(m) == 2 {
-		return m[1]
-	}
-	if m := ingestCommitParenRe.FindStringSubmatch(lower); len(m) == 2 {
-		return m[1]
 	}
 	return ""
 }

@@ -5,14 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
-// TestStatusOutput_RendersFstype verifies that runStatus includes
-// fstype= and journal_mode= in its output, satisfying the diagnostics
-// requirement of Slice 4 (WAL-safe cache path selection).
-func TestStatusOutput_RendersFstype(t *testing.T) {
+// TestStatusOutput_RendersCanonicalStorage verifies status reports the
+// canonical storage boundary without opening or creating the persistent project
+// DB cache.
+func TestStatusOutput_RendersCanonicalStorage(t *testing.T) {
 	// Set up a minimal project directory with a .wipnote dir.
 	tmpDir := t.TempDir()
 	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
@@ -23,13 +21,6 @@ func TestStatusOutput_RendersFstype(t *testing.T) {
 	// Use WIPNOTE_DB_PATH to make path selection deterministic.
 	dbPath := filepath.Join(tmpDir, "test.db")
 	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-
-	// Inject a deterministic fstype probe.
-	origProber := storage.FsTypeProber
-	t.Cleanup(func() { storage.FsTypeProber = origProber })
-	storage.FsTypeProber = func(_ string) (string, bool) {
-		return "ext4", true
-	}
 
 	// Point project dir at tmpDir.
 	origProjectDir := projectDirFlag
@@ -53,10 +44,13 @@ func TestStatusOutput_RendersFstype(t *testing.T) {
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
 
-	if !strings.Contains(output, "fstype=") {
-		t.Errorf("expected output to contain 'fstype=', got:\n%s", output)
+	if !strings.Contains(output, "Storage: canonical HTML/ledgers") {
+		t.Errorf("expected canonical storage line, got:\n%s", output)
 	}
-	if !strings.Contains(output, "journal_mode=") {
-		t.Errorf("expected output to contain 'journal_mode=', got:\n%s", output)
+	if strings.Contains(output, "journal_mode=") || strings.Contains(output, "fstype=") {
+		t.Errorf("status should not print project DB diagnostics, got:\n%s", output)
+	}
+	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
+		t.Fatalf("status created/opened project DB %s: %v", dbPath, err)
 	}
 }

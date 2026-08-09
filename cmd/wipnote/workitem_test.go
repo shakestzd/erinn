@@ -11,6 +11,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
@@ -818,20 +819,17 @@ func testHgDirWithDB(t *testing.T, sessionID string) (tmpDir, hgDir string) {
 	}
 	t.Setenv("WIPNOTE_DB_PATH", dbPath)
 
-	// Open (and migrate) the DB so tables exist, then insert a session row.
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	defer database.Close()
-
-	if err := dbpkg.InsertSession(database, &models.Session{
-		SessionID:     sessionID,
-		AgentAssigned: "claude-code",
-		Status:        "active",
-		CreatedAt:     time.Now(),
+	// The session goes into the CANONICAL session ledger, which is what
+	// hydrates the projection's sessions table. It used to be INSERTed into the
+	// file DB above; the commands under test now build a private in-memory
+	// projection from .wipnote/, so a session that exists only in that file is
+	// invisible to them and to any read-back (feat-fc3cc9e0).
+	if _, err := sessionledger.NewStore(hgDir).Open(sessionledger.Record{
+		SessionID: sessionID,
+		Harness:   "claude-code",
+		StartedAt: time.Now().UTC(),
 	}); err != nil {
-		t.Fatalf("insert session: %v", err)
+		t.Fatalf("seed session ledger: %v", err)
 	}
 	return tmpDir, hgDir
 }
@@ -845,7 +843,8 @@ func TestFeatureStart_Idempotent(t *testing.T) {
 		t.Skip("drives full work-item start lifecycle")
 	}
 
-	const sessionID = "test-session-idempotent"
+	// test-session-idempotent — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000101"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
 	projectDirFlag = tmpDir
@@ -871,7 +870,7 @@ func TestFeatureStart_Idempotent(t *testing.T) {
 	}
 
 	// Read active_feature_id after first start.
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db after first start: %v", err)
 	}
@@ -925,7 +924,8 @@ func TestFeatureStart_DifferentFeatures(t *testing.T) {
 		t.Skip("drives full work-item start lifecycle")
 	}
 
-	const sessionID = "test-session-two-features"
+	// test-session-two-features — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000102"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
 	projectDirFlag = tmpDir
@@ -954,7 +954,7 @@ func TestFeatureStart_DifferentFeatures(t *testing.T) {
 		t.Fatalf("start A: %v", err)
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -980,7 +980,8 @@ func TestFeatureStart_ClaimWrittenOnFirstStart(t *testing.T) {
 		t.Skip("drives full work-item start lifecycle")
 	}
 
-	const sessionID = "test-session-claim-first-start"
+	// test-session-claim-first-start — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000103"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1005,7 +1006,7 @@ func TestFeatureStart_ClaimWrittenOnFirstStart(t *testing.T) {
 		t.Fatalf("first start: %v", err)
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1030,7 +1031,8 @@ func TestFeatureStart_ClaimRenewedOnRepeatStart(t *testing.T) {
 		t.Skip("drives full work-item start lifecycle")
 	}
 
-	const sessionID = "test-session-claim-repeat-start"
+	// test-session-claim-repeat-start — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000104"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1062,7 +1064,7 @@ func TestFeatureStart_ClaimRenewedOnRepeatStart(t *testing.T) {
 		t.Fatalf("second start: %v", err)
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1089,7 +1091,8 @@ func TestFeatureStart_ClaimWrittenAfterExpiry(t *testing.T) {
 		t.Skip("drives full work-item start lifecycle")
 	}
 
-	const sessionID = "test-session-claim-after-expiry"
+	// test-session-claim-after-expiry — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000105"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1115,7 +1118,7 @@ func TestFeatureStart_ClaimWrittenAfterExpiry(t *testing.T) {
 		t.Fatalf("first start: %v", err)
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1155,7 +1158,7 @@ func TestFeatureStart_ClaimWrittenAfterExpiry(t *testing.T) {
 		t.Fatalf("second start after expiry: %v", err)
 	}
 
-	database2, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database2, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db2: %v", err)
 	}
@@ -1190,7 +1193,8 @@ func TestRunWiSetStatus_ConcurrentAgents(t *testing.T) {
 		t.Skip("drives concurrent work-item claim lifecycle")
 	}
 
-	const sessionID = "test-session-concurrent"
+	// test-session-concurrent — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000106"
 	const N = 5
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1244,7 +1248,7 @@ func TestRunWiSetStatus_ConcurrentAgents(t *testing.T) {
 	}
 
 	// Verify all N rows in active_work_items.
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1277,7 +1281,8 @@ func TestRunWiSetStatus_ConcurrentAgents(t *testing.T) {
 // Regression test for bug-50c7eed0: "Execute skill sub-agent attribution guard
 // blocks legitimate claims to features created by orchestrator."
 func TestSubagentCanStartFeatureCreatedByDifferentAgent(t *testing.T) {
-	const sessionID = "test-session-subagent-claim"
+	// test-session-subagent-claim — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000107"
 	const orchestratorAgentID = "agent-orchestrator"
 	const subagentAgentID = "agent-subagent-a"
 
@@ -1321,7 +1326,7 @@ func TestSubagentCanStartFeatureCreatedByDifferentAgent(t *testing.T) {
 
 	// Step 4: Verify both agents' rows exist in active_work_items and point
 	// to the same feature.
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1357,7 +1362,8 @@ func TestSubagentCanStartFeatureCreatedByDifferentAgent(t *testing.T) {
 // untouched; only root launcher agents write it. All agents' per-agent claims
 // still land correctly in active_work_items.
 func TestRunWiSetStatus_SubagentsDoNotStompLegacyColumn(t *testing.T) {
-	const sessionID = "test-session-no-stomp"
+	// test-session-no-stomp — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000108"
 	const N = 4
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1408,7 +1414,7 @@ func TestRunWiSetStatus_SubagentsDoNotStompLegacyColumn(t *testing.T) {
 		}
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1433,7 +1439,8 @@ func TestRunWiSetStatus_SubagentsDoNotStompLegacyColumn(t *testing.T) {
 }
 
 func TestRunWiSetStatus_CodexLauncherWritesLegacyColumn(t *testing.T) {
-	const sessionID = "test-session-codex-root"
+	// test-session-codex-root — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000109"
 	const agentID = "codex"
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
@@ -1456,7 +1463,7 @@ func TestRunWiSetStatus_CodexLauncherWritesLegacyColumn(t *testing.T) {
 		t.Fatalf("codex feature start: %v", err)
 	}
 
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
+	database, err := openDB(hgDir)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1685,8 +1692,10 @@ func TestFeatureStart_LiveCollision_Refuses(t *testing.T) {
 		t.Skip("drives multi-session collision lifecycle")
 	}
 
-	const holderSessionID = "sess-collision-holder"
-	const callerSessionID = "sess-collision-caller"
+	// sess-collision-holder — session-shaped id required by the canonical session ledger.
+	const holderSessionID = "019ee378-abcd-7000-8000-000000000201"
+	// sess-collision-caller — session-shaped id required by the canonical session ledger.
+	const callerSessionID = "019ee378-abcd-7000-8000-000000000202"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
@@ -1792,8 +1801,10 @@ func TestFeatureStart_LiveCollision_ForceOverrides(t *testing.T) {
 		t.Skip("drives multi-session collision lifecycle")
 	}
 
-	const holderSessionID = "sess-force-holder"
-	const callerSessionID = "sess-force-caller"
+	// sess-force-holder — session-shaped id required by the canonical session ledger.
+	const holderSessionID = "019ee378-abcd-7000-8000-000000000203"
+	// sess-force-caller — session-shaped id required by the canonical session ledger.
+	const callerSessionID = "019ee378-abcd-7000-8000-000000000204"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
@@ -1866,8 +1877,10 @@ func TestFeatureStart_StaleCollision_Allows(t *testing.T) {
 		t.Skip("drives multi-session collision lifecycle")
 	}
 
-	const holderSessionID = "sess-stale-coll-holder"
-	const callerSessionID = "sess-stale-coll-caller"
+	// sess-stale-coll-holder — session-shaped id required by the canonical session ledger.
+	const holderSessionID = "019ee378-abcd-7000-8000-000000000205"
+	// sess-stale-coll-caller — session-shaped id required by the canonical session ledger.
+	const callerSessionID = "019ee378-abcd-7000-8000-000000000206"
 	const agentID = dbpkg.AgentRootSentinel
 
 	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
@@ -1937,7 +1950,8 @@ func TestLearningNonFatal_OverLimitWord(t *testing.T) {
 		t.Skip("drives learning validation lifecycle")
 	}
 
-	const sessionID = "test-session-learning-over-limit"
+	// test-session-learning-over-limit — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000110"
 	const agentID = "test-agent"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
@@ -2021,7 +2035,8 @@ func TestLearningNonFatal_ValidBody(t *testing.T) {
 		t.Skip("drives learning validation lifecycle")
 	}
 
-	const sessionID = "test-session-learning-valid"
+	// test-session-learning-valid — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000111"
 	const agentID = "test-agent"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
@@ -2106,7 +2121,8 @@ func TestLearningNonFatal_InvalidKind(t *testing.T) {
 		t.Skip("drives learning validation lifecycle")
 	}
 
-	const sessionID = "test-session-learning-invalid-kind"
+	// test-session-learning-invalid-kind — session-shaped id required by the canonical session ledger.
+	const sessionID = "019ee378-abcd-7000-8000-000000000112"
 	const agentID = "test-agent"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 

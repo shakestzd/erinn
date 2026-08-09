@@ -135,23 +135,18 @@ func TestPlanFeedbackPOST_WritableMux(t *testing.T) {
 			planID, rec.Code, rec.Body.String())
 	}
 
-	// Verify the row landed in plan_feedback (regression guard: the read-only
-	// bug produced 500 and zero rows).
-	var count int
-	if err := writeDB.QueryRow(
-		`SELECT COUNT(*) FROM plan_feedback WHERE plan_id = ? AND section = 'design' AND action = 'approve'`,
-		planID,
-	).Scan(&count); err != nil {
-		t.Fatalf("count plan_feedback: %v", err)
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
+	if err != nil {
+		t.Fatalf("read canonical feedback: %v", err)
 	}
-	if count == 0 {
-		t.Fatal("plan_feedback row not persisted after POST feedback — read-only DB regression")
+	if len(entries) == 0 || entries[0].Section != "design" {
+		t.Fatalf("canonical feedback not persisted after POST feedback: %+v", entries)
 	}
 }
 
-// TestPlanFeedbackPOST_ReadOnlyMux_Returns500 is the anti-regression counterpart:
-// when writeDB is the read-only handle (the pre-fix bug), POST feedback must
-// return 500 — confirming the failure mode and that the fix is load-bearing.
+// TestPlanFeedbackPOST_ReadOnlyMux_Returns500 is retained as a topology guard:
+// plan feedback is now canonical YAML, so it must not depend on either DB
+// handle being writable.
 func TestPlanFeedbackPOST_ReadOnlyMux_Returns500(t *testing.T) {
 	planID := "plan-bug528478ad-readonly"
 	wipnoteDir, dbPath := setupPlanTestProject(t, planID)
@@ -177,14 +172,12 @@ func TestPlanFeedbackPOST_ReadOnlyMux_Returns500(t *testing.T) {
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
-	// The pre-fix bug returned 500 "attempt to write a readonly database".
-	// If this ever returns 200 the regression guard is broken.
-	if rec.Code == http.StatusOK {
-		t.Fatalf("expected 500 with read-only writeDB but got 200 — test guard is broken")
-	}
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 with read-only writeDB but got %d %s",
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST feedback with read-only DB handles got %d %s, want 200",
 			rec.Code, rec.Body.String())
+	}
+	if _, err := readPlanFeedbackEntries(wipnoteDir, planID); err != nil {
+		t.Fatalf("read canonical feedback: %v", err)
 	}
 }
 
@@ -215,7 +208,7 @@ func TestPlanFinalizePOST_WritableMux(t *testing.T) {
 	// gate requires (the minimal plan has no slices, so IsPlanFullyApproved
 	// needs the design section approved), then assert the finalize succeeds and
 	// persists its write.
-	if err := dbpkg.StorePlanFeedback(writeDB, planID, "design", "approve", "true", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, "design", "approve", "true", ""); err != nil {
 		t.Fatalf("seed design approval: %v", err)
 	}
 
@@ -230,16 +223,11 @@ func TestPlanFinalizePOST_WritableMux(t *testing.T) {
 			planID, rec.Code, rec.Body.String())
 	}
 
-	// Assert the write landed: planFinalizeHandler stores a meta.finalize row
-	// through writeDB. A read-only writeDB regression would 500 before this.
-	var finalizeCount int
-	if err := writeDB.QueryRow(
-		`SELECT COUNT(*) FROM plan_feedback WHERE plan_id = ? AND section = 'meta' AND action = 'finalize'`,
-		planID,
-	).Scan(&finalizeCount); err != nil {
-		t.Fatalf("count meta.finalize: %v", err)
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
+	if err != nil {
+		t.Fatalf("read canonical feedback: %v", err)
 	}
-	if finalizeCount == 0 {
-		t.Errorf("expected a meta.finalize row after successful finalize, got none")
+	if len(entries) == 0 {
+		t.Errorf("expected canonical feedback after successful finalize, got none")
 	}
 }

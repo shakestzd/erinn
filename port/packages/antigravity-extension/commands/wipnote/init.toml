@@ -61,7 +61,7 @@ Created `.wipnote/` directory with:
 
 Note:
 - Additional paths such as plans, events, and launch/session markers may appear later as other wipnote commands and hooks run.
-- The SQLite read index is derived per-user state resolved by the CLI, not canonical project content, and can be rebuilt.
+- Nothing wipnote stores lives outside the project. The canonical record is the files under `.wipnote/` — work-item and architecture HTML, plan YAML, the session/claim/gate ledgers, per-session NDJSON — together with git history, from which commit and file attribution is derived. SQLite is used only as a process-local in-memory query engine, rebuilt inside a single command and discarded when it exits; `wipnote init` creates no database, cache directory, or per-user index.
 - Current `wipnote init` does not create legacy analytics directories like `insights/`, `metrics/`, or `cigs/`.
 
 ### Next Steps

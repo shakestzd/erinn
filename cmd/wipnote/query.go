@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/graph"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/projection"
 	"github.com/spf13/cobra"
 )
 
@@ -39,34 +36,12 @@ func runQuery(dsl string) error {
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+	snap, err := projection.Load(dir)
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
+		return fmt.Errorf("load canonical projection: %w", err)
 	}
-	// bug-7dbaf552: `wipnote query` is strictly read-only — graph.ExecuteDSL
-	// only issues SELECTs and closes every *sql.Rows it opens internally
-	// before returning a materialised slice. OpenReadOnlyMigrated bootstraps
-	// (writable Open → schema/migrations, RetryOnBusy-safe) then hands back a
-	// mode=ro handle so the long query path can never hold the writer lock.
-	// roborev followup: the bare OpenReadOnly here previously regressed fresh
-	// / schema-behind workspaces (mode=ro never creates or migrates) — the
-	// migrated helper restores that guarantee while keeping the contention
-	// benefit. ExecuteDSL stays wrapped in RetryOnBusy (no-leaked-handle).
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
+	results, err := snap.ExecuteDSL(dsl)
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
-	}
-	defer database.Close()
-
-	var results []graph.NodeResult
-	if err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-		r, derr := graph.ExecuteDSL(database, archSourceFor(dir), dsl)
-		if derr != nil {
-			return derr
-		}
-		results = r
-		return nil
-	}); err != nil {
 		return fmt.Errorf("query error: %w", err)
 	}
 

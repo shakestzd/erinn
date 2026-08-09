@@ -14,11 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/claimledger"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/gateledger"
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 type Command struct {
@@ -560,22 +561,12 @@ func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, r
 	return &record, nil
 }
 
-// projectRecordToIndex mirrors a canonical record into the read index so the
-// dashboard and reporting queries see it without waiting for a reindex.
+// projectRecordToIndex is retained for the old call shape. Gate records are
+// authoritative in the gate ledger, and normal execution no longer writes a
+// persistent project SQLite mirror.
 func projectRecordToIndex(projectRoot string, record gateledger.Record) error {
-	dbPath, err := storage.CanonicalDBPath(projectRoot)
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("ensure db dir: %w", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db: %w", err)
-	}
-	defer database.Close()
-	return dbpkg.InsertGateRecord(database, dbpkg.GateRecordFromLedger(record))
+	_, _ = projectRoot, record
+	return nil
 }
 
 // gateStatus derives the persisted DB status for a gate run. The gate_records
@@ -643,22 +634,33 @@ func ActiveWorkItemForGate(projectRoot, sessionID, agentID string) string {
 	if strings.TrimSpace(sessionID) == "" {
 		return ""
 	}
-	database := openProjectGateDB(projectRoot)
-	if database == nil {
-		return ""
+	normalisedAgent := dbpkg.NormaliseAgentID(agentID)
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	episodes, err := claimledger.NewStore(wipnoteDir).ReadAll()
+	if err == nil {
+		for i := len(episodes) - 1; i >= 0; i-- {
+			e := episodes[i]
+			if !e.IsOpen() || e.SessionID != sessionID {
+				continue
+			}
+			if dbpkg.NormaliseAgentID(e.AgentID) == normalisedAgent {
+				return e.WorkItemID
+			}
+		}
+		for i := len(episodes) - 1; i >= 0; i-- {
+			e := episodes[i]
+			if e.IsOpen() && e.SessionID == sessionID {
+				return e.WorkItemID
+			}
+		}
 	}
-	defer database.Close()
-	return dbpkg.GetActiveWorkItemWithFallback(database, sessionID, dbpkg.NormaliseAgentID(agentID))
+	return ""
 }
 
 func ResolveWorkItem(projectRoot, sessionID, agentID, flagValue string, w io.Writer) string {
-	database := openProjectGateDB(projectRoot)
-	if database != nil {
-		defer database.Close()
-	}
 	if strings.TrimSpace(flagValue) != "" {
 		id := strings.TrimSpace(flagValue)
-		if database != nil && !dbpkg.WorkItemExists(database, id) {
+		if !canonicalWorkItemExists(projectRoot, id) {
 			fmt.Fprintf(w, "gate: warning — --work-item %s not found in the project index; recording the run against it anyway\n", id)
 		} else {
 			fmt.Fprintf(w, "gate: attributing run to work item %s (from --work-item flag)\n", id)
@@ -669,29 +671,27 @@ func ResolveWorkItem(projectRoot, sessionID, agentID, flagValue string, w io.Wri
 		fmt.Fprintf(w, "gate: attributing run to work item %s (session-scoped claim)\n", id)
 		return id
 	}
-	if database != nil {
-		if id := dbpkg.MostRecentInProgressWorkItem(database); id != "" {
-			fmt.Fprintf(w, "gate: attributing run to work item %s (most recent in-progress — session attribution not available)\n", id)
-			return id
-		}
+	if item, err := workitem.GetActiveWorkItem(filepath.Join(projectRoot, ".wipnote")); err == nil && item != nil {
+		fmt.Fprintf(w, "gate: attributing run to work item %s (most recent in-progress — session attribution not available)\n", item.ID)
+		return item.ID
 	}
 	fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
 	return ""
 }
 
-func openProjectGateDB(projectRoot string) *sql.DB {
-	if strings.TrimSpace(projectRoot) == "" {
-		return nil
+// canonicalWorkItemExists reports whether id names a real work item, by looking
+// for its canonical artifact. It replaces a WorkItemExists lookup against the
+// per-project read index (feat-fc3cc9e0): the artifact is the record, and the
+// index that used to answer this is gone.
+func canonicalWorkItemExists(projectRoot, id string) bool {
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	for _, dir := range []string{"features", "bugs", "spikes", "tracks", "plans"} {
+		path := filepath.Join(wipnoteDir, dir, id+".html")
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
 	}
-	dbPath, err := storage.CanonicalDBPath(projectRoot)
-	if err != nil {
-		return nil
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return nil
-	}
-	return database
+	return false
 }
 
 func ReportGuardProfileDrift(database *sql.DB, projectRoot, sessionID string, w io.Writer) {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,58 +12,45 @@ import (
 	"github.com/shakestzd/wipnote/internal/registry"
 )
 
-// makeProjectDBWithSchema creates a tmpdir "project" with a .wipnote/
-// subdirectory and a SQLite DB that has a `features` table matching the
-// real wipnote schema (type column — 'feature' | 'bug' | 'spike').
-// Populates a few rows so ITEMS counts are non-zero.
-func makeProjectDBWithSchema(t *testing.T, numFeatures, numBugs, numSpikes int) string {
+// makeProjectWithItems creates a tmpdir "project" whose .wipnote/ holds the
+// given number of canonical feature, bug, and spike HTML files, so the ITEMS
+// column has something real to count.
+//
+// It replaces makeProjectDBWithSchema, which hand-created a `features` table in
+// a file-backed SQLite DB at WIPNOTE_DB_PATH. projects.go now calls
+// openDB(hgDir), which builds a private in-memory projection hydrated from the
+// canonical artifacts, so a seeded file DB is a database nothing opens and
+// countItems returned "-" (feat-fc3cc9e0).
+func makeProjectWithItems(t *testing.T, numFeatures, numBugs, numSpikes int) string {
 	t.Helper()
 	tmp := t.TempDir()
 	hgDir := filepath.Join(tmp, ".wipnote")
-	if err := os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// Create .git directory so project passes looksLikeRealProject check
+	// .git so the project passes the looksLikeRealProject check.
 	if err := os.MkdirAll(filepath.Join(tmp, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
 
-	// Use modernc.org/sqlite driver registered as "sqlite".
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec(`CREATE TABLE features (
-		id TEXT PRIMARY KEY,
-		type TEXT NOT NULL,
-		title TEXT NOT NULL DEFAULT ''
-	)`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	insert := func(kind string, n int) {
+	write := func(sub, prefix, nodeType string, n int) {
+		dir := filepath.Join(hgDir, sub)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 		for i := 0; i < n; i++ {
-			_, err := db.Exec("INSERT INTO features (id, type, title) VALUES (?, ?, ?)",
-				kind+string(rune('a'+i)), kind, kind+" title")
-			if err != nil {
+			id := fmt.Sprintf("%s-%08x", prefix, i+1)
+			html := `<!DOCTYPE html><html><body><article id="` + id +
+				`" data-type="` + nodeType + `" data-status="todo" data-priority="medium">` +
+				`<h1>` + nodeType + ` ` + id + `</h1></article></body></html>`
+			if err := os.WriteFile(filepath.Join(dir, id+".html"), []byte(html), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
-	insert("feature", numFeatures)
-	insert("bug", numBugs)
-	insert("spike", numSpikes)
-	db.Close()
+	write("features", "feat", "feature", numFeatures)
+	write("bugs", "bug", "bug", numBugs)
+	write("spikes", "spk", "spike", numSpikes)
 	return tmp
 }
 
-// withRegistryAtAndStale sets up a registry with entries that were previously registered
-// but whose .wipnote directories may have been deleted (stale). It writes entries directly
-// via registry.WriteEntriesForTest — bypassing Upsert's looksLikeRealProject guard so the
-// tests can verify prune behavior. The on-disk format is sourced from the same atomic-write
-// path Save uses, so this helper cannot drift if the schema evolves.
 func withRegistryAtAndStale(t *testing.T, entries []registry.Entry) string {
 	t.Helper()
 	tmpHome := t.TempDir()
@@ -92,7 +79,7 @@ func withRegistryAtAndStale(t *testing.T, entries []registry.Entry) string {
 // TestProjectsList_Output verifies that `projects list` prints one row per
 // registry entry with correct STATUS and ITEMS columns.
 func TestProjectsList_Output(t *testing.T) {
-	realProject := makeProjectDBWithSchema(t, 3, 2, 1)
+	realProject := makeProjectWithItems(t, 3, 2, 1)
 	staleProjectDir := filepath.Join(t.TempDir(), "stale-project")
 	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatal(err)
@@ -138,7 +125,7 @@ func TestProjectsList_Output(t *testing.T) {
 // TestProjectsPrune_RemovesAndSaves verifies prune removes stale entries
 // and persists the result.
 func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
-	realProject := makeProjectDBWithSchema(t, 0, 0, 0)
+	realProject := makeProjectWithItems(t, 0, 0, 0)
 	staleProjectDir := filepath.Join(t.TempDir(), "stale-project")
 	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatal(err)
@@ -185,15 +172,19 @@ func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
 	}
 }
 
-// TestProjectsList_NoMigrations ensures `projects list` does not create any
-// new tables in foreign project DBs — it must use registry.OpenReadOnly.
-func TestProjectsList_NoMigrations(t *testing.T) {
-	realProject := makeProjectDBWithSchema(t, 1, 1, 1)
+// TestProjectsList_CreatesNoSQLiteArtifacts replaces
+// TestProjectsList_NoMigrations (feat-fc3cc9e0).
+//
+// That test opened a foreign project's file-backed DB and asserted `projects
+// list` added no tables to it — a guard against running migrations against
+// someone else's database. `projects list` no longer opens a project DB at all;
+// it builds a private in-memory projection per project. The old assertion
+// cannot fail any more, so it is replaced by the stronger property the cutover
+// actually promises: walking a foreign project must leave no SQLite artifact
+// behind in it, not even a file.
+func TestProjectsList_CreatesNoSQLiteArtifacts(t *testing.T) {
+	realProject := makeProjectWithItems(t, 1, 1, 1)
 	withRegistryAtAndStale(t, []registry.Entry{{ProjectDir: realProject, Name: "real"}})
-
-	// Snapshot table set before.
-	dbPath := filepath.Join(realProject, ".wipnote", ".db", "wipnote.db")
-	before := readTableNames(t, dbPath)
 
 	cmd := projectsCmd()
 	cmd.SetOut(new(bytes.Buffer))
@@ -202,35 +193,9 @@ func TestProjectsList_NoMigrations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Snapshot table set after.
-	after := readTableNames(t, dbPath)
-	if len(before) != len(after) {
-		t.Fatalf("table set changed: before=%v after=%v", before, after)
-	}
+	assertNoSQLiteArtifacts(t, realProject)
 }
 
-func readTableNames(t *testing.T, dbPath string) []string {
-	t.Helper()
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	var names []string
-	for rows.Next() {
-		var n string
-		if err := rows.Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		names = append(names, n)
-	}
-	return names
-}
 
 // TestPruneSince_3d_RemovesOlder verifies that --since 3d removes entries older
 // than 3 days while keeping recent ones.

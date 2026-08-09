@@ -11,7 +11,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/registry"
 	"github.com/spf13/cobra"
 )
@@ -58,11 +57,9 @@ With --gone, show only orphan entries whose .wipnote directory no longer exists.
 				hgDir := filepath.Join(e.ProjectDir, ".wipnote")
 				if _, statErr := os.Stat(hgDir); statErr == nil {
 					alive = true
-					if dbPath, pathErr := storage.CanonicalDBPath(e.ProjectDir); pathErr == nil {
-						if db, openErr := registry.OpenReadOnly(dbPath); openErr == nil {
-							items = countItems(db)
-							db.Close()
-						}
+					if db, openErr := openDB(hgDir); openErr == nil {
+						items = countItems(db)
+						db.Close()
 					}
 				}
 				if goneOnly && alive {

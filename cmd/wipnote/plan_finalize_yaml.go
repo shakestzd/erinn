@@ -10,8 +10,8 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
@@ -61,18 +61,7 @@ func runFinalizeYAML(planID string) error {
 // finalizeYAML is the testable inner implementation of runFinalizeYAML.
 // It takes an explicit wipnoteDir rather than resolving it from the environment.
 func finalizeYAML(wipnoteDir, planID string) error {
-	// Read approvals from SQLite.
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	db, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db: %w", err)
-	}
-	defer db.Close()
-
-	featIDs, _, err := finalizeYAMLWithDB(db, wipnoteDir, planID)
+	featIDs, _, err := finalizeYAMLCanonical(wipnoteDir, planID)
 	if err != nil {
 		return err
 	}
@@ -83,9 +72,9 @@ func finalizeYAML(wipnoteDir, planID string) error {
 	if loadErr != nil {
 		return nil // summary is optional; creation already succeeded
 	}
-	answers := loadPlanAnswers(db, planID)
+	answers := loadPlanAnswersFromPlan(plan)
 	var rejectedTitles []string
-	approvals := loadPlanApprovals(db, planID)
+	approvals := loadPlanApprovalsFromPlan(plan)
 	for _, s := range plan.Slices {
 		if !approvals[fmt.Sprintf("slice-%d", s.Num)] {
 			rejectedTitles = append(rejectedTitles, s.Title)
@@ -101,6 +90,65 @@ func finalizeYAML(wipnoteDir, planID string) error {
 	}
 	printFinalizeYAMLSummary(plan, track, answers, featIDs, rejectedTitles)
 	return nil
+}
+
+func finalizeYAMLCanonical(wipnoteDir, planID string) (createdIDs []string, failures []finalizeFailure, err error) {
+	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0): finalize reads the plan, creates features and wires
+	// edges in between, then saves the whole document back via
+	// saveFinalizedPlan. A bare Load-then-Save let two concurrent writers
+	// interleave and the second whole-document save silently clobber the
+	// first. Mirrors storePlanFeedbackEntry.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
+	plan, err := planyaml.Load(planPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load plan: %w", err)
+	}
+	approvals := loadPlanApprovalsFromPlan(plan)
+	answers := loadPlanAnswersFromPlan(plan)
+	applyAmendments(plan, loadPlanAmendmentsFromPlan(plan))
+
+	p, pErr := workitem.Open(wipnoteDir, agentForClaim())
+	if pErr != nil {
+		return nil, nil, fmt.Errorf("open project: %w", pErr)
+	}
+	defer p.Close()
+
+	if plan.Meta.Status == "finalized" {
+		existing := existingFeatureIDsFromPlan(plan)
+		if len(existing) == 0 {
+			existing = findFeaturesForPlanCanonical(p, planID)
+		}
+		if len(existing) > 0 {
+			return existing, nil, nil
+		}
+		plan.Meta.Status = ""
+	}
+
+	track, err := ensurePlanTrack(p, plan)
+	if err != nil {
+		return nil, nil, err
+	}
+	numToFeat, failures := createApprovedPlanFeatures(p, plan, track, approvals, answers)
+	linkPlanFinalizationEdges(p, planID, track.ID, plan.Slices, numToFeat)
+	if saveErr := saveFinalizedPlan(planPath, plan, track.ID, approvals, numToFeat); saveErr != nil {
+		return nil, failures, saveErr
+	}
+	if commitErr := commitPlanChange(planPath, fmt.Sprintf("plan(%s): finalize — %d slices approved", planID, len(numToFeat))); commitErr != nil {
+		return nil, failures, fmt.Errorf("autocommit finalize-yaml: %w", commitErr)
+	}
+	return createdFeatureIDs(plan.Slices, numToFeat), failures, nil
+}
+
+type finalizedFeature struct {
+	id    string
+	title string
 }
 
 // finalizeFailure records a slice number and error for feature creation failures.
@@ -159,7 +207,10 @@ func finalizeYAMLWithDB(db *sql.DB, wipnoteDir, planID string) (createdIDs []str
 	// but features were never created (e.g. due to a bug in a prior run), fall
 	// through so this run creates them.
 	if plan.Meta.Status == "finalized" {
-		existing := findFeaturesForPlan(db, planID)
+		existing := existingFeatureIDsFromPlan(plan)
+		if len(existing) == 0 {
+			existing = findFeaturesForPlanCanonical(p, planID)
+		}
 		if len(existing) > 0 {
 			return existing, nil, nil
 		}
@@ -275,6 +326,127 @@ func finalizeYAMLWithDB(db *sql.DB, wipnoteDir, planID string) (createdIDs []str
 	return createdIDs, failures, nil
 }
 
+func ensurePlanTrack(p *workitem.Project, plan *planyaml.PlanYAML) (*models.Node, error) {
+	if plan.Meta.TrackID != "" {
+		existing, err := p.Tracks.Get(plan.Meta.TrackID)
+		if err == nil && existing != nil {
+			return existing, nil
+		}
+	}
+	track, err := p.Tracks.Create(plan.Meta.Title)
+	if err != nil {
+		return nil, fmt.Errorf("create track: %w", err)
+	}
+	return track, nil
+}
+
+func createApprovedPlanFeatures(
+	p *workitem.Project,
+	plan *planyaml.PlanYAML,
+	track *models.Node,
+	approvals map[string]bool,
+	answers map[string]string,
+) (map[int]finalizedFeature, []finalizeFailure) {
+	numToFeat := map[int]finalizedFeature{}
+	var failures []finalizeFailure
+	for _, s := range plan.Slices {
+		if !approvals[fmt.Sprintf("slice-%d", s.Num)] {
+			continue
+		}
+		content := buildFeatureContent(s.What, plan.Questions, answers)
+		feat, err := p.Features.Create(s.Title, workitem.FeatWithTrack(track.ID), workitem.FeatWithContent(content))
+		if err != nil {
+			failures = append(failures, finalizeFailure{SliceNum: s.Num, Title: s.Title, Error: err.Error()})
+			continue
+		}
+		numToFeat[s.Num] = finalizedFeature{id: feat.ID, title: feat.Title}
+		p.Features.AddEdge(feat.ID, models.Edge{
+			TargetID:     plan.Meta.ID,
+			Relationship: models.RelPlannedIn,
+			Title:        plan.Meta.ID,
+			Since:        time.Now().UTC(),
+		})
+		wireTrackEdges(p, feat.ID, track.ID, feat.Title) //nolint:errcheck
+	}
+	return numToFeat, failures
+}
+
+func linkPlanFinalizationEdges(
+	p *workitem.Project,
+	planID, trackID string,
+	slices []planyaml.PlanSlice,
+	numToFeat map[int]finalizedFeature,
+) {
+	p.Plans.AddEdge(planID, models.Edge{TargetID: trackID, Relationship: models.RelImplementedIn, Title: trackID, Since: time.Now().UTC()})
+	for _, s := range slices {
+		cf, ok := numToFeat[s.Num]
+		if !ok {
+			continue
+		}
+		for _, depNum := range s.Deps {
+			if depCF, ok := numToFeat[depNum]; ok {
+				p.Features.AddEdge(cf.id, models.Edge{TargetID: depCF.id, Relationship: "blocked_by"})
+			}
+		}
+	}
+}
+
+// saveFinalizedPlan's only caller, finalizeYAMLCanonical, already holds
+// planyaml.LockPlanForWrite(planPath) across its whole load→mutate→save
+// window (defect 4, feat-fc3cc9e0) — SaveLocked (not Save) avoids re-entering
+// that non-reentrant mutex.
+func saveFinalizedPlan(
+	planPath string,
+	plan *planyaml.PlanYAML,
+	trackID string,
+	approvals map[string]bool,
+	numToFeat map[int]finalizedFeature,
+) error {
+	plan.Meta.Status = "finalized"
+	plan.Meta.TrackID = trackID
+	for i := range plan.Slices {
+		num := plan.Slices[i].Num
+		plan.Slices[i].Approved = approvals[fmt.Sprintf("slice-%d", num)]
+		if cf, ok := numToFeat[num]; ok {
+			plan.Slices[i].FeatureID = cf.id
+			plan.Slices[i].ExecutionStatus = "promoted"
+		}
+	}
+	if err := storeFinalizedFeedbackMarker(plan); err != nil {
+		return err
+	}
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
+		return fmt.Errorf("save plan: %w", err)
+	}
+	return nil
+}
+
+func storeFinalizedFeedbackMarker(plan *planyaml.PlanYAML) error {
+	upsertPlanFeedback(plan, planyaml.PlanFeedbackEntry{Section: "meta", Action: "finalize", Value: "true"})
+	mirrorPlanFeedback(plan, planyaml.PlanFeedbackEntry{Section: "meta", Action: "finalize", Value: "true"})
+	return nil
+}
+
+func createdFeatureIDs(slices []planyaml.PlanSlice, numToFeat map[int]finalizedFeature) []string {
+	var ids []string
+	for _, s := range slices {
+		if cf, ok := numToFeat[s.Num]; ok {
+			ids = append(ids, cf.id)
+		}
+	}
+	return ids
+}
+
+func existingFeatureIDsFromPlan(plan *planyaml.PlanYAML) []string {
+	var ids []string
+	for _, s := range plan.Slices {
+		if s.FeatureID != "" {
+			ids = append(ids, s.FeatureID)
+		}
+	}
+	return ids
+}
+
 // loadPlanApprovals reads approve actions from plan_feedback and returns a map
 // from section key (e.g. "slice-1") to approved state.
 func loadPlanApprovals(db *sql.DB, planID string) map[string]bool {
@@ -313,6 +485,54 @@ func loadPlanAnswers(db *sql.DB, planID string) map[string]string {
 		answers[qID] = value
 	}
 	return answers
+}
+
+func loadPlanApprovalsFromPlan(plan *planyaml.PlanYAML) map[string]bool {
+	approvals := map[string]bool{}
+	if plan == nil {
+		return approvals
+	}
+	for _, s := range plan.Slices {
+		approvals[fmt.Sprintf("slice-%d", s.Num)] = s.ApprovalStatus == "approved" || s.Approved
+	}
+	for _, e := range feedbackYAMLEntries(plan) {
+		if e.Action == "approve" {
+			approvals[e.Section] = approvalStatusFromValue(e.Value) == "approved"
+		}
+	}
+	return approvals
+}
+
+func loadPlanAnswersFromPlan(plan *planyaml.PlanYAML) map[string]string {
+	answers := map[string]string{}
+	if plan == nil {
+		return answers
+	}
+	for _, q := range plan.Questions {
+		if q.Answer != nil {
+			answers[q.ID] = *q.Answer
+		}
+	}
+	for _, e := range feedbackYAMLEntries(plan) {
+		if e.Action == "answer" && e.QuestionID != "" {
+			answers[e.QuestionID] = e.Value
+		}
+	}
+	return answers
+}
+
+func loadPlanAmendmentsFromPlan(plan *planyaml.PlanYAML) []planAmendment {
+	var amendments []planAmendment
+	for _, e := range feedbackYAMLEntries(plan) {
+		if e.Section != "amendment" || e.Action != "accepted" {
+			continue
+		}
+		var a planAmendment
+		if json.Unmarshal([]byte(e.Value), &a) == nil {
+			amendments = append(amendments, a)
+		}
+	}
+	return amendments
 }
 
 // buildFeatureContent constructs a feature description from a slice's "what" field
@@ -563,6 +783,23 @@ func findFeaturesForPlan(db *sql.DB, planID string) []string {
 		var id string
 		if rows.Scan(&id) == nil {
 			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func findFeaturesForPlanCanonical(p *workitem.Project, planID string) []string {
+	features, err := p.Features.List()
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	for _, feat := range features {
+		for _, edge := range feat.Edges[string(models.RelPlannedIn)] {
+			if edge.TargetID == planID {
+				ids = append(ids, feat.ID)
+				break
+			}
 		}
 	}
 	return ids

@@ -1,11 +1,10 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/gofrs/flock"
-
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // Repo-scoped advisory lock for wipnote-owned Git mutations.
@@ -35,12 +34,10 @@ import (
 // therefore can NEVER go stale: a wipnote process killed mid-commit releases the
 // lock automatically and the next process proceeds without manual cleanup.
 //
-// LOCK FILE LOCATION: The lock lives in wipnote's per-user cache directory —
-// the SAME directory that already holds the per-repo SQLite read-index
-// (~/.cache/wipnote/<path-hash>/). We derive it from storage.CanonicalDBPath so
-// the path-hash keying is reused, not re-derived, and so the lock is keyed to
-// the real (symlink-resolved) repo path. Rationale for this location over
-// .wipnote/ or .git/:
+// LOCK FILE LOCATION: The lock lives in a wipnote per-user runtime cache
+// namespace keyed by repo path. It is intentionally not derived from the former
+// SQLite DB path, so normal git mutations no longer create a project DB cache
+// directory. Rationale for this location over .wipnote/ or .git/:
 //   - It is NEVER inside .git/ (a mutation lock inside the dir git itself is
 //     mutating would be self-defeating and risks confusing git tooling).
 //   - It is outside the working tree, so it can never be accidentally staged or
@@ -56,12 +53,7 @@ import (
 // point all simulated processes at one shared temp lock file without touching
 // the real cache dir. Production code never reassigns it.
 var gitMutationLockPath = func(repoRoot string) (string, error) {
-	dbPath, err := storage.CanonicalDBPath(repoRoot)
-	if err != nil {
-		return "", err
-	}
-	// Sibling of the SQLite DB in ~/.cache/wipnote/<path-hash>/.
-	return filepath.Join(filepath.Dir(dbPath), "git-mutation.lock"), nil
+	return projectRuntimeCachePath(repoRoot, "git-locks", "git-mutation.lock")
 }
 
 // runGitMutation runs an index/ref-writing git command anchored to repoRoot
@@ -123,9 +115,7 @@ func withGitMutationLock(repoRoot string, fn func() ([]byte, error)) ([]byte, er
 		return fn()
 	}
 
-	// Ensure the parent dir exists; CanonicalDBPath's dir may not have been
-	// created yet (DB lazily created on first index). flock needs the dir.
-	if mkErr := storage.EnsureDBDir(lockPath); mkErr != nil {
+	if mkErr := os.MkdirAll(filepath.Dir(lockPath), 0o700); mkErr != nil {
 		return fn()
 	}
 

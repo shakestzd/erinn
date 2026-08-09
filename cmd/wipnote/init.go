@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -14,8 +12,8 @@ func initCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new wipnote project in the current directory",
-		Long: `Creates the .wipnote/ directory structure, initializes the SQLite
-database, and writes default configuration files.
+		Long: `Creates the .wipnote/ directory structure and writes default
+configuration files.
 
 Safe to run on an existing project — only missing pieces are created.`,
 		RunE: runInit,
@@ -34,17 +32,6 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	dbPath, err := storage.CanonicalDBPath(cwd)
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	if err := storage.EnsureDBDir(dbPath); err != nil {
-		return fmt.Errorf("create db dir: %w", err)
-	}
-	if err := initDatabase(dbPath); err != nil {
-		return err
-	}
-
 	if err := writeStylesCSS(graphDir); err != nil {
 		return err
 	}
@@ -56,7 +43,6 @@ func runInit(_ *cobra.Command, _ []string) error {
 	fmt.Println("  .wipnote/spikes/")
 	fmt.Println("  .wipnote/tracks/")
 	fmt.Println("  .wipnote/sessions/")
-	fmt.Printf("  %s\n", dbPath)
 	fmt.Println("  .wipnote/styles.css")
 	fmt.Println()
 	fmt.Println("Run 'wipnote status' to verify.")
@@ -73,14 +59,6 @@ func createSubdirs(graphDir string) error {
 		}
 	}
 	return nil
-}
-
-func initDatabase(dbPath string) error {
-	conn, err := db.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("initialize database: %w", err)
-	}
-	return conn.Close()
 }
 
 func writeStylesCSS(graphDir string) error {

@@ -548,9 +548,16 @@ func PermissionRequest(event *CloudEvent, database *sql.DB) (*HookResult, error)
 }
 
 // ConfigChange handles the ConfigChange Claude Code hook event.
-// Upserts the session's permission_mode into the sessions.metadata JSON column
-// so that YOLO detection can use a DB lookup instead of the .launch-mode file.
+//
+// It records the session's permission_mode durably so YOLO detection has a
+// posture to fall back on when a later event carries no permission_mode of its
+// own (isYoloFromRecordedMode). This used to UPDATE sessions.metadata in the
+// per-project read index; that index is gone, so the record now lives in the
+// session's own directory under .wipnote/ (yolo_guard.go).
+//
+// database is accepted for hook call-shape compatibility and unused.
 func ConfigChange(event *CloudEvent, database *sql.DB) (*HookResult, error) {
+	_ = database
 	if event.PermissionMode == "" {
 		return &HookResult{Continue: true}, nil
 	}
@@ -558,13 +565,14 @@ func ConfigChange(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	if sessionID == "" {
 		return &HookResult{Continue: true}, nil
 	}
-	_, err := database.Exec(
-		`UPDATE sessions SET metadata = json_set(COALESCE(metadata, '{}'), '$.permission_mode', ?) WHERE session_id = ?`,
-		event.PermissionMode, sessionID,
-	)
-	if err != nil {
-		projectDir := ResolveProjectDir(event.CWD, event.SessionID)
-		debugLog(projectDir, "[error] handler=config-change session=%s: update metadata: %v", sessionID[:minSessionLen(sessionID)], err)
+	projectDir := ResolveProjectDir(event.CWD, event.SessionID)
+	if projectDir == "" {
+		return &HookResult{Continue: true}, nil
+	}
+	wipnoteDir := filepath.Join(projectDir, ".wipnote")
+	if err := RecordSessionPermissionMode(wipnoteDir, sessionID, event.PermissionMode); err != nil {
+		debugLog(projectDir, "[error] handler=config-change session=%s: record permission mode: %v",
+			sessionID[:minSessionLen(sessionID)], err)
 	}
 	return &HookResult{Continue: true}, nil
 }

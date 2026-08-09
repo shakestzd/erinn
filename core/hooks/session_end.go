@@ -16,6 +16,7 @@ import (
 	"github.com/shakestzd/wipnote/core/claimledger"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 	"github.com/shakestzd/wipnote/core/worktree"
 )
 
@@ -662,14 +663,18 @@ var reconcileArtifactCommitFn = defaultReconcileArtifactCommit
 //     PortDriftPathsFn (see lifecycle_injection.go; feat-29195f33).
 //     Skipped when skipPortDrift is true (per-turn Stop path).
 //  3. started-but-orphaned → reported only.
+//
+// database is accepted for call-shape compatibility and IGNORED: both
+// item-shaped classes now read canonical state (reconcile_canonical.go), so a
+// nil handle no longer disables them — which it silently did for every caller,
+// since every caller passed nil once the project read index went away.
 func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift ...bool) (*ReconcileReport, error) {
-	_ = strict // detection is identical; strict only changes CLI exit semantics
+	_ = strict   // detection is identical; strict only changes CLI exit semantics
+	_ = database // canonical-only; see doc comment
 	rep := &ReconcileReport{}
 
-	if database != nil {
-		rep.AutoCommitted = reconcileDoneButUncommitted(database, projectDir)
-		rep.Orphaned = reconcileStartedButOrphaned(database, projectDir)
-	}
+	rep.AutoCommitted = reconcileDoneButUncommittedCanonical(projectDir)
+	rep.Orphaned = reconcileStartedButOrphanedCanonical(projectDir)
 	if len(skipPortDrift) == 0 || !skipPortDrift[0] {
 		rep.PortDrift = reconcilePortDrift(projectDir)
 	}
@@ -681,8 +686,8 @@ func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift .
 }
 
 // reconcileCheapClasses runs ONLY the latency-cheap reconcile classes — the
-// pure-SQL orphan scan and (unless skipped) the delegated port-drift check —
-// and deliberately OMITS reconcileDoneButUncommitted, whose per-item git fork
+// orphan scan and (unless skipped) the delegated port-drift check — and
+// deliberately OMITS the done-but-uncommitted class, whose per-item git fork
 // loop (git status/add/diff/commit over every dirty terminal artifact) is the
 // ~5.45s synchronous cost the Stop hot path used to pay on EVERY model response
 // (feat-c08d1ba1 slice-6, profiled at ~7.2s for 200 dirty done-features).
@@ -693,13 +698,15 @@ func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift .
 // deterministic side effect. Deferring it loses nothing as long as it still runs
 // eventually, which ReconcileDoneButUncommittedForProject guarantees via the
 // serve-side drain loop (mirrors the bug-504095f2 orphan-drain split). On the
-// per-turn Stop path skipPortDrift is also true, so this reduces to a single
-// pure-SQL query.
+// per-turn Stop path skipPortDrift is also true, so this reduces to the claim-
+// ledger orphan scan alone: a few small shard reads and a kill(pid,0) each,
+// which is the canonical equivalent of the single query it replaces.
+//
+// database is accepted for call-shape compatibility and ignored (see Reconcile).
 func reconcileCheapClasses(database *sql.DB, projectDir string, skipPortDrift bool) (*ReconcileReport, error) {
+	_ = database
 	rep := &ReconcileReport{}
-	if database != nil {
-		rep.Orphaned = reconcileStartedButOrphaned(database, projectDir)
-	}
+	rep.Orphaned = reconcileStartedButOrphanedCanonical(projectDir)
 	if !skipPortDrift {
 		rep.PortDrift = reconcilePortDrift(projectDir)
 	}
@@ -714,132 +721,19 @@ func reconcileCheapClasses(database *sql.DB, projectDir string, skipPortDrift bo
 // serve-side writer daemon calls it on a low-frequency loop (startReconcileDrainLoop)
 // so the deterministic artifact auto-commit the Stop hook no longer performs
 // synchronously still completes — exactly the split bug-504095f2 used for the
-// orphan sweep. Best-effort: a nil DB is a no-op. Returns the list of work-item
-// IDs whose artifacts were committed this pass.
+// orphan sweep. Returns the list of work-item IDs whose artifacts were committed
+// this pass.
 //
-// Finding 2 (roborev-478 round-3): the doc says "no cap" but it formerly
-// delegated to reconcileDoneButUncommitted, which scans only the newest 500
-// terminal items per status — so once the newest 500 are clean, an OLDER dirty
-// artifact was permanently hidden on this serve-drain path. The serve drain now
-// uses the PAGINATED scan (reconcileDoneButUncommittedPaged) so every dirty
-// terminal artifact is eventually reconciled, regardless of how many terminal
-// items exist. The hot Stop path is unchanged (it never calls this — it runs
-// reconcileCheapClasses), so the "Stop hot path stays cheap" guarantee holds.
+// The "no cap" claim is now structural rather than a paging loop: the canonical
+// scan enumerates DIRTY artifacts and reads only their status, so there is no
+// newest-N window an older dirty artifact can fall below (the defect roborev-478
+// finding 2 had to page around). The hot Stop path is unchanged — it never calls
+// this, it runs reconcileCheapClasses.
+//
+// database is accepted for call-shape compatibility and ignored (see Reconcile).
 func ReconcileDoneButUncommittedForProject(database *sql.DB, projectDir string) []string {
-	if database == nil {
-		return nil
-	}
-	return reconcileDoneButUncommittedPaged(database, projectDir)
-}
-
-// reconcileTerminalArtifactPageSize is the page size used by the serve-side
-// paginated drain. It matches the historical synchronous cap so per-query cost
-// is unchanged; the difference is the drain keeps paging until a status is
-// exhausted rather than stopping after the first (newest) page.
-const reconcileTerminalArtifactPageSize = 500
-
-// reconcileDoneButUncommitted finds work items in a terminal state whose
-// canonical artifact (.wipnote/<type>s/<id>.html) is dirty in git, and
-// auto-commits each one. It scans only the newest 500 terminal items per status
-// — a BOUNDED cost suitable for the SYNCHRONOUS `wipnote reconcile` CLI /
-// Reconcile() callers, where unbounded interactive latency would be worse than
-// deferring an old dirty artifact to the serve drain. The deferred serve drain
-// (ReconcileDoneButUncommittedForProject) uses the uncapped paginated scan so
-// nothing is permanently hidden. Returns the list of committed item IDs.
-func reconcileDoneButUncommitted(database *sql.DB, projectDir string) []string {
-	repoRoot := reconcileRepoRoot(projectDir)
-	if repoRoot == "" {
-		return nil
-	}
-	wipnoteDir := filepath.Join(repoRoot, ".wipnote")
-
-	var committed []string
-	for _, status := range []string{"done", "ended"} {
-		feats, err := db.ListFeaturesByStatus(database, status, reconcileTerminalArtifactPageSize)
-		if err != nil {
-			continue
-		}
-		committed = append(committed, commitDirtyTerminalArtifacts(repoRoot, wipnoteDir, feats)...)
-	}
-	return committed
-}
-
-// reconcileDoneButUncommittedPaged is the UNCAPPED serve-drain scan: it pages
-// through EVERY terminal item per status (created_at DESC, id ASC) committing
-// each dirty artifact, so an old dirty terminal artifact below the newest-500
-// window is no longer permanently skipped (roborev-478 finding 2). Only the
-// low-frequency serve drain uses it; the Stop hot path never reaches here.
-func reconcileDoneButUncommittedPaged(database *sql.DB, projectDir string) []string {
-	repoRoot := reconcileRepoRoot(projectDir)
-	if repoRoot == "" {
-		return nil
-	}
-	wipnoteDir := filepath.Join(repoRoot, ".wipnote")
-
-	var committed []string
-	for _, status := range []string{"done", "ended"} {
-		for offset := 0; ; offset += reconcileTerminalArtifactPageSize {
-			feats, err := db.ListFeaturesByStatusPaged(database, status, reconcileTerminalArtifactPageSize, offset)
-			if err != nil {
-				break
-			}
-			committed = append(committed, commitDirtyTerminalArtifacts(repoRoot, wipnoteDir, feats)...)
-			if len(feats) < reconcileTerminalArtifactPageSize {
-				break // last (short) page — status exhausted
-			}
-		}
-	}
-	return committed
-}
-
-// commitDirtyTerminalArtifacts auto-commits the canonical artifact of each
-// terminal feature whose .wipnote/<type>s/<id>.html is dirty in git. Shared by
-// the capped synchronous scan and the uncapped paginated serve drain. Returns
-// the IDs whose artifacts were committed this call.
-func commitDirtyTerminalArtifacts(repoRoot, wipnoteDir string, feats []db.Feature) []string {
-	var committed []string
-	for _, f := range feats {
-		sub := f.Type + "s"
-		rel := filepath.Join(".wipnote", sub, f.ID+".html")
-		abs := filepath.Join(wipnoteDir, sub, f.ID+".html")
-		if !reconcilePathDirty(repoRoot, abs) {
-			continue
-		}
-		if reconcileArtifactCommitFn(repoRoot, abs, rel, f.ID) {
-			committed = append(committed, f.ID)
-		}
-	}
-	return committed
-}
-
-// reconcileStartedButOrphaned reports in-progress work items whose owning
-// session is no longer active (the agent started the item, then the session
-// ended without completing it). Reported only — never auto-resolved, because
-// silently re-opening or completing an in-flight item would corrupt state.
-func reconcileStartedButOrphaned(database *sql.DB, _ string) []string {
-	rows, err := database.Query(`
-		SELECT f.id
-		FROM features f
-		WHERE f.status IN ('in-progress', 'active')
-		  AND NOT EXISTS (
-		      SELECT 1 FROM sessions s
-		      WHERE s.active_feature_id = f.id
-		        AND s.status = 'active'
-		  )
-		ORDER BY f.id`)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-
-	var orphaned []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err == nil {
-			orphaned = append(orphaned, id)
-		}
-	}
-	return orphaned
+	_ = database
+	return reconcileDoneButUncommittedCanonical(projectDir)
 }
 
 // reconcilePortDrift delegates to the injected PortDriftPathsFn
@@ -1152,6 +1046,14 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 		if !SessionReapEligible(heartbeatStale, sessDir) {
 			continue
 		}
+		// A session already closed in the CANONICAL ledger has been reaped, by
+		// this pass or an earlier one in another process. Skipping it is what
+		// terminates the reap loop: the projection's own status is per-process
+		// and tells the next process nothing, so without this the same dead
+		// session is rediscovered and re-reaped forever.
+		if sessionLedgerClosed(projectDir, sid) {
+			continue
+		}
 		if reportOnly {
 			// Dry-run: record the would-reap set; perform no UPDATE.
 			rep.ReapedSessions = append(rep.ReapedSessions, sid)
@@ -1180,6 +1082,14 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 			} else if released > 0 {
 				debugLog(projectDir, "[reaper] released %d claims for reaped session %s", released, sid[:minLen(sid, 8)])
 			}
+			// Stamp the end on the CANONICAL session ledger. Everything above
+			// this line writes to the compatibility projection, which is
+			// process-local — so without this the reap is invisible to the next
+			// process, which rehydrates the session from the ledger as still
+			// open (reindex_session_ledger.go derives status from
+			// Record.IsOpen()), finds it stale, and reaps it again. This is the
+			// write that makes a reap stick.
+			recordSessionLedgerClose(projectDir, sid, time.Now().UTC())
 			// The reaped session died without reporting anything: its episodes
 			// are "expired", not "abandoned". This is the path that catches a
 			// hard kill, where neither SessionEnd nor the release path ran.
@@ -1263,6 +1173,21 @@ func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID st
 		return nil
 	}
 	return discriminateReconcile(rep, harness, projectDir, sessionID)
+}
+
+// sessionLedgerClosed reports whether the canonical session ledger already
+// records an end for sessionID. A missing row answers false — legacy sessions
+// that predate the ledger must stay reapable, and a row that does not exist
+// cannot be the source of a repeat-reap loop anyway.
+func sessionLedgerClosed(projectDir, sessionID string) bool {
+	if projectDir == "" || sessionID == "" {
+		return false
+	}
+	rec, found, err := sessionledger.NewStore(filepath.Join(projectDir, ".wipnote")).Get(sessionID)
+	if err != nil || !found {
+		return false
+	}
+	return !rec.IsOpen()
 }
 
 // discriminateReconcile applies the harness discriminator to an already-

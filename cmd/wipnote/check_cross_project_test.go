@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,37 +100,29 @@ func TestCheckCrossProject_ReportsForForeignGitRemote(t *testing.T) {
 	}
 }
 
-// TestCheckCrossProject_FixDeletesSessions verifies that --fix deletes foreign
-// sessions and their events from the database.
-func TestCheckCrossProject_FixDeletesSessions(t *testing.T) {
-	hgDir, database := setupCrossProjectDB(t)
-	defer database.Close()
-
-	projectRoot := filepath.Dir(hgDir)
-
-	insertTestSession(t, database, "sess-local-001", projectRoot, "")
-	insertTestSession(t, database, "sess-foreign-001", "/other/project", "")
-
-	foreign, _, err := queryForeignSessions(database, projectRoot, "")
+// TestCheckCrossProject_ReportOnly pins the removal of --fix (feat-fc3cc9e0).
+//
+// The command used to delete the reported rows from `sessions` and
+// `agent_events`. Those tables are now a per-process projection hydrated from
+// the canonical session ledger, so the DELETE hit a throwaway database and
+// every "deleted" row came back on the next openDB. Detection was never the
+// broken half and is still asserted by the tests above; what this asserts is
+// that no delete path remains to promise otherwise.
+func TestCheckCrossProject_ReportOnly(t *testing.T) {
+	data, err := os.ReadFile("check_cross_project.go")
 	if err != nil {
-		t.Fatalf("queryForeignSessions: %v", err)
+		t.Fatalf("read check_cross_project.go: %v", err)
 	}
-
-	deleted, err := deleteForeignSessions(database, foreign)
-	if err != nil {
-		t.Fatalf("deleteForeignSessions: %v", err)
-	}
-	if deleted != 1 {
-		t.Errorf("expected 1 deleted session, got %d", deleted)
-	}
-
-	// Verify local session still exists.
-	_, total, err := queryForeignSessions(database, projectRoot, "")
-	if err != nil {
-		t.Fatalf("queryForeignSessions after fix: %v", err)
-	}
-	if total != 1 {
-		t.Errorf("expected 1 remaining session after fix, got %d", total)
+	src := string(data)
+	for _, forbidden := range []string{
+		"deleteForeignSessions",
+		"DELETE FROM sessions",
+		"DELETE FROM agent_events",
+		`"fix"`,
+	} {
+		if strings.Contains(src, forbidden) {
+			t.Errorf("check_cross_project.go still references %q — the report must not offer a remedy it cannot deliver", forbidden)
+		}
 	}
 }
 

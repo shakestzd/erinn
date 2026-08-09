@@ -10,7 +10,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
 // setupOrphanTestRepo creates a git repo with commits referencing feat-AAAAAAAA.
@@ -76,52 +76,6 @@ func insertTestFeature(t *testing.T, db *sql.DB, id string) {
 	}
 }
 
-// TestFindOrphanFeatures_ReturnsZeroFileFeatures verifies that a feature with no
-// feature_files rows is returned as an orphan.
-func TestFindOrphanFeatures_ReturnsZeroFileFeatures(t *testing.T) {
-	db := openTestDB(t)
-	insertTestFeature(t, db, "feat-aaaaaaaa")
-	insertTestFeature(t, db, "feat-bbbbbbbb")
-
-	// Give feat-bbbbbbbb a feature_files row so it is not an orphan.
-	if err := dbpkg.UpsertFeatureFile(db, &models.FeatureFile{
-		ID: "feat-bbbbbbbb-x-y", FeatureID: "feat-bbbbbbbb", FilePath: "some/file.go", Operation: "test",
-	}); err != nil {
-		t.Fatalf("UpsertFeatureFile: %v", err)
-	}
-
-	orphans, err := findOrphanFeatures(db)
-	if err != nil {
-		t.Fatalf("findOrphanFeatures: %v", err)
-	}
-	if len(orphans) != 1 {
-		t.Fatalf("expected 1 orphan, got %d: %v", len(orphans), orphans)
-	}
-	if orphans[0].id != "feat-aaaaaaaa" {
-		t.Errorf("expected feat-aaaaaaaa, got %q", orphans[0].id)
-	}
-}
-
-// TestFindOrphanFeatures_EmptyWhenAllAttributed verifies no orphans returned when
-// all features have file rows.
-func TestFindOrphanFeatures_EmptyWhenAllAttributed(t *testing.T) {
-	db := openTestDB(t)
-	insertTestFeature(t, db, "feat-cccccccc")
-	if err := dbpkg.UpsertFeatureFile(db, &models.FeatureFile{
-		ID: "feat-cccccccc-x-y", FeatureID: "feat-cccccccc", FilePath: "main.go", Operation: "test",
-	}); err != nil {
-		t.Fatalf("UpsertFeatureFile: %v", err)
-	}
-
-	orphans, err := findOrphanFeatures(db)
-	if err != nil {
-		t.Fatalf("findOrphanFeatures: %v", err)
-	}
-	if len(orphans) != 0 {
-		t.Errorf("expected 0 orphans, got %d: %v", len(orphans), orphans)
-	}
-}
-
 // TestFindCommitsForFeature_ThreeCommits verifies that 3 commits referencing
 // feat-aaaaaaaa are all found.
 func TestFindCommitsForFeature_ThreeCommits(t *testing.T) {
@@ -169,75 +123,6 @@ func TestFindCommitsForFeature_FilesIndexed(t *testing.T) {
 			t.Errorf("expected file %q not found; all files: %v", expected, allFiles)
 		}
 	}
-}
-
-// TestInsertFeatureFileRows_WriteMode verifies that --write inserts rows.
-func TestInsertFeatureFileRows_WriteMode(t *testing.T) {
-	dir, _ := setupOrphanTestRepo(t)
-	db := openTestDB(t)
-	insertTestFeature(t, db, "feat-aaaaaaaa")
-
-	matches, err := findCommitsForFeature(dir, "feat-aaaaaaaa")
-	if err != nil {
-		t.Fatalf("findCommitsForFeature: %v", err)
-	}
-	if len(matches) == 0 {
-		t.Fatal("no matches found — test setup failed")
-	}
-
-	inserted, err := insertFeatureFileRows(db, "feat-aaaaaaaa", matches)
-	if err != nil {
-		t.Fatalf("insertFeatureFileRows: %v", err)
-	}
-	if inserted == 0 {
-		t.Error("expected rows to be inserted, got 0")
-	}
-
-	rows, err := dbpkg.ListFilesByFeature(db, "feat-aaaaaaaa")
-	if err != nil {
-		t.Fatalf("ListFilesByFeature: %v", err)
-	}
-	if len(rows) == 0 {
-		t.Error("no feature_files rows found after insert")
-	}
-
-	// Verify files include at least alpha.go, beta/beta.go, gamma.go.
-	paths := make(map[string]bool)
-	for _, r := range rows {
-		paths[r.FilePath] = true
-	}
-	for _, expected := range []string{"alpha.go", "beta/beta.go", "gamma.go"} {
-		if !paths[expected] {
-			t.Errorf("expected file %q not found in feature_files; got %v", expected, paths)
-		}
-	}
-}
-
-// TestInsertFeatureFileRows_Idempotent verifies that re-running produces no new rows.
-func TestInsertFeatureFileRows_Idempotent(t *testing.T) {
-	dir, _ := setupOrphanTestRepo(t)
-	db := openTestDB(t)
-	insertTestFeature(t, db, "feat-aaaaaaaa")
-
-	matches, err := findCommitsForFeature(dir, "feat-aaaaaaaa")
-	if err != nil {
-		t.Fatalf("findCommitsForFeature: %v", err)
-	}
-
-	inserted1, _ := insertFeatureFileRows(db, "feat-aaaaaaaa", matches)
-	inserted2, _ := insertFeatureFileRows(db, "feat-aaaaaaaa", matches)
-
-	if inserted1 == 0 {
-		t.Error("first run: expected > 0 rows inserted")
-	}
-	// Second run: UpsertFeatureFile uses ON CONFLICT DO UPDATE so it still "succeeds"
-	// but the row count in the DB should remain the same.
-	rows1, _ := dbpkg.ListFilesByFeature(db, "feat-aaaaaaaa")
-	rows2, _ := dbpkg.ListFilesByFeature(db, "feat-aaaaaaaa")
-	if len(rows1) != len(rows2) {
-		t.Errorf("idempotency: row count changed from %d to %d", len(rows1), len(rows2))
-	}
-	_ = inserted2
 }
 
 // TestCommitReferencesFeature_FalseMatchGuard verifies that a longer ID
@@ -334,4 +219,142 @@ func TestCommitReferencesFeature_RefsTrailer(t *testing.T) {
 	if !commitReferencesFeature("", msg, "feat-aaaaaaaa") {
 		t.Error("expected match for Refs: trailer")
 	}
+}
+
+// writeOrphanTestItem writes a minimal canonical work-item HTML file into the
+// right collection subdir. When affectedFiles is non-empty it is emitted as the
+// data-affected_files attribute, which is how the node-property wire format
+// encodes an attribute-safe string key (core/htmlparse/node_props.go).
+func writeOrphanTestItem(t *testing.T, wipnoteDir, id, subdir, affectedFiles string) {
+	t.Helper()
+	dir := filepath.Join(wipnoteDir, subdir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	nodeType := strings.TrimSuffix(subdir, "s")
+	attrs := ""
+	if affectedFiles != "" {
+		attrs = ` data-affected_files="` + affectedFiles + `"`
+	}
+	html := `<!DOCTYPE html><html><body><article id="` + id +
+		`" data-type="` + nodeType + `" data-status="todo" data-priority="medium"` + attrs +
+		`><h1>Test ` + id + `</h1></article></body></html>`
+	if err := os.WriteFile(filepath.Join(dir, id+".html"), []byte(html), 0o644); err != nil {
+		t.Fatalf("write %s: %v", id, err)
+	}
+}
+
+// TestFindOrphanWorkItems_ReturnsItemsWithNoAffectedFiles pins the orphan set to
+// the canonical artifacts: an item is an orphan when its HTML declares no
+// affected_files, regardless of any derived index.
+func TestFindOrphanWorkItems_ReturnsItemsWithNoAffectedFiles(t *testing.T) {
+	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")
+	writeOrphanTestItem(t, wipnoteDir, "feat-aaaaaaaa", "features", "")
+	writeOrphanTestItem(t, wipnoteDir, "feat-bbbbbbbb", "features", "some/file.go")
+	writeOrphanTestItem(t, wipnoteDir, "bug-cccccccc", "bugs", "")
+
+	orphans, err := findOrphanWorkItems(wipnoteDir)
+	if err != nil {
+		t.Fatalf("findOrphanWorkItems: %v", err)
+	}
+	var ids []string
+	for _, o := range orphans {
+		ids = append(ids, o.id)
+	}
+	want := []string{"bug-cccccccc", "feat-aaaaaaaa"}
+	if len(ids) != len(want) {
+		t.Fatalf("orphans = %v, want %v", ids, want)
+	}
+	for i := range want {
+		if ids[i] != want[i] {
+			t.Fatalf("orphans = %v, want %v (sorted)", ids, want)
+		}
+	}
+}
+
+// TestFindOrphanWorkItems_EmptyWhenAllAttributed is the negative case: nothing
+// is an orphan once every item carries attribution.
+func TestFindOrphanWorkItems_EmptyWhenAllAttributed(t *testing.T) {
+	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")
+	writeOrphanTestItem(t, wipnoteDir, "feat-cccccccc", "features", "main.go")
+	writeOrphanTestItem(t, wipnoteDir, "spk-dddddddd", "spikes", "notes.md")
+
+	orphans, err := findOrphanWorkItems(wipnoteDir)
+	if err != nil {
+		t.Fatalf("findOrphanWorkItems: %v", err)
+	}
+	if len(orphans) != 0 {
+		t.Errorf("expected 0 orphans, got %v", orphans)
+	}
+}
+
+// TestDistinctFilesFromMatches verifies the flattening: one entry per file, not
+// one per (commit, file) pair, sorted for a stable property value.
+func TestDistinctFilesFromMatches(t *testing.T) {
+	matches := []commitMatch{
+		{hash: "aaa", files: []fileStats{{path: "b.go"}, {path: "a.go"}}},
+		{hash: "bbb", files: []fileStats{{path: "a.go"}, {path: "c.go"}, {path: ""}}},
+	}
+	got := distinctFilesFromMatches(matches)
+	want := []string{"a.go", "b.go", "c.go"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("distinctFilesFromMatches = %v, want %v", got, want)
+	}
+}
+
+// TestBackfillOrphansWritesAffectedFilesToHTML is the end-to-end proof that the
+// backfill lands somewhere durable: it runs the real command against a real git
+// repo and then re-reads the work item off disk. This is what the old
+// feature_files insert could not do — its rows never outlived the process.
+func TestBackfillOrphansWritesAffectedFilesToHTML(t *testing.T) {
+	repoDir, _ := setupOrphanTestRepo(t)
+	wipnoteDir := filepath.Join(repoDir, ".wipnote")
+	writeOrphanTestItem(t, wipnoteDir, "feat-aaaaaaaa", "features", "")
+
+	isolateProjectDir(t, repoDir)
+
+	cmd := reindexBackfillOrphansCmd()
+	if err := cmd.Flags().Set("write", "true"); err != nil {
+		t.Fatalf("set --write: %v", err)
+	}
+	withWorkingDir(t, repoDir, func() {
+		if err := runReindexBackfillOrphans(cmd, nil); err != nil {
+			t.Fatalf("runReindexBackfillOrphans: %v", err)
+		}
+	})
+
+	node, err := htmlparse.ParseFile(filepath.Join(wipnoteDir, "features", "feat-aaaaaaaa.html"))
+	if err != nil {
+		t.Fatalf("re-read work item: %v", err)
+	}
+	got := nodeAffectedFiles(node)
+	for _, want := range []string{"alpha.go", "beta/beta.go", "gamma.go"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("affected_files = %q, missing %q", got, want)
+		}
+	}
+
+	// Second pass: the item is no longer an orphan, so it is not revisited.
+	orphans, err := findOrphanWorkItems(wipnoteDir)
+	if err != nil {
+		t.Fatalf("findOrphanWorkItems: %v", err)
+	}
+	if len(orphans) != 0 {
+		t.Errorf("expected the backfilled item to stop being an orphan, got %v", orphans)
+	}
+}
+
+// isolateProjectDir pins every project-dir resolution inside the test to dir.
+//
+// This is not optional hygiene. paths.ResolveProjectDir consults
+// WIPNOTE_PROJECT_DIR (priority 2) and CLAUDE_PROJECT_DIR (priority 3) BEFORE
+// it ever looks at the working directory (priority 5), and both are set in any
+// shell running under a wipnote launcher — including the one running `go test`.
+// A test that calls a command entry point without pinning them therefore runs
+// against the developer's real .wipnote/, and a command that writes will write
+// there. Chdir alone does not protect you.
+func isolateProjectDir(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("WIPNOTE_PROJECT_DIR", dir)
+	t.Setenv("CLAUDE_PROJECT_DIR", dir)
 }

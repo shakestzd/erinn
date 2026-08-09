@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
-	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // archiveOneFeature seeds a done feature (optionally edged to a track), commits,
@@ -77,57 +75,37 @@ func TestArchive_FindScopedIncludesButListExcludes(t *testing.T) {
 	}
 }
 
-// F3: an incremental reindex window that includes an archive-ledger change must
-// fall back to the full (ledger-aware) path; archiveLedgerChangedSince is the gate.
-func TestArchive_IncrementalDetectsLedgerChange(t *testing.T) {
-	repoRoot, wipnoteDir := setupArchiveRepo(t)
-	writeDoneFeature(t, wipnoteDir, "feat-aabbccdd", "Archived feature", 60*24*time.Hour, "")
-	commitAll(t, repoRoot)
-	preArchive := gitHeadCommit(repoRoot)
+// F3 (TestArchive_IncrementalDetectsLedgerChange) is gone. It asserted that an
+// incremental reindex window containing an archive-ledger change fell back to
+// the full, ledger-aware path — archiveLedgerChangedSince was that gate. The
+// incremental path and its gate were both deleted with the persistent index
+// they served (feat-fc3cc9e0); every rebuild is now full and ledger-aware by
+// construction, which is what F4 below checks directly.
 
-	if err := runArchive(true, defaultArchiveAgeDays); err != nil {
-		t.Fatalf("runArchive apply: %v", err)
-	}
-
-	if !archiveLedgerChangedSince(repoRoot, wipnoteDir, preArchive) {
-		t.Errorf("archiveLedgerChangedSince should be true after an archive commit (forces full reindex)")
-	}
-	// A commit window with no ledger change must NOT force full.
-	postArchive := gitHeadCommit(repoRoot)
-	if archiveLedgerChangedSince(repoRoot, wipnoteDir, postArchive) {
-		t.Errorf("archiveLedgerChangedSince should be false when nothing changed since HEAD")
-	}
-}
-
-// F4: the cold/lazy full rebuild (runFullSyncReindex) must include archived
-// items in the features table and preserve their lineage edges.
+// F4: the projection rebuild must include archived items in the features table
+// and preserve their lineage edges. openDB hydrates from canonical artifacts,
+// which is the only rebuild there is now (feat-fc3cc9e0) — it replaced
+// runFullSyncReindex, whose staleness check had no meaning once the projection
+// stopped surviving between processes.
 func TestArchive_LazyColdRebuildIncludesArchived(t *testing.T) {
 	_, wipnoteDir := archiveOneFeature(t, "feat-aabbccdd", "trk-hostaaaa")
 
-	if err := runFullSyncReindex(wipnoteDir); err != nil {
-		t.Fatalf("runFullSyncReindex: %v", err)
-	}
-
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
+	database, err := openDB(wipnoteDir)
 	if err != nil {
-		t.Fatalf("resolve db path: %v", err)
-	}
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
+		t.Fatalf("openDB: %v", err)
 	}
 	defer database.Close()
 
 	var featCount int
 	database.QueryRow(`SELECT COUNT(*) FROM features WHERE id = ?`, "feat-aabbccdd").Scan(&featCount)
 	if featCount != 1 {
-		t.Errorf("cold rebuild did not index the archived feature (count=%d)", featCount)
+		t.Errorf("rebuild did not index the archived feature (count=%d)", featCount)
 	}
 	var edgeCount int
 	database.QueryRow(`SELECT COUNT(*) FROM graph_edges WHERE from_node_id = ? AND to_node_id = ?`,
 		"feat-aabbccdd", "trk-hostaaaa").Scan(&edgeCount)
 	if edgeCount != 1 {
-		t.Errorf("cold rebuild lost archived item's lineage edge (count=%d)", edgeCount)
+		t.Errorf("rebuild lost archived item's lineage edge (count=%d)", edgeCount)
 	}
 }
 

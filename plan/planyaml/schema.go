@@ -10,6 +10,7 @@ type PlanYAML struct {
 	Slices    []PlanSlice    `yaml:"slices"`
 	Questions []PlanQuestion `yaml:"questions"`
 	Critique  *PlanCritique  `yaml:"critique,omitempty"`
+	Feedback  *PlanFeedback  `yaml:"feedback,omitempty"`
 }
 
 // PlanMeta holds plan identity and lifecycle metadata.
@@ -212,6 +213,29 @@ type PlanAnnotation struct {
 	Consumed         bool   `json:"consumed"`
 	Resolved         bool   `json:"resolved"`
 	ResolutionTarget string `json:"resolution_target,omitempty"`
+}
+
+// PlanFeedback is the canonical durable review/chat state for a YAML plan.
+// Entries mirror the historical plan_feedback table tuple
+// (section, action, question_id), preserving the page client's exact
+// data-section/data-action/question/block-anchor contract without requiring a
+// persistent project DB.
+type PlanFeedback struct {
+	Entries []PlanFeedbackEntry `yaml:"entries,omitempty"`
+}
+
+// PlanFeedbackEntry is one upsertable feedback fact.
+type PlanFeedbackEntry struct {
+	Section          string `yaml:"section"`
+	Action           string `yaml:"action"`
+	Value            string `yaml:"value,omitempty"`
+	QuestionID       string `yaml:"question_id,omitempty"`
+	Anchor           string `yaml:"anchor,omitempty"`
+	Consumed         bool   `yaml:"consumed,omitempty"`
+	Resolved         bool   `yaml:"resolved,omitempty"`
+	ResolutionTarget string `yaml:"resolution_target,omitempty"`
+	CreatedAt        string `yaml:"created_at,omitempty"`
+	UpdatedAt        string `yaml:"updated_at,omitempty"`
 }
 
 // BlockSpec describes the required shape of one block Type. It is consumed by

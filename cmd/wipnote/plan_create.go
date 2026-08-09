@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
@@ -494,6 +495,14 @@ func updatePlanStatus(wipnoteDir, planID, newStatus string) error {
 	}
 	yamlPath := strings.TrimSuffix(htmlPath, ".html") + ".yaml"
 
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(yamlPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(yamlPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(yamlPath)
 	if err != nil {
 		return fmt.Errorf("load plan YAML: %w", err)
@@ -501,7 +510,7 @@ func updatePlanStatus(wipnoteDir, planID, newStatus string) error {
 
 	plan.Meta.Status = newStatus
 
-	if err := planyaml.Save(yamlPath, plan); err != nil {
+	if err := planyaml.SaveLocked(yamlPath, plan); err != nil {
 		return fmt.Errorf("save plan YAML: %w", err)
 	}
 	return nil

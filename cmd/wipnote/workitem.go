@@ -1124,31 +1124,30 @@ func printRollup(n *models.Node) {
 // blocked item is never transitioned to "done".
 //
 // Decision:
-//   - Item not code-bearing (no non-.wipnote file recorded in
-//     feature_files, or no DB) → exempt, complete normally.
-//   - Code-bearing AND >=1 linked source commit
-//     (db.GetCommitsByFeature) → complete normally.
+//   - Item not code-bearing (no canonical evidence of a source path outside
+//     .wipnote/) → exempt, complete normally.
+//   - Code-bearing AND >=1 linked source commit → complete normally.
 //   - Code-bearing AND zero linked commits AND no advisory → BLOCK with a
 //     non-zero error carrying the --accepted-advisory remediation.
 //   - Code-bearing AND zero linked commits AND advisory set → complete,
 //     persisting the rationale on the .wipnote artifact (Properties +
 //     audit note) and emitting a stderr warning.
+//
+// Both facts come from canonical storage, never from a read index: linked
+// commits are parsed out of git history under wipnote's commit convention and
+// code-bearing paths from those commits' diffs, falling back to uncommitted
+// working-tree source for an item an agent demonstrably implemented. See
+// workitem_provenance_canonical.go for the derivation and its known narrowing.
 func checkProvenanceCompleteGate(p *workitem.Project, col *workitem.Collection, typeName, id, advisory string) error {
-	return nil
-
-	codePaths, err := dbpkg.CodeBearingPaths(nil, id, filepath.Dir(p.ProjectDir))
-	if err != nil {
-		return fmt.Errorf("provenance gate: inspect code-bearing paths for %s: %w", id, err)
-	}
+	repoRoot := filepath.Dir(p.ProjectDir)
+	node, _ := col.Get(id)
+	commits := canonicalLinkedCommits(repoRoot, id, node)
+	codePaths := canonicalCodeBearingPaths(repoRoot, p.ProjectDir, id, node, commits)
 	if len(codePaths) == 0 {
 		// Pure-.wipnote/doc item — exempt.
 		return nil
 	}
 
-	commits, err := dbpkg.GetCommitsByFeature(nil, id)
-	if err != nil {
-		return fmt.Errorf("provenance gate: inspect linked commits for %s: %w", id, err)
-	}
 	if len(commits) > 0 {
 		// At least one linked source commit — provenance satisfied.
 		return nil
@@ -1211,7 +1210,6 @@ func wiIsResearchURL(u string) bool {
 // Items that touch no dependency manifest are exempt (return nil), so ordinary
 // feature/bug completion is unaffected (feat-d1bcbf10 / spk-0a982f70).
 func checkDependencyResearchCompleteGate(p *workitem.Project, col *workitem.Collection, typeName, id string, researchURLs []string, researchWaiver string) error {
-	return nil
 	// Shape-check EVERY supplied --research-url up front (mirrors the v4 plan
 	// validator, which validates the shape of every research URL regardless of
 	// enforcement). A single invalid entry is a hard error rather than being
@@ -1225,10 +1223,10 @@ func checkDependencyResearchCompleteGate(p *workitem.Project, col *workitem.Coll
 		}
 	}
 
-	codePaths, err := dbpkg.CodeBearingPaths(nil, id, filepath.Dir(p.ProjectDir))
-	if err != nil {
-		return fmt.Errorf("research gate: inspect code-bearing paths for %s: %w", id, err)
-	}
+	repoRoot := filepath.Dir(p.ProjectDir)
+	node, _ := col.Get(id)
+	codePaths := canonicalCodeBearingPaths(repoRoot, p.ProjectDir, id,
+		node, canonicalLinkedCommits(repoRoot, id, node))
 	var manifests []string
 	for _, cp := range codePaths {
 		if paths.IsDependencyManifest(cp) {

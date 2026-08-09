@@ -298,14 +298,18 @@ func formatCensus(census map[censusEdge]censusRow) string {
 	return strings.Join(lines, "\n")
 }
 
-func deleteCacheDB(t *testing.T, projectDir string) {
+// deleteCacheDB used to remove the per-project SQLite cache (plus its -wal and
+// -shm sidecars) so the next pass was a genuine from-scratch rebuild. No such
+// file exists any more (feat-fc3cc9e0) and there is nothing to delete: every
+// projection is built in memory from canonical files and destroyed with the
+// process, so EVERY rebuild is already from scratch.
+//
+// It is kept as a no-op rather than deleted from the call sites because the
+// call sites still read correctly — "destroy the index here, then rebuild" is
+// exactly what the tests below are demonstrating, and the line marks where the
+// destruction used to be needed to make the following rebuild cold.
+func deleteCacheDB(t *testing.T, _ string) {
 	t.Helper()
-	dbPath := cachedDBPath(t, projectDir)
-	if err := os.Remove(dbPath); err != nil {
-		t.Fatalf("remove cache db: %v", err)
-	}
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
 }
 
 // TestReindex_EdgeCensusIdenticalOnRebuildFromUnchangedHTML is the exit

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
@@ -70,6 +71,17 @@ Example:
 // override is visible in the plan history.
 func promoteSliceFromYAML(wipnoteDir, planID string, sliceNum int, waiveDeps, allowSpecSkip bool) (string, error) {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0): promote-slice reads the plan, does feature creation and
+	// edge wiring in between, then saves the whole document back. A bare
+	// Load-then-Save let two concurrent writers interleave and the second
+	// save silently clobber the first. Mirrors storePlanFeedbackEntry.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return "", fmt.Errorf("load plan: %w", err)
@@ -131,9 +143,20 @@ func promoteSliceFromYAML(wipnoteDir, planID string, sliceNum int, waiveDeps, al
 	// Idempotent: if feature_id already set, reuse it.
 	if slice.FeatureID != "" {
 		// Still refresh execution_status='promoted' in case it was lost.
-		// Best-effort: a failure here is not fatal (the feature_id already
-		// proves promotion happened) but operators should see DB write errors.
-		if err := dbpkg.StorePlanFeedback(db, planID, sectionKey, "set_execution_status", "promoted", ""); err != nil {
+		// Record it on the plan already loaded/locked above and persist via
+		// SaveLocked — this used to be dbpkg.StorePlanFeedback(db, ...)
+		// against the ephemeral :memory: handle openPlanDB just opened
+		// (OpenEphemeralProjection). That handle is closed (defer db.Close()
+		// above) the moment this function returns and was NEVER read by
+		// anything else in the meantime, so re-promoting an already-promoted
+		// slice persisted nothing at all — a live bug, not a test artifact
+		// (feat-fc3cc9e0). recordExecutionStatus mirrors what
+		// storePlanFeedbackEntry's upsertPlanFeedback+mirrorPlanFeedback do,
+		// but writes straight into the plan this function already holds
+		// planyaml.LockPlanForWrite on; calling storePlanFeedback here would
+		// re-enter that same non-reentrant lock and deadlock.
+		recordExecutionStatus(plan, sectionKey, "promoted")
+		if err := planyaml.SaveLocked(planPath, plan); err != nil {
 			fmt.Fprintf(stderr, "promote-slice: refresh execution_status warning: %v\n", err)
 		}
 		return slice.FeatureID, nil
@@ -193,16 +216,15 @@ func promoteSliceFromYAML(wipnoteDir, planID string, sliceNum int, waiveDeps, al
 		}
 	}
 
-	// Write feature_id back to YAML and set execution_status.
+	// Write feature_id back to YAML and record execution_status (both
+	// plan.Feedback.Entries and slice.ExecutionStatus, via
+	// recordExecutionStatus) on the plan already loaded/locked above, then
+	// persist once. See the idempotent branch above for why this replaced a
+	// dead dbpkg.StorePlanFeedback call against the ephemeral SQL handle.
 	plan.Slices[sliceIdx].FeatureID = feat.ID
-	plan.Slices[sliceIdx].ExecutionStatus = "promoted"
-	if err := planyaml.Save(planPath, plan); err != nil {
+	recordExecutionStatus(plan, sectionKey, "promoted")
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return "", fmt.Errorf("save plan: %w", err)
-	}
-
-	// Persist execution_status to plan_feedback.
-	if err := dbpkg.StorePlanFeedback(db, planID, sectionKey, "set_execution_status", "promoted", ""); err != nil {
-		return "", fmt.Errorf("store execution_status: %w", err)
 	}
 
 	// Auto-commit (non-fatal on failure, matching finalize-yaml behaviour).
@@ -212,6 +234,22 @@ func promoteSliceFromYAML(wipnoteDir, planID string, sliceNum int, waiveDeps, al
 	}
 
 	return feat.ID, nil
+}
+
+// recordExecutionStatus mirrors a set_execution_status feedback entry into an
+// ALREADY-LOADED plan — both plan.Feedback.Entries (upsertPlanFeedback) and
+// slice.ExecutionStatus (mirrorPlanFeedback) — matching what
+// storePlanFeedbackEntry (plan_feedback_yaml.go) does for the canonical CLI
+// write path, minus its own file locking. Callers here already hold
+// planyaml.LockPlanForWrite(planPath) across their whole load→mutate→save
+// window (defect 4, feat-fc3cc9e0); calling storePlanFeedback/
+// storePlanFeedbackEntry from inside that window would re-enter the same
+// non-reentrant mutex and deadlock. Callers are responsible for the eventual
+// planyaml.SaveLocked call.
+func recordExecutionStatus(plan *planyaml.PlanYAML, sectionKey, status string) {
+	entry := planyaml.PlanFeedbackEntry{Section: sectionKey, Action: "set_execution_status", Value: status}
+	upsertPlanFeedback(plan, entry)
+	mirrorPlanFeedback(plan, entry)
 }
 
 // findPlanSlice returns the index and value of the slice with the given num.

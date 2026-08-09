@@ -68,7 +68,9 @@ func TestNormalizeFilesInput(t *testing.T) {
 // edge. After the fix, no caused_by edge is written unless the caller passes
 // --caused-by explicitly.
 func TestBugCreate_NoCausedByEdgeWhenActiveFeaturePresent(t *testing.T) {
-	const sessionID = "test-session-caused-by-bug"
+	// test-session-caused-by-bug — session-shaped id required by the canonical session ledger
+	// that testHgDirWithDB now seeds.
+	const sessionID = "019ee378-abcd-7000-8000-000000000303"
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 	projectDirFlag = tmpDir
@@ -142,7 +144,9 @@ func TestBugCreate_NoCausedByEdgeWhenActiveFeaturePresent(t *testing.T) {
 // TestBugCreate_ExplicitCausedByIsHonored proves the --caused-by flag still
 // wires the caused_by edge correctly after the implicit-fallback removal.
 func TestBugCreate_ExplicitCausedByIsHonored(t *testing.T) {
-	const sessionID = "test-session-explicit-caused-by"
+	// test-session-explicit-caused-by — session-shaped id required by the canonical session ledger
+	// that testHgDirWithDB now seeds.
+	const sessionID = "019ee378-abcd-7000-8000-000000000304"
 
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 	projectDirFlag = tmpDir

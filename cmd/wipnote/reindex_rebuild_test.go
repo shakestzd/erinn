@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -238,32 +239,37 @@ func runReindexInDir(t *testing.T, projectDir string) {
 	}
 }
 
+// openCachedDB builds the projection `wipnote reindex` builds and returns it.
+//
+// It used to open the per-project SQLite cache at WIPNOTE_DB_PATH and read back
+// what a previous runReindexInDir had written. There is no such file any more
+// (feat-fc3cc9e0): the projection is in-memory and dies with the process that
+// built it, so nothing runReindex does is observable through a path. Every test
+// using this helper is asking the same question either way — "does a projection
+// built from these canonical files contain X?" — so the helper now answers it
+// directly by building one.
+//
+// The runReindexInDir calls that precede it are still worth keeping: they
+// exercise the real command end to end, and a panic or error there still fails
+// the test.
 func openCachedDB(t *testing.T, projectDir string) *sql.DB {
 	t.Helper()
-	dbPath := cachedDBPath(t, projectDir)
-	database, err := dbpkg.Open(dbPath)
+	wipnoteDir := filepath.Join(projectDir, ".wipnote")
+	database, err := dbpkg.OpenEphemeralProjection()
 	if err != nil {
-		t.Fatalf("open cached db %s: %v", dbPath, err)
+		t.Fatalf("open projection: %v", err)
 	}
 	t.Cleanup(func() { database.Close() })
-	return database
-}
-
-func cachedDBPath(t *testing.T, _ string) string {
-	t.Helper()
-	override := os.Getenv("WIPNOTE_DB_PATH")
-	if override == "" {
-		t.Fatalf("WIPNOTE_DB_PATH not set — test must set it via t.Setenv")
+	if _, err := rebuildFullProjection(database, wipnoteDir, false, io.Discard, io.Discard); err != nil {
+		t.Fatalf("rebuild projection for %s: %v", projectDir, err)
 	}
-	return override
+	return database
 }
 
 func setupReindexTestEnv(t *testing.T, projectDir string) {
 	t.Helper()
-	// Pin the DB path to a temp location so the reindex output does not
-	// collide with the developer's real cache.
-	dbPath := filepath.Join(t.TempDir(), "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	// No DB path to pin: reindex writes no file, so there is no developer cache
+	// left for a test to collide with (feat-fc3cc9e0 removed WIPNOTE_DB_PATH).
 
 	// Pin project-dir resolution to the fixture. The agent harness sets
 	// WIPNOTE_PROJECT_DIR (and CLAUDE_PROJECT_DIR) to the developer's real
@@ -352,13 +358,10 @@ func TestCacheDeletion_ReindexRestoresDashboardCriticalRows(t *testing.T) {
 	}
 
 	// Delete the cache DB file.
-	dbPath := cachedDBPath(t, projectDir)
-	if err := os.Remove(dbPath); err != nil {
-		t.Fatalf("remove cache db: %v", err)
-	}
-	// Also remove WAL/SHM siblings so we have a true "cache deleted" scenario.
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
+	// Nothing to delete: there is no cache DB, WAL or SHM file any more
+	// (feat-fc3cc9e0). Every projection is built in memory from canonical
+	// files and dies with the process, so the rebuild below is already as
+	// cold as deleting a cache used to make it.
 
 	// Run reindex again — must restore the full dataset.
 	runReindexInDir(t, projectDir)
@@ -462,8 +465,12 @@ func TestDaemonCrashDuringWrite_ReindexRecovers(t *testing.T) {
 	// kill the queue context BEFORE every submit can drain. The canonical
 	// NDJSON is already on disk (above), so the test merely ensures we
 	// don't end up depending on the queue having flushed.
-	dbPath := cachedDBPath(t, projectDir)
-	writer, err := otelreceiver.NewWriter(dbPath)
+	crashDB, err := dbpkg.OpenEphemeralProjection()
+	if err != nil {
+		t.Fatalf("open projection: %v", err)
+	}
+	defer crashDB.Close()
+	writer, err := otelreceiver.NewWriterFromDB(crashDB)
 	if err != nil {
 		t.Fatalf("new writer: %v", err)
 	}
@@ -487,13 +494,9 @@ func TestDaemonCrashDuringWrite_ReindexRecovers(t *testing.T) {
 	q.Stop(50 * time.Millisecond)
 	_ = writer.Close()
 
-	// Now delete the cache and reindex. Recovery is canonical-driven.
-	if err := os.Remove(dbPath); err != nil {
-		t.Fatalf("remove db: %v", err)
-	}
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
-
+	// Recovery is canonical-driven. Nothing needs deleting to prove it: the
+	// crashed writer's projection above was private to it, and the rebuild
+	// below starts from an empty one and reads only the NDJSON on disk.
 	runReindexInDir(t, projectDir)
 
 	// Every signal_id appended above must be in otel_signals.
@@ -524,12 +527,8 @@ func TestReindex_DashboardSmoke(t *testing.T) {
 	// Reindex once, delete cache, reindex again — the smoke endpoints
 	// must come up regardless.
 	runReindexInDir(t, projectDir)
-	dbPath := cachedDBPath(t, projectDir)
-	if err := os.Remove(dbPath); err != nil {
-		t.Fatalf("remove db: %v", err)
-	}
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
+	// There is no cache file to delete any more (feat-fc3cc9e0); the second
+	// pass below is a cold rebuild by construction.
 	runReindexInDir(t, projectDir)
 
 	db := openCachedDB(t, projectDir)

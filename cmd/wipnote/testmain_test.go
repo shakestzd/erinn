@@ -24,7 +24,12 @@ import (
 //     inadvertently creates entries under the user's real ~/.cache/wipnote
 //     (bug-8c34e1f5). Tests that need a per-test isolated DB can override via
 //     t.Setenv("WIPNOTE_DB_PATH", ...) which restores the value afterwards.
-//  4. Cleans up the binary temp dir created by buildOtelCollectTestBinary.
+//  4. Redirects WIPNOTE_PROJECT_DIR and CLAUDE_PROJECT_DIR to a process-scoped
+//     empty project so that no test resolves to — and writes into — the
+//     developer's real repository. Tests that need their own project can
+//     override via isolateProjectDir(t, dir), which layers on with t.Setenv
+//     exactly as the DB-path override does.
+//  5. Cleans up the binary temp dir created by buildOtelCollectTestBinary.
 //
 // Cleanup runs explicitly before os.Exit; deferred cleanups would never fire
 // because os.Exit skips deferred functions.
@@ -48,6 +53,41 @@ func TestMain(m *testing.M) {
 	if tmp, err3 := os.MkdirTemp("", "wipnote-test-db-*"); err3 == nil {
 		dbTmp = tmp
 		os.Setenv("WIPNOTE_DB_PATH", filepath.Join(dbTmp, "wipnote.db")) //nolint:errcheck
+	}
+
+	// Redirect project-dir resolution to a process-scoped EMPTY project before
+	// any test runs, so a test that reaches a command entry point can never
+	// resolve to — and write into — the developer's real repository.
+	//
+	// This is not belt-and-braces. paths.ResolveProjectDir consults
+	// WIPNOTE_PROJECT_DIR (priority 2) and CLAUDE_PROJECT_DIR (priority 3)
+	// before it looks at the working directory, and both are set in any shell
+	// running under a wipnote launcher — including the one running `go test`.
+	// Chdir does NOT protect you, and neither does WIPNOTE_NO_AUTO_WRITER
+	// above: that only stops THIS process from spawning a writer. An ambient
+	// daemon already running in the session will happily pick up whatever a
+	// test wrote to the real tree and commit it (this is exactly how a test
+	// run put a fabricated property on ~870 real work items and got them
+	// auto-committed, feat-fc3cc9e0).
+	//
+	// The sandbox MUST contain a real .wipnote directory. The env-var branches
+	// are conditional on it existing; without it resolution falls through to
+	// priority 5, git-common-dir detection from the CWD, which during
+	// `go test` is cmd/wipnote — inside the real repo. An empty dir would
+	// silently provide no protection at all.
+	var projTmp string
+	if tmp, err4 := os.MkdirTemp("", "wipnote-test-project-*"); err4 == nil {
+		graphDir := filepath.Join(tmp, ".wipnote")
+		if mkErr := os.MkdirAll(graphDir, 0o755); mkErr == nil {
+			if subErr := createSubdirs(graphDir); subErr == nil {
+				projTmp = tmp
+				os.Setenv("WIPNOTE_PROJECT_DIR", tmp) //nolint:errcheck
+				os.Setenv("CLAUDE_PROJECT_DIR", tmp)  //nolint:errcheck
+			}
+		}
+		if projTmp == "" {
+			_ = os.RemoveAll(tmp)
+		}
 	}
 
 	// Suppress the headless-writer daemon fork for the whole unit suite:
@@ -76,6 +116,9 @@ func TestMain(m *testing.M) {
 	}
 	if dbTmp != "" {
 		_ = os.RemoveAll(dbTmp)
+	}
+	if projTmp != "" {
+		_ = os.RemoveAll(projTmp)
 	}
 	if otelCollectTestBinary != "" {
 		_ = os.RemoveAll(filepath.Dir(otelCollectTestBinary))
@@ -110,5 +153,43 @@ func TestMain_EstablishesSharedGateTestEnv(t *testing.T) {
 	}
 	if os.Getenv("GOCACHE") == "" {
 		t.Error("GOCACHE is empty; TestMain must export a shared build cache for the gate tests' nested go test")
+	}
+}
+
+// TestMain_IsolatesProjectDirFromRealRepo is the guard on item 4 of TestMain,
+// and it is the counterpart to TestNoCachePollution: it asserts the redirect
+// still redirects.
+//
+// It deliberately resolves through findWipnoteDir — the same call every command
+// entry point makes — rather than reading the env var back. Reading the var
+// would prove only that TestMain set something; it would stay green if
+// ResolveProjectDir's priority order changed, or if the sandbox lost its
+// .wipnote directory and resolution silently fell through to git-common-dir
+// detection on the real repo. The failure this guards against is invisible by
+// construction, so the guard has to exercise the real path.
+func TestMain_IsolatesProjectDirFromRealRepo(t *testing.T) {
+	sandbox := os.Getenv("WIPNOTE_PROJECT_DIR")
+	if sandbox == "" {
+		t.Fatal("WIPNOTE_PROJECT_DIR is unset; TestMain must redirect project resolution away from the real repo")
+	}
+
+	resolved, err := findWipnoteDir()
+	if err != nil {
+		t.Fatalf("findWipnoteDir: %v", err)
+	}
+
+	wantPrefix := resolveForCompare(sandbox)
+	gotRoot := resolveForCompare(filepath.Dir(resolved))
+	if gotRoot != wantPrefix {
+		t.Fatalf("findWipnoteDir resolved to %q, want the sandbox %q — a test that writes would hit the real repository",
+			gotRoot, wantPrefix)
+	}
+
+	// The module root is where the real .wipnote lives. Resolving there is the
+	// specific accident this guard exists to catch, so name it explicitly.
+	if wd, wdErr := os.Getwd(); wdErr == nil {
+		if realRoot := filepath.Dir(filepath.Dir(wd)); resolveForCompare(realRoot) == gotRoot {
+			t.Fatalf("project resolution reached the real repository at %q", realRoot)
+		}
 	}
 }

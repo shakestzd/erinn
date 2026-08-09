@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -10,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/claimledger"
+	"github.com/shakestzd/wipnote/core/projection"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +66,7 @@ func runStatusline(sessionID string) error {
 		return nil
 	}
 
-	// If a session ID is provided, look up the session's active_feature_id from SQLite.
+	// If a session ID is provided, look up its open claim episode.
 	if sessionID != "" {
 		return statuslineFromSession(dir, sessionID)
 	}
@@ -79,24 +78,11 @@ func runStatusline(sessionID string) error {
 }
 
 func statuslineFromSession(dir, sessionID string) error {
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+	featureID, err := activeClaimForStatusline(dir, sessionID, os.Getenv("WIPNOTE_AGENT_ID"))
 	if err != nil {
 		return nil
 	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return nil
-	}
-	defer database.Close()
-
-	// Prefer per-agent attribution (active_work_items), fall back to legacy
-	// sessions.active_feature_id for sessions that predate the new table.
-	agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
-	featureID := dbpkg.GetActiveWorkItemWithFallback(database, sessionID, agentID)
 	if featureID == "" {
-		// No active feature for this session — show nothing.
-		// A global fallback would leak another terminal's active feature
-		// into this status line, which is misleading in multi-session setups.
 		return nil
 	}
 
@@ -129,7 +115,7 @@ func statuslineFromSession(dir, sessionID string) error {
 	}
 
 	// Check if feature belongs to a track.
-	trackLine := resolveTrackContext(database, dir, featureID)
+	trackLine := resolveTrackContext(dir, featureID)
 
 	if trackLine != "" {
 		fmt.Printf("%s → %s %s\n", trackLine, iconFor(featureType), truncate(featureTitle, 25))
@@ -139,38 +125,55 @@ func statuslineFromSession(dir, sessionID string) error {
 	return nil
 }
 
+func activeClaimForStatusline(wipnoteDir, sessionID, agentID string) (string, error) {
+	agentID = normaliseStatuslineAgentID(agentID)
+	episodes, err := claimledger.NewStore(wipnoteDir).ReadAll()
+	if err != nil {
+		return "", err
+	}
+	var latest claimledger.Episode
+	for _, e := range episodes {
+		if !e.IsOpen() || e.SessionID != sessionID || e.AgentID != agentID {
+			continue
+		}
+		if latest.WorkItemID == "" || e.StartedAt.After(latest.StartedAt) {
+			latest = e
+		}
+	}
+	return latest.WorkItemID, nil
+}
+
+func normaliseStatuslineAgentID(agentID string) string {
+	if agentID == "" {
+		return "__root__"
+	}
+	return agentID
+}
+
 // resolveTrackContext returns a formatted track summary if the feature belongs to a track.
 // Format: "track_icon Track Title [done/total]"
 // Returns empty string if no track.
-// dir is the .wipnote directory; it is used to read HTML files for accurate counts
-// since the SQLite features table may be stale (not all features are indexed).
-func resolveTrackContext(database *sql.DB, dir, featureID string) string {
-	// Check track_id in SQLite first (fast path).
-	var trackID sql.NullString
-	database.QueryRow("SELECT track_id FROM features WHERE id = ?", featureID).Scan(&trackID) //nolint:errcheck
-
-	if !trackID.Valid || trackID.String == "" {
-		// Check graph_edges for part_of relationship.
-		database.QueryRow(`
-			SELECT to_node_id FROM graph_edges
-			WHERE from_node_id = ? AND relationship_type = 'part_of'
-			AND to_node_id LIKE 'trk-%'
-			LIMIT 1`, featureID).Scan(&trackID) //nolint:errcheck
-	}
-
-	if !trackID.Valid || trackID.String == "" {
+func resolveTrackContext(dir, featureID string) string {
+	snap, err := projection.Load(dir)
+	if err != nil {
 		return ""
 	}
-
-	// Get track title from SQLite (tracks table is reliably populated).
-	var trackTitle sql.NullString
-	database.QueryRow("SELECT title FROM tracks WHERE id = ?", trackID.String).Scan(&trackTitle) //nolint:errcheck
+	trackID := ""
+	for _, e := range snap.Out[featureID] {
+		if e.Relationship == "part_of" && strings.HasPrefix(e.ToID, "trk-") {
+			trackID = e.ToID
+			break
+		}
+	}
+	if trackID == "" {
+		return ""
+	}
 
 	// Count done/total by reading HTML files directly — same source that
 	// `wipnote track show` uses. SQLite features rows are often incomplete
 	// (features indexed in graph_edges but absent from the features table),
 	// which caused [0/0] to appear in the status line.
-	features := loadLinkedByType(dir, "features", trackID.String)
+	features := loadLinkedByType(dir, "features", trackID)
 	total := len(features)
 	done := 0
 	for _, f := range features {
@@ -179,9 +182,9 @@ func resolveTrackContext(database *sql.DB, dir, featureID string) string {
 		}
 	}
 
-	title := trackID.String
-	if trackTitle.Valid && trackTitle.String != "" {
-		title = truncate(trackTitle.String, 25)
+	title := trackID
+	if n, ok := snap.Nodes[trackID]; ok && n.Title != "" {
+		title = truncate(n.Title, 25)
 	}
 
 	return fmt.Sprintf("%s %s [%d/%d]", iconFor("track"), title, done, total)
@@ -277,18 +280,7 @@ func buildCacheLine(wipnoteDir, featureID string) string {
 		return featureID
 	}
 
-	// Attempt track context via DB.
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return fmt.Sprintf("%s %s", iconFor(featureType), truncate(featureTitle, 30))
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return fmt.Sprintf("%s %s", iconFor(featureType), truncate(featureTitle, 30))
-	}
-	defer database.Close()
-
-	trackLine := resolveTrackContext(database, wipnoteDir, featureID)
+	trackLine := resolveTrackContext(wipnoteDir, featureID)
 	if trackLine != "" {
 		return fmt.Sprintf("%s -> %s %s",
 			trackLine, iconFor(featureType), truncate(featureTitle, 25))

@@ -7,7 +7,8 @@
 //  3. Load feature node; error if not found.
 //  4. Extract spec; skip with "no spec" if absent.
 //  5. Compute spec hash.
-//  6. Build diff blob (attributed commits → file fallback → skip).
+//  6. Build diff blob from the commits linked to the item (message convention
+//     plus any committed_in edges); skip when none.
 //  7. Truncate diff at --max-diff-chars at line boundary.
 //  8. --dry-run: print prompt, exit 0.
 //  9. Call headless claude -p; capture stdout/stderr.
@@ -36,6 +37,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
@@ -502,49 +504,44 @@ func acquireComplianceLock(lockPath string) (func(), error) {
 }
 
 // buildDiffBlob builds the diff text to embed in the compliance prompt.
-// It tries attributed commits first, falls back to feature_files + git diff,
-// and truncates at maxChars at the nearest line boundary.
-// Returns (diffText, truncated, error).
+//
+// Commits are Git-derived: canonicalLinkedCommits finds the commits whose
+// messages name featureID under wipnote's commit convention — the same source
+// the completion gate uses (workitem_provenance_canonical.go). It replaces two
+// reads of the derived index that can no longer return anything:
+// GetCommitsByFeature (git_commits) and, as a fallback, ListFilesByFeature
+// (feature_files). Neither table is in the hydrate set, so both returned empty
+// on every call and the compliance prompt silently shipped with no diff
+// (feat-fc3cc9e0).
+//
+// The database parameter is retained because diffBuilderFn is a stubbing seam
+// with several test doubles bound to this signature; nothing here reads it.
+//
+// Returns (diffText, truncated, error). An item whose commits do not name it
+// yields an empty diff, which the caller already handles.
 func buildDiffBlob(ctx context.Context, database *sql.DB, featureID, gitRoot string, maxChars int) (string, bool, error) {
-	// Try attributed commits first.
-	commits, err := dbpkg.GetCommitsByFeature(database, featureID)
-	if err != nil {
-		return "", false, fmt.Errorf("get commits: %w", err)
+	_ = database
+
+	// The work item's node is passed so a commit linked by hand via
+	// `wipnote <type> link-commit` counts here exactly as it does for the
+	// completion gate. Best-effort: a node that cannot be read yields the
+	// message-linkage commits alone, which is the common case anyway.
+	var node *models.Node
+	if wipnoteDir, err := findWipnoteDir(); err == nil {
+		if path := resolveNodePath(wipnoteDir, featureID); path != "" {
+			node, _ = htmlparse.ParseFile(path)
+		}
 	}
 
 	var diffParts []string
-
-	if len(commits) > 0 {
-		for _, commit := range commits {
-			args := []string{"-C", gitRoot, "show", "--no-color", "--first-parent", commit.CommitHash}
-			out, err := exec.CommandContext(ctx, "git", args...).Output()
-			if err != nil {
-				// Skip commits not present locally (shallow clone safety).
-				continue
-			}
-			diffParts = append(diffParts, string(out))
-		}
-	}
-
-	// Fallback: use feature_files + git diff when no commit diffs were found.
-	if len(diffParts) == 0 {
-		files, err := dbpkg.ListFilesByFeature(database, featureID)
+	for _, hash := range canonicalLinkedCommits(gitRoot, featureID, node) {
+		args := []string{"-C", gitRoot, "show", "--no-color", "--first-parent", hash}
+		out, err := exec.CommandContext(ctx, "git", args...).Output()
 		if err != nil {
-			return "", false, fmt.Errorf("list feature files: %w", err)
+			// Skip commits not present locally (shallow clone safety).
+			continue
 		}
-
-		if len(files) > 0 {
-			filePaths := make([]string, 0, len(files))
-			for _, f := range files {
-				filePaths = append(filePaths, f.FilePath)
-			}
-			// Try HEAD diff against merge-base.
-			args := append([]string{"-C", gitRoot, "diff", "HEAD~1..HEAD", "--"}, filePaths...)
-			out, err := exec.CommandContext(ctx, "git", args...).Output()
-			if err == nil && len(out) > 0 {
-				diffParts = append(diffParts, string(out))
-			}
-		}
+		diffParts = append(diffParts, string(out))
 	}
 
 	if len(diffParts) == 0 {

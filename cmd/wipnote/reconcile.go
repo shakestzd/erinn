@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/shakestzd/wipnote/core/hooks"
-	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 
@@ -44,15 +43,12 @@ func reconcileCmd() *cobra.Command {
 			}
 			projectDir := filepath.Dir(wipnoteDir)
 
-			// Open the project read index for the DB-backed classes
-			// (done-but-uncommitted, orphans). A nil DB is tolerated by
-			// hooks.Reconcile — the port-drift class is DB-independent.
-			p, err := workitem.Open(projectDir, "claude-code")
-			if err != nil {
-				return err
-			}
-			defer p.Close()
-
+			// No handle to open: all three classes read canonical state.
+			// This used to open a project read index it never passed on —
+			// hooks.Reconcile was called with a hardcoded nil, and the two
+			// item-shaped classes were gated behind `database != nil`, so
+			// the report was permanently "nothing to reconcile" no matter
+			// how much done-but-uncommitted work existed (feat-fc3cc9e0).
 			rep, err := hooks.Reconcile(nil, projectDir, strict)
 			if err != nil {
 				return err

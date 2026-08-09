@@ -3,12 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
@@ -43,11 +41,7 @@ func runRelated(featureID string) error {
 		return err
 	}
 
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
+	database, err := openReadOnlyDB(wipnoteDir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

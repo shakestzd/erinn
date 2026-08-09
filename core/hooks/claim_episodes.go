@@ -35,9 +35,19 @@ func closeClaimEpisodesForSession(database *sql.DB, projectDir, sessionID string
 	store := claimledger.NewStore(wipnoteDir)
 
 	// The shard is keyed by ROOT session. A subagent session that ends is not
-	// the owner of the shard, so resolve up the lineage before closing — and
+	// the owner of the shard, so resolve the owning shard before closing — and
 	// close only THIS session's rows, never its siblings'.
-	root := rootSessionForClaimLedger(database, sessionID)
+	//
+	// An unresolvable root REFUSES rather than guesses. The previous fallback
+	// ("use sessionID") turned a failed lookup into a write against a shard path
+	// derived from the wrong session, which for a subagent is a durable mis-write
+	// to canonical data — strictly worse than not writing at all. If the ledger
+	// holds no episode for this session there is also nothing to close, so
+	// returning here loses nothing.
+	root := rootSessionForClaimLedger(wipnoteDir, sessionID)
+	if root == "" {
+		return
+	}
 
 	// One read-modify-write for the whole shard, scoped to THIS session's rows so
 	// a child session ending does not close its parent's or its siblings'.
@@ -53,18 +63,39 @@ func closeClaimEpisodesForSession(database *sql.DB, projectDir, sessionID string
 }
 
 // rootSessionForClaimLedger resolves the root session that owns sessionID's
-// shard, falling back to sessionID when no lineage row exists.
-func rootSessionForClaimLedger(database *sql.DB, sessionID string) string {
-	if database == nil || sessionID == "" {
+// shard by asking the CLAIM LEDGER ITSELF which shard holds an episode for this
+// session. Returns "" when it cannot be resolved — callers must refuse to write
+// rather than guess a shard.
+//
+// This replaced a lookup against agent_lineage_trace, a table the compatibility
+// projection never populates (feat-fc3cc9e0). That lookup therefore always
+// found nothing and always took its `return sessionID` fallback, which for a
+// subagent names a shard the session does not own. Because the ledger is
+// canonical git-tracked state, that was a durable mis-write, not a lost
+// derived-index update — the failure mode this whole cutover has to avoid.
+//
+// The ledger answers the question exactly: an episode records both SessionID
+// and RootSessionID, so the shard that holds this session's episodes is found
+// rather than inferred. Newest-first, so a session that appears under more than
+// one root resolves to its most recent.
+func rootSessionForClaimLedger(wipnoteDir, sessionID string) string {
+	if wipnoteDir == "" || sessionID == "" {
+		return ""
+	}
+	episodes, err := claimledger.NewStore(wipnoteDir).ReadAll()
+	if err != nil {
+		return ""
+	}
+	for i := len(episodes) - 1; i >= 0; i-- {
+		e := episodes[i]
+		if e.SessionID != sessionID {
+			continue
+		}
+		if e.RootSessionID != "" {
+			return e.RootSessionID
+		}
+		// An episode with no recorded root is its own root.
 		return sessionID
 	}
-	var root string
-	err := database.QueryRow(
-		`SELECT COALESCE(root_session_id, '') FROM agent_lineage_trace
-		 WHERE session_id = ? AND root_session_id != '' LIMIT 1`, sessionID,
-	).Scan(&root)
-	if err != nil || root == "" {
-		return sessionID
-	}
-	return root
+	return ""
 }

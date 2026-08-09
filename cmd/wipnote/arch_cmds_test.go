@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	corearch "github.com/shakestzd/wipnote/core/arch"
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
 	iarch "github.com/shakestzd/wipnote/internal/arch"
@@ -563,14 +562,23 @@ func TestCompletionLearning_PathsAreRepoRelative(t *testing.T) {
 	}
 }
 
-// TestArchResolve_ForBugItem_FallsBackToCommitFiles verifies that resolveWorkItemPaths
-// falls back to tier-2 (git_commits -> diff-tree) when feature_files is empty.
-// Setup: a real git repo with a bug commit touching a file, an arch card covering
-// that file, a test DB with git_commits rows but empty feature_files.
-func TestArchResolve_ForBugItem_FallsBackToCommitFiles(t *testing.T) {
+// TestArchResolve_ForBugItem_ResolvesFromNamingCommit verifies that
+// resolveWorkItemPaths finds a bug's files from the commit that names it.
+//
+// It replaces TestArchResolve_ForBugItem_FallsBackToCommitFiles, which seeded a
+// git_commits row by hand and asserted the old tier-2 path fired. Neither
+// git_commits nor feature_files is populated any more (feat-fc3cc9e0: the read
+// index is a per-process projection and neither table is in the hydrate set),
+// so both tiers were removed; git-log resolution is the whole mechanism now.
+//
+// The substantive change to the fixture is the commit MESSAGE: it names the bug
+// ID, which is wipnote's commit convention and the same linkage the completion
+// gate reads (workitem_provenance_canonical.go). The old fixture's message was
+// "initial commit", which is precisely the case that no longer resolves — see
+// the KNOWN NARROWING note on resolveWorkItemPathsWithDiag.
+func TestArchResolve_ForBugItem_ResolvesFromNamingCommit(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create the .wipnote directory structure.
 	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"arch", "bugs", "features"} {
 		if err := os.MkdirAll(filepath.Join(wipnoteDir, sub), 0o755); err != nil {
@@ -578,12 +586,14 @@ func TestArchResolve_ForBugItem_FallsBackToCommitFiles(t *testing.T) {
 		}
 	}
 
-	// Create a git repo with one commit touching a specific file.
-	commitHash := initBareGitRepo(t, tmpDir, map[string]string{
-		"cmd/serve_child.go": "package main\n",
-	})
+	bugID := "bug-fa11bac4"
 
-	// Create an arch card whose glob covers the committed file.
+	// A git repo whose single commit NAMES the bug, per wipnote's convention.
+	initGitRepoWithMessage(t, tmpDir, map[string]string{
+		"cmd/serve_child.go": "package main\n",
+	}, "fix: repair the serve child ("+bugID+")")
+
+	// An arch card whose glob covers the committed file.
 	store, err := corearch.NewStore(wipnoteDir)
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
@@ -599,51 +609,11 @@ func TestArchResolve_ForBugItem_FallsBackToCommitFiles(t *testing.T) {
 		t.Fatalf("store.Create: %v", err)
 	}
 
-	// Create a test DB with a git_commits row for the bug item, but no feature_files.
-	dbPath := filepath.Join(tmpDir, "test.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open test db: %v", err)
-	}
+	isolateProjectDir(t, tmpDir)
 
-	bugID := "bug-test-fallback"
-	// Insert a feature row to satisfy FK constraints.
-	if err := dbpkg.UpsertFeature(database, &dbpkg.Feature{
-		ID: bugID, Type: "bug", Title: "Test Bug",
-		Status: "todo", Priority: "medium",
-		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-	}); err != nil {
-		t.Fatalf("UpsertFeature: %v", err)
-	}
-	// Insert a git_commits row linking the commit to the bug ID.
-	_, err = database.Exec(
-		`INSERT OR IGNORE INTO git_commits (commit_hash, session_id, feature_id, message, timestamp) VALUES (?, 'test-sess', ?, 'fix: test commit', ?)`,
-		commitHash, bugID, time.Now().UTC().Format(time.RFC3339),
-	)
-	if err != nil {
-		t.Fatalf("insert git_commits: %v", err)
-	}
-	// Confirm feature_files is empty for this bug.
-	rows, err := dbpkg.ListFilesByFeature(database, bugID)
-	if err != nil {
-		t.Fatalf("ListFilesByFeature: %v", err)
-	}
-	if len(rows) != 0 {
-		t.Fatalf("expected empty feature_files, got %d rows", len(rows))
-	}
-	database.Close()
-
-	// Use WIPNOTE_PROJECT_DIR so findWipnoteDir resolves to our test dir.
-	t.Setenv("WIPNOTE_PROJECT_DIR", tmpDir)
-
-	// resolveWorkItemPaths should fall back to tier-2 and return the committed file.
 	filePaths, err := resolveWorkItemPaths(bugID, wipnoteDir)
 	if err != nil {
 		t.Fatalf("resolveWorkItemPaths: %v", err)
-	}
-	if len(filePaths) == 0 {
-		t.Fatal("expected tier-2 fallback to return file paths, got none")
 	}
 	found := false
 	for _, fp := range filePaths {
@@ -653,18 +623,75 @@ func TestArchResolve_ForBugItem_FallsBackToCommitFiles(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected cmd/serve_child.go in resolved paths; got %v", filePaths)
+		t.Fatalf("expected cmd/serve_child.go in resolved paths; got %v", filePaths)
 	}
 
-	// Verify that the arch card matches the resolved paths.
 	cards, err := store.List(false)
 	if err != nil {
 		t.Fatalf("store.List: %v", err)
 	}
-	matched := iarch.MatchCards(cards, filePaths)
-	if len(matched) == 0 {
+	if matched := iarch.MatchCards(cards, filePaths); len(matched) == 0 {
 		t.Errorf("expected serve-area card to match resolved paths %v, got no matches", filePaths)
 	}
+}
+
+// TestArchResolve_UnnamedCommitResolvesNothing pins the known narrowing
+// explicitly, so it reads as a documented limit rather than as a silent gap: a
+// commit that touches the work item's files but does not name the item is
+// invisible to resolution.
+func TestArchResolve_UnnamedCommitResolvesNothing(t *testing.T) {
+	tmpDir := t.TempDir()
+	wipnoteDir := filepath.Join(tmpDir, ".wipnote")
+	for _, sub := range []string{"arch", "bugs"} {
+		if err := os.MkdirAll(filepath.Join(wipnoteDir, sub), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	initGitRepoWithMessage(t, tmpDir, map[string]string{
+		"cmd/serve_child.go": "package main\n",
+	}, "initial commit")
+
+	isolateProjectDir(t, tmpDir)
+
+	filePaths, err := resolveWorkItemPaths("bug-fa11bac5", wipnoteDir)
+	if err != nil {
+		t.Fatalf("resolveWorkItemPaths: %v", err)
+	}
+	if len(filePaths) != 0 {
+		t.Errorf("a commit that does not name the item must resolve to no paths; got %v", filePaths)
+	}
+}
+
+// initGitRepoWithMessage is initBareGitRepo with a caller-chosen commit
+// message. The message is the linkage, so a fixture that cannot set it cannot
+// exercise resolution.
+func initGitRepoWithMessage(t *testing.T, dir string, files map[string]string, message string) string {
+	t.Helper()
+	run := func(args ...string) string {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Dir = dir
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run("init", "-b", "main")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+	for name, body := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+		run("add", name)
+	}
+	run("commit", "-m", message)
+	return run("rev-parse", "HEAD")
 }
 
 // TestArchAdd_RejectsAbsolutePath verifies that `arch add` returns an error

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
@@ -56,7 +56,7 @@ func runWipShow() error {
 		return err
 	}
 
-	// Resolve live session IDs from the SQLite read index.
+	// Resolve live session IDs from the authoritative session ledger.
 	liveSessions := wipLiveSessions(dir)
 
 	// Group items by owner session (the implemented_in edge target).
@@ -115,27 +115,19 @@ func runWipShow() error {
 	return nil
 }
 
-// wipLiveSessions returns the set of currently-active session IDs from the DB.
-// "Active" is the canonical definition used by `wipnote session list --active`:
-// status = 'active' (see ListSessions activeOnly=true, session_repo.go:85).
+// wipLiveSessions returns the set of currently-active session IDs from the
+// canonical session ledger.
 // Returns an empty map (not nil) on any error so liveness checks degrade gracefully.
 func wipLiveSessions(wipnoteDir string) map[string]bool {
 	live := make(map[string]bool)
-	db, err := openReadOnlyDB(wipnoteDir)
-	if err != nil {
-		return live
-	}
-	defer db.Close()
-	// activeOnly=true: matches `wipnote session list --active` — only status='active'
-	// rows are live. Completed/failed/stale sessions are intentionally excluded so
-	// items they own are flagged SESSION DEAD?.  Use a large limit to catch all
-	// concurrently active sessions (orchestrator can spawn many).
-	sessions, err := dbpkg.ListSessions(db, true, 1000)
+	sessions, err := sessionledger.NewStore(wipnoteDir).ReadAll()
 	if err != nil {
 		return live
 	}
 	for _, s := range sessions {
-		live[s.SessionID] = true
+		if s.IsOpen() {
+			live[s.SessionID] = true
+		}
 	}
 	return live
 }

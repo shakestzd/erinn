@@ -2,30 +2,13 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/projection"
 	"github.com/spf13/cobra"
 )
-
-// graphDBError wraps a database open/query failure with actionable retry and
-// reindex guidance. Commands that genuinely require the SQLite cache must use
-// this helper so users are never left with a silent failure or cryptic error.
-//
-// Typical causes: DB file not yet created (first run), SQLite locked by a
-// concurrent writer, or a corrupted cache. Running `wipnote reindex` rebuilds
-// the cache from the canonical HTML sources.
-func graphDBError(cmd string, err error) error {
-	msg := err.Error()
-	if strings.Contains(msg, "locked") || strings.Contains(msg, "SQLITE_BUSY") {
-		return fmt.Errorf("wipnote %s: SQLite cache is locked. Try again in a moment, or run `wipnote reindex` to rebuild", cmd)
-	}
-	return fmt.Errorf("wipnote %s: cannot open SQLite cache (%w). Run `wipnote reindex` to rebuild the cache, or retry in a moment", cmd, err)
-}
 
 func graphCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -64,24 +47,11 @@ func graphCyclesCmd() *cobra.Command {
 }
 
 func runGraphCycles() error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph cycles", err)
-	}
-	defer database.Close()
-
-	cycles, err := graph.DBDetectCycles(database)
-	if err != nil {
-		return err
-	}
+	cycles := snap.Cycles()
 
 	if len(cycles) == 0 {
 		fmt.Println("No circular dependencies found.")
@@ -90,7 +60,7 @@ func runGraphCycles() error {
 
 	// Resolve node titles for display.
 	allIDs := graph.AllUniqueIDs(cycles)
-	resolved := graph.ResolveToMap(database, archSourceFor(dir), allIDs)
+	resolved := snap.ResolveToMap(allIDs)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -122,30 +92,17 @@ func graphPathCmd() *cobra.Command {
 }
 
 func runGraphPath(fromID, toID string) error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph path", err)
-	}
-	defer database.Close()
-
-	path, err := graph.DBShortestPath(database, fromID, toID)
-	if err != nil {
-		return err
-	}
+	path := snap.ShortestPath(fromID, toID)
 	if path == nil {
 		fmt.Printf("No path from %s to %s.\n", fromID, toID)
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, archSourceFor(dir), path)
+	resolved := snap.ResolveToMap(path)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -177,24 +134,11 @@ func graphReachCmd() *cobra.Command {
 }
 
 func runGraphReach(startID string, depth int) error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph reach", err)
-	}
-	defer database.Close()
-
-	ids, err := graph.DBReachable(database, startID, depth)
-	if err != nil {
-		return err
-	}
+	ids := snap.Reachable(startID, depth)
 
 	if len(ids) == 0 {
 		fmt.Printf("No nodes reachable from %s within %s hops.\n",
@@ -202,7 +146,7 @@ func runGraphReach(startID string, depth int) error {
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, archSourceFor(dir), ids)
+	resolved := snap.ResolveToMap(ids)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -228,30 +172,17 @@ func graphOrphansCmd() *cobra.Command {
 }
 
 func runGraphOrphans() error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph orphans", err)
-	}
-	defer database.Close()
-
-	ids, err := graph.FindOrphans(database)
-	if err != nil {
-		return err
-	}
+	ids := snap.Orphans()
 	if len(ids) == 0 {
 		fmt.Println("No orphan nodes found.")
 		return nil
 	}
 
-	resolved := graph.ResolveToMap(database, archSourceFor(dir), ids)
+	resolved := snap.ResolveToMap(ids)
 
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -279,24 +210,11 @@ func graphHubsCmd() *cobra.Command {
 }
 
 func runGraphHubs(minEdges int) error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph hubs", err)
-	}
-	defer database.Close()
-
-	hubs, err := graph.FindHubs(database, archSourceFor(dir), minEdges)
-	if err != nil {
-		return err
-	}
+	hubs := snap.Hubs(minEdges)
 	if len(hubs) == 0 {
 		fmt.Printf("No nodes with %d+ edges found.\n", minEdges)
 		return nil
@@ -328,24 +246,11 @@ func graphBottlenecksCmd() *cobra.Command {
 }
 
 func runGraphBottlenecks() error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph bottlenecks", err)
-	}
-	defer database.Close()
-
-	bns, err := graph.FindBottlenecks(database)
-	if err != nil {
-		return err
-	}
+	bns := snap.Bottlenecks()
 	if len(bns) == 0 {
 		fmt.Println("No bottleneck nodes found.")
 		return nil
@@ -378,24 +283,11 @@ func graphSessionsCmd() *cobra.Command {
 }
 
 func runGraphSessions(featureID string) error {
-	dir, err := findWipnoteDir()
+	snap, err := loadGraphProjection()
 	if err != nil {
 		return err
 	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
-	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		return graphDBError("graph sessions", err)
-	}
-	defer database.Close()
-
-	sessions, err := graph.SessionsForFeature(database, featureID)
-	if err != nil {
-		return err
-	}
+	sessions := snap.SessionsForFeature(featureID)
 	if len(sessions) == 0 {
 		fmt.Printf("No sessions found for %s.\n", featureID)
 		return nil
@@ -414,4 +306,16 @@ func runGraphSessions(featureID string) error {
 			truncate(s.SessionID, 20), s.Status, s.Agent, created)
 	}
 	return nil
+}
+
+func loadGraphProjection() (*projection.Snapshot, error) {
+	dir, err := findWipnoteDir()
+	if err != nil {
+		return nil, err
+	}
+	snap, err := projection.Load(dir)
+	if err != nil {
+		return nil, fmt.Errorf("load canonical projection: %w", err)
+	}
+	return snap, nil
 }

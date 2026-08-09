@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,10 +14,7 @@ import (
 	"time"
 
 	corearch "github.com/shakestzd/wipnote/core/arch"
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/core/storage"
 	iarch "github.com/shakestzd/wipnote/internal/arch"
 	"github.com/spf13/cobra"
 )
@@ -479,39 +475,30 @@ func resolveWorkItemPaths(workItemID, wipnoteDir string) ([]string, error) {
 // returns a diagnostic label indicating which tier produced the result (used to
 // differentiate "no paths attributed" from "paths found but no cards matched").
 //
-// Three-tier fallback:
-//  1. feature_files rows in SQLite (fast path; populated by reindex/hooks).
-//  2. git_commits rows for the work item -> git diff-tree expansion.
-//  3. git log --grep=<workItemID> -> expandCommitFiles (zero-DB fallback).
+// Resolution is Git-derived and single-tier: `git log --grep=<workItemID>`
+// finds the commits that name the item under wipnote's commit convention, and
+// diff-tree expands them into the files they touched.
 //
-// If all tiers return empty, the label is "" and the caller should print
-// "No files attributed yet; try 'wipnote reindex'".
+// It used to try two derived-index tiers first — feature_files rows, then
+// git_commits rows — before falling back to git. Neither table is populated any
+// more (feat-fc3cc9e0: the read index is a per-process projection hydrated from
+// canonical artifacts, and neither table is in the hydrate set), so both tiers
+// could only ever return empty and the "fallback" was in fact the only path
+// that ran. They are gone rather than left as dead branches that read as
+// meaningful.
+//
+// KNOWN NARROWING, same as the completion gate's (see
+// workitem_provenance_canonical.go): a commit that implemented the item without
+// naming it in its message is invisible here. feature_files also carried live
+// per-tool-call touches recorded by hooks, whose only canonical record is the
+// per-session events NDJSON — too large to scan synchronously. An item whose
+// work was committed without its ID therefore resolves to no files.
+//
+// If resolution returns empty, the label is the no-files sentinel and the
+// caller prints the "no files attributed" guidance.
 func resolveWorkItemPathsWithDiag(workItemID, wipnoteDir string) (filePaths []string, attribLabel string, err error) {
 	projectDir := filepath.Dir(wipnoteDir)
 
-	// Tier 1: feature_files table.
-	dbFiles, dbErr := queryFeatureFiles(projectDir, workItemID)
-	if dbErr == nil && len(dbFiles) > 0 {
-		seen := make(map[string]bool, len(dbFiles))
-		var result []string
-		for _, f := range dbFiles {
-			if !seen[f.FilePath] {
-				seen[f.FilePath] = true
-				result = append(result, f.FilePath)
-			}
-		}
-		return result, workItemID, nil
-	}
-
-	// Tier 2: git_commits rows -> diff-tree.
-	if hashes, hashErr := queryCommitHashesForItem(projectDir, workItemID); hashErr == nil && len(hashes) > 0 {
-		expanded := expandCommitFiles(projectDir, hashes)
-		if len(expanded) > 0 {
-			return expanded, workItemID, nil
-		}
-	}
-
-	// Tier 3: git log --grep -> diff-tree (zero-DB fallback).
 	gitHashes := gitCommitHashesForWorkItem(projectDir, workItemID)
 	if len(gitHashes) > 0 {
 		expanded := expandCommitFiles(projectDir, gitHashes)
@@ -534,73 +521,9 @@ func resolveWorkItemPathsWithDiag(workItemID, wipnoteDir string) (filePaths []st
 // message (bug-fddf5820, finding 11).
 const noFilesAttributedLabel = "\x00no-files-attributed"
 
-// queryFeatureFiles opens the DB (read-only) and lists feature_files for the
-// given work-item ID. Returns an error when the DB is unavailable.
-func queryFeatureFiles(projectDir, workItemID string) ([]models.FeatureFile, error) {
-	dbPath, err := storage.CanonicalDBPath(projectDir)
-	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-	defer database.Close()
-
-	var files []models.FeatureFile
-	if retryErr := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-		f, derr := dbpkg.ListFilesByFeature(database, workItemID)
-		if derr != nil {
-			return derr
-		}
-		files = f
-		return nil
-	}); retryErr != nil {
-		return nil, fmt.Errorf("list files for %s: %w", workItemID, retryErr)
-	}
-	return files, nil
-}
-
-// queryCommitHashesForItem opens the DB and fetches commit hashes linked to the
-// given work-item ID from the git_commits table.
-func queryCommitHashesForItem(projectDir, workItemID string) ([]string, error) {
-	dbPath, err := storage.CanonicalDBPath(projectDir)
-	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-	defer database.Close()
-
-	return queryCommitHashesFromDB(database, workItemID)
-}
-
-// queryCommitHashesFromDB is the injectable form of queryCommitHashesForItem
-// used by tests that provide their own *sql.DB.
-func queryCommitHashesFromDB(database *sql.DB, workItemID string) ([]string, error) {
-	rows, err := database.Query(
-		`SELECT DISTINCT commit_hash FROM git_commits WHERE feature_id = ?`,
-		workItemID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query git_commits for %s: %w", workItemID, err)
-	}
-	defer rows.Close()
-	var hashes []string
-	for rows.Next() {
-		var h string
-		if scanErr := rows.Scan(&h); scanErr == nil && h != "" {
-			hashes = append(hashes, h)
-		}
-	}
-	return hashes, rows.Err()
-}
-
 // gitCommitHashesForWorkItem runs git log to find commits whose messages
 // reference workItemID (via parenthesized or trailer convention). This is the
-// zero-DB fallback (tier 3) for resolveWorkItemPathsWithDiag.
+// sole path-resolution source for resolveWorkItemPathsWithDiag.
 func gitCommitHashesForWorkItem(projectDir, workItemID string) []string {
 	out, err := exec.Command(
 		"git", "-C", projectDir,

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
@@ -142,6 +142,15 @@ func runAddQuestionYAML(planID, text, description, recommended, optionsStr strin
 		return err
 	}
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
@@ -151,7 +160,7 @@ func runAddQuestionYAML(planID, text, description, recommended, optionsStr strin
 		ID: qid, Text: text, Description: description,
 		Recommended: recommended, Options: opts, Answer: nil,
 	})
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 
@@ -224,6 +233,15 @@ func runSetCritiqueYAML(planID, dataStr string) error {
 		return err
 	}
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
@@ -242,7 +260,7 @@ func runSetCritiqueYAML(planID, dataStr string) error {
 		return fmt.Errorf("parse critique JSON: %w", err)
 	}
 	plan.Critique = &critique
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 
@@ -348,6 +366,15 @@ func runSetDesignYAML(planID, problem, goals, constraints string) error {
 		return err
 	}
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
@@ -361,7 +388,7 @@ func runSetDesignYAML(planID, problem, goals, constraints string) error {
 	if constraints != "" {
 		plan.Design.Constraints = splitTrimmed(constraints)
 	}
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 
@@ -418,6 +445,17 @@ func runRewriteYAML(planID, filePath string) error {
 
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
 
+	// Hold the lock across the whole read-existing→build-new→save window
+	// (defect 4, feat-fc3cc9e0): rewrite-yaml reads the CURRENT on-disk plan
+	// below (to preserve meta.track_id and feedback across the overwrite)
+	// and then saves an entirely new document — the same lost-update hazard
+	// as a load→mutate→save cycle, just with the "mutation" being a
+	// wholesale replacement. Mirrors storePlanFeedbackEntry.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	// Confirm the plan exists.
 	if _, err := os.Stat(planPath); err != nil {
 		return fmt.Errorf("plan %q not found at %s", planID, planPath)
@@ -467,6 +505,9 @@ func runRewriteYAML(planID, filePath string) error {
 		if preserved := preserveTrackLinkage(existing, newPlan); preserved != "" {
 			fmt.Fprintf(os.Stderr, "note: preserved meta.track_id %q from the existing plan (rewrite did not specify one)\n", preserved)
 		}
+		if newPlan.Feedback == nil {
+			newPlan.Feedback = existing.Feedback
+		}
 	}
 
 	// Apply accepted amendments from plan_feedback before saving.
@@ -476,7 +517,7 @@ func runRewriteYAML(planID, filePath string) error {
 	}
 
 	// Write validated content.
-	if err := planyaml.Save(planPath, newPlan); err != nil {
+	if err := planyaml.SaveLocked(planPath, newPlan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 
@@ -520,48 +561,28 @@ type amendmentValue struct {
 	Content   string `json:"content"`
 }
 
-// applyAcceptedAmendments queries accepted amendments for planID, applies them
-// to the in-memory plan, marks them applied in the DB, and returns the count.
+// applyAcceptedAmendments applies accepted canonical amendments and marks them
+// applied in the in-memory YAML feedback state.
 func applyAcceptedAmendments(wipnoteDir, planID string, plan *planyaml.PlanYAML) (int, error) {
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return 0, fmt.Errorf("resolve db path: %w", err)
-	}
-	db, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return 0, fmt.Errorf("open db: %w", err)
-	}
-	defer db.Close()
-
-	rows, err := db.Query(
-		`SELECT question_id, value FROM plan_feedback WHERE plan_id = ? AND section = 'amendment' AND action = 'accepted'`,
-		planID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("query amendments: %w", err)
-	}
-	defer rows.Close()
-
 	type pendingAmendment struct {
+		index      int
 		questionID string
 		amendment  amendmentValue
 	}
 	var pending []pendingAmendment
-	for rows.Next() {
-		var qid, value string
-		if err := rows.Scan(&qid, &value); err != nil {
-			return 0, fmt.Errorf("scan amendment row: %w", err)
+	if plan == nil || plan.Feedback == nil {
+		return 0, nil
+	}
+	for i, entry := range plan.Feedback.Entries {
+		if entry.Section != "amendment" || entry.Action != "accepted" {
+			continue
 		}
 		var a amendmentValue
-		if err := json.Unmarshal([]byte(value), &a); err != nil {
-			return 0, fmt.Errorf("parse amendment JSON (question_id=%s): %w", qid, err)
+		if err := json.Unmarshal([]byte(entry.Value), &a); err != nil {
+			return 0, fmt.Errorf("parse amendment JSON (question_id=%s): %w", entry.QuestionID, err)
 		}
-		pending = append(pending, pendingAmendment{questionID: qid, amendment: a})
+		pending = append(pending, pendingAmendment{index: i, questionID: entry.QuestionID, amendment: a})
 	}
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("iterate amendment rows: %w", err)
-	}
-	rows.Close()
 
 	if len(pending) == 0 {
 		return 0, nil
@@ -615,13 +636,8 @@ func applyAcceptedAmendments(wipnoteDir, planID string, plan *planyaml.PlanYAML)
 		}
 
 		// Mark as applied regardless of whether the slice was found.
-		_, err = db.Exec(
-			`UPDATE plan_feedback SET action = 'applied' WHERE plan_id = ? AND question_id = ?`,
-			planID, p.questionID,
-		)
-		if err != nil {
-			return applied, fmt.Errorf("mark amendment applied (question_id=%s): %w", p.questionID, err)
-		}
+		plan.Feedback.Entries[p.index].Action = "applied"
+		plan.Feedback.Entries[p.index].UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 		applied++
 	}
 
@@ -639,11 +655,11 @@ func removeString(ss []string, s string) []string {
 	return result
 }
 
-// planReadFeedbackYAMLCmd queries plan_feedback for a YAML plan and outputs JSON.
+// planReadFeedbackYAMLCmd reads canonical feedback for a YAML plan and outputs JSON.
 func planReadFeedbackYAMLCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "read-feedback-yaml <plan-id>",
-		Short: "Read human feedback for a YAML plan from SQLite",
+		Short: "Read human feedback for a YAML plan",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runReadFeedbackYAML(args[0])
@@ -662,19 +678,9 @@ func runReadFeedbackYAML(planID string) error {
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
 	}
-	// Query SQLite.
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
+	entries, err := readPlanFeedbackEntries(wipnoteDir, planID)
 	if err != nil {
-		return fmt.Errorf("resolve db path: %w", err)
-	}
-	db, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db: %w", err)
-	}
-	defer db.Close()
-	entries, err := dbpkg.GetPlanFeedback(db, planID)
-	if err != nil {
-		return fmt.Errorf("query feedback: %w", err)
+		return fmt.Errorf("read feedback: %w", err)
 	}
 
 	type feedbackResult struct {
@@ -699,9 +705,9 @@ func runReadFeedbackYAML(planID string) error {
 		switch e.Action {
 		case "approve":
 			if e.Section == "design" {
-				result.DesignApproved = dbpkg.IsPlanApprovalValueApproved(e.Value)
+				result.DesignApproved = approvalStatusFromValue(e.Value) == "approved"
 			} else {
-				result.SliceApprovals[e.Section] = dbpkg.IsPlanApprovalValueApproved(e.Value)
+				result.SliceApprovals[e.Section] = approvalStatusFromValue(e.Value) == "approved"
 			}
 		case "comment":
 			if e.Section == "design" {

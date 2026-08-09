@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
@@ -108,6 +109,17 @@ Example:
 // in git history rather than accumulated in the YAML itself.
 func runPlanCritiqueRevise(wipnoteDir, planID string, sliceNum int, what, why, tests string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0): a bare Load-then-Save let two concurrent writers
+	// interleave and the second whole-document Save silently clobber the
+	// first, since the SQL-era per-row UPDATE this replaced was structurally
+	// immune to that race. Mirrors storePlanFeedbackEntry's lock discipline.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan %q: %w", planID, err)
@@ -117,7 +129,7 @@ func runPlanCritiqueRevise(wipnoteDir, planID string, sliceNum int, what, why, t
 		return err
 	}
 
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 

@@ -361,7 +361,7 @@ func TestProcessSession_RespectsMaxBytesPerTick(t *testing.T) {
 		t.Fatalf("first processSession: %v", err)
 	}
 	checkpointPath := filepath.Join(sessDir, ".index-offset")
-	offset1, err := readCheckpoint(checkpointPath)
+	offset1, err := readProgress(checkpointPath)
 	if err != nil {
 		t.Fatalf("read checkpoint after tick 1: %v", err)
 	}
@@ -378,7 +378,7 @@ func TestProcessSession_RespectsMaxBytesPerTick(t *testing.T) {
 	if err := idxr.processSession(ctx, sessionID); err != nil {
 		t.Fatalf("second processSession: %v", err)
 	}
-	offset2, err := readCheckpoint(checkpointPath)
+	offset2, err := readProgress(checkpointPath)
 	if err != nil {
 		t.Fatalf("read checkpoint after tick 2: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestProcessSession_AlignsCutoffToNewline(t *testing.T) {
 	}
 
 	checkpointPath := filepath.Join(sessDir, ".index-offset")
-	offset, err := readCheckpoint(checkpointPath)
+	offset, err := readProgress(checkpointPath)
 	if err != nil {
 		t.Fatalf("read checkpoint: %v", err)
 	}

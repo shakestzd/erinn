@@ -146,7 +146,8 @@ func RecordFallback(handler, sessionID string, reason FallbackReason, detail str
 // (class canonicalFirstHookFallback). Do not add new db.Open call sites in
 // core/hooks/ or cmd/wipnote/hook.go.
 func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
-	database, err := db.Open(dbPath)
+	_ = dbPath
+	database, err := db.OpenEphemeralProjection()
 	if err != nil {
 		// Slice-10 contention observability: classify open failures by
 		// hook_writer subsystem so the launch gate can assert zero BUSY
@@ -166,27 +167,23 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 // never acquires the write lock — so under contention these hot hooks never block
 // on a writable open.
 //
-// roborev-476 finding 2: this path now uses the GENUINELY read-only db.OpenReadOnly
-// and DELIBERATELY does NOT migrate. The prior db.OpenReadOnlyMigrated first ran a
-// writable db.Open (schema/migration) which, under a held external write lock, can
-// itself stall on the writable pragma/migration — re-introducing the exact hot-hook
-// contention the read-only dispatch was meant to remove. In steady state the DB is
-// migrated by session-start/serve, so the file already exists and is up to date; a
-// truly read-only open of an existing file is contention-free.
+// CURRENT BEHAVIOUR (feat-fc3cc9e0): there is no per-project SQLite file left to
+// open read-only, so this returns the same process-local in-memory projection as
+// OpenHookDB. dbPath is ignored. The projection starts EMPTY, so every read
+// through this handle sees no rows — callers must already be nil-DB-safe (they
+// are; that was the roborev-478 finding 1 contract), and any fact a guard
+// genuinely needs has to come from canonical state instead.
 //
-// When the DB file does NOT yet exist (very first launch before any writer created
-// it), we DEGRADE BEST-EFFORT rather than migrate on the hot path: db.OpenReadOnly
-// fails fast (it never creates a file), and we return a nil handle classified as
-// writer_unavailable. The caller treats a nil handle as canonical-success — reads
-// simply see empty results — and every derived WRITE is routed through the daemon
-// regardless (a daemon miss transparently opens its own bounded writable handle via
-// routeViaOwnBoundedHandle), so correctness is preserved without a hot-path migration.
+// The contention rationale that motivated a read-only open no longer applies:
+// an in-memory database takes no file lock and cannot contend with the daemon or
+// the dashboard.
 //
 // Failure semantics mirror OpenHookDB: a failed open is classified under
 // hook_writer, logged + counted as writer_unavailable, and returns a nil handle
 // the caller MUST treat as a signal to return canonical-success.
 func OpenHookDBReadOnly(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
-	database, err := db.OpenReadOnly(dbPath)
+	_ = dbPath
+	database, err := db.OpenEphemeralProjection()
 	if err != nil {
 		db.Record(db.SubsystemHookWriter, err)
 		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())
@@ -222,12 +219,13 @@ const SessionStartBusyTimeout = 750 * time.Millisecond
 // under hook_writer, logged + counted as writer_unavailable, and returns a nil
 // handle the caller MUST treat as a signal to return canonical-success.
 //
-// Boundary note: this routes through db.OpenWithBusyTimeout (a core/db
-// primitive, excluded from the writable-open scan and not a scanned method
-// name), so it adds NO new approvedWriteSites entry — the single inventoried
-// hook write site (OpenHookDB → db.Open) is unchanged.
+// CURRENT BEHAVIOUR (feat-fc3cc9e0): busyTimeout is ignored along with dbPath.
+// The handle is the process-local in-memory projection, which takes no file
+// lock, so there is no busy timeout to bound. The parameter is retained so the
+// session-start call site keeps documenting its latency intent.
 func OpenHookDBWithBusyTimeout(handler, sessionID, dbPath string, busyTimeout time.Duration) (*sql.DB, FallbackReason) {
-	database, err := db.OpenWithBusyTimeout(dbPath, busyTimeout)
+	_, _ = dbPath, busyTimeout
+	database, err := db.OpenEphemeralProjection()
 	if err != nil {
 		db.Record(db.SubsystemHookWriter, err)
 		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())

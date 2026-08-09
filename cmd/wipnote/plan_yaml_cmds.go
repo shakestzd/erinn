@@ -10,8 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/core/filelock"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
@@ -253,6 +252,15 @@ func runPlanAddSliceYAML(wipnoteDir, planID, title, what, why, files, doneWhen, 
 	}
 
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan %q: %w", planID, err)
@@ -307,7 +315,7 @@ func runPlanAddSliceYAML(wipnoteDir, planID, title, what, why, files, doneWhen, 
 
 	plan.Slices = append(plan.Slices, slice)
 
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan %q: %w", planID, err)
 	}
 
@@ -353,16 +361,8 @@ func runApproveSlice(wipnoteDir, planID, sliceNumStr string) error {
 		return err
 	}
 	section := fmt.Sprintf("slice-%d", sliceNum)
-	db, err := openPlanDB(wipnoteDir)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	if err := dbpkg.StorePlanFeedback(db, planID, section, "approve", "true", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, section, "approve", "true", ""); err != nil {
 		return fmt.Errorf("store approve feedback: %w", err)
-	}
-	if err := updateSliceYAMLApproval(wipnoteDir, planID, sliceNum, "approved"); err != nil {
-		fmt.Fprintf(stderr, "approve-slice: YAML sync warning: %v\n", err)
 	}
 	fmt.Fprintf(os.Stdout, "Slice %d approved for plan %s\n", sliceNum, planID)
 	return nil
@@ -373,6 +373,15 @@ func runApproveSlice(wipnoteDir, planID, sliceNumStr string) error {
 // same source of truth. Caller treats failures as non-fatal warnings.
 func updateSliceYAMLApproval(wipnoteDir, planID string, sliceNum int, approval string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	// Hold the lock across the whole load→mutate→save window (defect 4,
+	// feat-fc3cc9e0) — see storePlanFeedbackEntry for the canonical pattern
+	// this mirrors.
+	releaseFile := filelock.Guard(planPath)
+	defer releaseFile()
+	releasePlan := planyaml.LockPlanForWrite(planPath)
+	defer releasePlan()
+
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
 		return fmt.Errorf("load plan: %w", err)
@@ -382,7 +391,7 @@ func updateSliceYAMLApproval(wipnoteDir, planID string, sliceNum int, approval s
 		return err
 	}
 	plan.Slices[idx].ApprovalStatus = approval
-	if err := planyaml.Save(planPath, plan); err != nil {
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
 		return fmt.Errorf("save plan: %w", err)
 	}
 	return nil
@@ -420,27 +429,16 @@ func runRejectSlice(wipnoteDir, planID, sliceNumStr string, changesRequested boo
 	}
 	section := fmt.Sprintf("slice-%d", sliceNum)
 	action := "reject"
+	approval := "rejected"
 	if changesRequested {
 		action = "changes_requested"
+		approval = "changes_requested"
 	}
-	db, err := openPlanDB(wipnoteDir)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	if err := dbpkg.StorePlanFeedback(db, planID, section, action, "false", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, section, action, "false", ""); err != nil {
 		return fmt.Errorf("store reject feedback: %w", err)
 	}
-	// Also record the approve=false row so IsPlanFullyApproved sees the disapproval.
-	if err := dbpkg.StorePlanFeedback(db, planID, section, "approve", "false", ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, section, "approve", approval, ""); err != nil {
 		return fmt.Errorf("store approve=false feedback: %w", err)
-	}
-	yamlState := "rejected"
-	if changesRequested {
-		yamlState = "changes_requested"
-	}
-	if err := updateSliceYAMLApproval(wipnoteDir, planID, sliceNum, yamlState); err != nil {
-		fmt.Fprintf(stderr, "reject-slice: YAML sync warning: %v\n", err)
 	}
 	fmt.Fprintf(os.Stdout, "Slice %d rejected (action=%s) for plan %s\n", sliceNum, action, planID)
 	return nil
@@ -473,12 +471,7 @@ func runAnswerSliceQuestion(wipnoteDir, planID, sliceNumStr, questionID, answerK
 		return err
 	}
 	section := fmt.Sprintf("slice-%d-question-%s", sliceNum, questionID)
-	db, err := openPlanDB(wipnoteDir)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	if err := dbpkg.StorePlanFeedback(db, planID, section, "answer", answerKey, questionID); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, section, "answer", answerKey, questionID); err != nil {
 		return fmt.Errorf("store answer feedback: %w", err)
 	}
 	fmt.Fprintf(os.Stdout, "Answer recorded: plan=%s slice=%d question=%s answer=%s\n",
@@ -518,12 +511,7 @@ func runSetSliceStatus(wipnoteDir, planID, sliceNumStr, status string) error {
 		return err
 	}
 	section := fmt.Sprintf("slice-%d", sliceNum)
-	db, err := openPlanDB(wipnoteDir)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	if err := dbpkg.StorePlanFeedback(db, planID, section, "set_execution_status", status, ""); err != nil {
+	if err := storePlanFeedback(wipnoteDir, planID, section, "set_execution_status", status, ""); err != nil {
 		return fmt.Errorf("store set_execution_status feedback: %w", err)
 	}
 	fmt.Fprintf(os.Stdout, "Slice %d execution_status → %s for plan %s\n", sliceNum, status, planID)
@@ -550,16 +538,6 @@ func parseSliceNum(s string) (int, error) {
 	return n, nil
 }
 
-// openPlanDB resolves the DB path from wipnoteDir and opens it.
-// The parent of wipnoteDir is used as the project root for CanonicalDBPath.
 func openPlanDB(wipnoteDir string) (*sql.DB, error) {
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return nil, fmt.Errorf("resolve db path: %w", err)
-	}
-	db, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("open db: %w", err)
-	}
-	return db, nil
+	return openDB(wipnoteDir)
 }

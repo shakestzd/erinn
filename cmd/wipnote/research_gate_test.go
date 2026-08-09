@@ -44,11 +44,13 @@ func TestWiIsResearchURL(t *testing.T) {
 // --research-url/--research-waiver fails. Provenance passes (a commit is seeded)
 // so the research gate is actually reached.
 func TestResearchGate_DepChangeNoEvidence_Blocked(t *testing.T) {
-	_, hgDir := prepProject(t)
+	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Dep Feature", trackID)
-	seedFeatureFile(t, hgDir, id, "go.mod")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2001") // provenance passes
+	// One canonical commit linked to the item, touching go.mod: it satisfies the
+	// provenance gate (so the research gate is reached) and makes the dependency
+	// manifest the item's code-bearing path.
+	seedProvCommit(t, tmpDir, id, "go.mod")
 
 	wiResearchURL = nil
 	wiResearchWaiver = ""
@@ -70,11 +72,10 @@ func TestResearchGate_DepChangeNoEvidence_Blocked(t *testing.T) {
 // TestResearchGate_InvalidURL_Blocked proves a non-http(s) --research-url does
 // not satisfy the gate.
 func TestResearchGate_InvalidURL_Blocked(t *testing.T) {
-	_, hgDir := prepProject(t)
+	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Dep Feature Bad URL", trackID)
-	seedFeatureFile(t, hgDir, id, "go.mod")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2002")
+	seedProvCommit(t, tmpDir, id, "go.mod")
 
 	wiResearchURL = []string{"not-a-url"}
 	wiResearchWaiver = ""
@@ -93,11 +94,10 @@ func TestResearchGate_InvalidURL_Blocked(t *testing.T) {
 // invalid --research-url is NOT silently dropped even when another valid URL is
 // also supplied — every URL is shape-checked.
 func TestResearchGate_MixedValidInvalidURL_Blocked(t *testing.T) {
-	_, hgDir := prepProject(t)
+	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Dep Feature Mixed URL", trackID)
-	seedFeatureFile(t, hgDir, id, "go.mod")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2006")
+	seedProvCommit(t, tmpDir, id, "go.mod")
 
 	wiResearchURL = []string{"https://pkg.go.dev/valid", "not-a-url"}
 	wiResearchWaiver = ""
@@ -121,9 +121,8 @@ func TestResearchGate_NonDepItem_Exempt(t *testing.T) {
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Plain Feature", trackID)
-	seedFeatureFile(t, hgDir, id, "internal/foo/bar.go")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2003")
 	seedPassingGateRecord(t, tmpDir, "test-session-prov", id)
+	seedProvCommit(t, tmpDir, id, "internal/foo/bar.go")
 
 	wiResearchURL = nil
 	wiResearchWaiver = ""
@@ -147,9 +146,8 @@ func TestResearchGate_DepChangeWithURL_Completes(t *testing.T) {
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Dep Feature OK", trackID)
-	seedFeatureFile(t, hgDir, id, "go.mod")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2004")
 	seedPassingGateRecord(t, tmpDir, "test-session-prov", id)
+	seedProvCommit(t, tmpDir, id, "go.mod")
 
 	const cited = "https://pkg.go.dev/github.com/some/dep"
 	wiResearchURL = []string{cited}
@@ -177,9 +175,8 @@ func TestResearchGate_DepChangeWithWaiver_Completes(t *testing.T) {
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Dep Feature Waiver", trackID)
-	seedFeatureFile(t, hgDir, id, "go.mod")
-	seedProvCommit(t, hgDir, id, "deadbeefcafe2005")
 	seedPassingGateRecord(t, tmpDir, "test-session-prov", id)
+	seedProvCommit(t, tmpDir, id, "go.mod")
 
 	const reason = "version pin of an internal vendored fork; no upstream docs"
 	wiResearchURL = nil

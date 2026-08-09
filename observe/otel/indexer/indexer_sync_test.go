@@ -137,9 +137,9 @@ func TestIndexerCheckpoint_AdvancesAfterSyncCommit(t *testing.T) {
 	}
 
 	checkpointPath := filepath.Join(wipnoteDir, "sessions", sessionID, ".index-offset")
-	off, err := readCheckpoint(checkpointPath)
+	off, err := readProgress(checkpointPath)
 	if err != nil {
-		t.Fatalf("readCheckpoint: %v", err)
+		t.Fatalf("readProgress: %v", err)
 	}
 	if off <= 0 {
 		t.Errorf(".index-offset = %d, want > 0 after a successful commit", off)

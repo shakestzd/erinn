@@ -10,6 +10,8 @@ import (
 
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+
+	"github.com/shakestzd/wipnote/core/sessionledger"
 )
 
 // --- shared reaper-test seeding helpers ---
@@ -374,5 +376,68 @@ func TestReapStaleSessionsAndCollectors_Seam(t *testing.T) {
 	repNil := ReapStaleSessionsAndCollectors(database, projectDir, current, true, false, 0)
 	if len(repNil.ReapedCollectors) != 0 {
 		t.Fatalf("nil ReapCollectorFn must reap no collectors, got %v", repNil.ReapedCollectors)
+	}
+}
+
+// TestReapStaleSession_DoesNotRepeatAcrossProcesses is the regression guard for
+// the infinite reap loop.
+//
+// TestReapStaleSessions above proves idempotency WITHIN one process, and it
+// proves it via the projection row flipping to 'completed'. That is exactly the
+// evidence that does not survive: the compatibility projection is process-local
+// and in-memory, so the next wipnote process starts from a projection rehydrated
+// out of the CANONICAL session ledger, where status is derived from
+// Record.IsOpen(). If the reap never wrote the ledger, the next process sees the
+// session as open, finds it just as stale, and reaps it again — forever.
+//
+// The second pass here therefore RESETS the projection row to 'active' to
+// simulate that rehydration. Without the ledger close the reaper reaps again;
+// with it, the ledger says the session already ended and the pass is a no-op.
+func TestReapStaleSession_DoesNotRepeatAcrossProcesses(t *testing.T) {
+	td := setupTestDB(t)
+	database := td.DB
+	projectDir := t.TempDir()
+
+	const current = "sess-11111111-1111-4111-8111-111111111111"
+	const dead = "sess-22222222-2222-4222-8222-222222222222"
+	seedReaperSession(t, database, current)
+	seedReaperSession(t, database, dead)
+	writeDeadPID(t, filepath.Join(projectDir, ".wipnote", "sessions", dead))
+
+	// The canonical ledger row SessionStart would have written.
+	store := sessionledger.NewStore(filepath.Join(projectDir, ".wipnote"))
+	if _, err := store.Open(sessionledger.Record{
+		SessionID: dead,
+		Harness:   "claude",
+		StartedAt: time.Now().UTC().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed ledger row: %v", err)
+	}
+
+	rep := ReapStaleSessionsAndCollectors(database, projectDir, current, false, false, 0)
+	if !contains(rep.ReapedSessions, dead) {
+		t.Fatalf("first pass must reap %s; got %v", dead, rep.ReapedSessions)
+	}
+
+	// The reap must be durable, not merely projected.
+	rec, found, err := store.Get(dead)
+	if err != nil || !found {
+		t.Fatalf("ledger row missing after reap (err=%v found=%v)", err, found)
+	}
+	if rec.IsOpen() {
+		t.Fatal("reap left the canonical ledger row OPEN — the next process will reap it again")
+	}
+
+	// Simulate a fresh process: the projection is rebuilt from the ledger, and a
+	// row the ledger still called open would come back as 'active'.
+	if _, err := database.Exec(
+		`UPDATE sessions SET status='active', completed_at=NULL WHERE session_id=?`, dead,
+	); err != nil {
+		t.Fatalf("simulate rehydration: %v", err)
+	}
+
+	rep2 := ReapStaleSessionsAndCollectors(database, projectDir, current, false, false, 0)
+	if contains(rep2.ReapedSessions, dead) {
+		t.Fatalf("%s was reaped a second time — this is the infinite reap loop", dead)
 	}
 }

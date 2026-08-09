@@ -4,66 +4,41 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 func TestPlanFeedback_OutputStructure(t *testing.T) {
-	dir := t.TempDir()
-	plansDir := filepath.Join(dir, "plans")
-	if err := os.MkdirAll(plansDir, 0o755); err != nil {
-		t.Fatalf("mkdir plans: %v", err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(dir, ".db"), 0o755); err != nil {
-		t.Fatalf("mkdir .db: %v", err)
-	}
-	dbPath := filepath.Join(dir, ".db", "wipnote.db")
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
-	db, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-
 	const planID = "plan-test1234"
+	dir := writeTempPlanHTML(t, planID)
 
 	// Insert approval rows.
-	err = dbpkg.StorePlanFeedback(db, planID, "slice-1", "approve", "true", "")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "slice-1", "approve", "true", ""); err != nil {
 		t.Fatalf("store approve slice-1: %v", err)
 	}
-	err = dbpkg.StorePlanFeedback(db, planID, "slice-2", "approve", "false", "")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "slice-2", "approve", "false", ""); err != nil {
 		t.Fatalf("store approve slice-2: %v", err)
 	}
-	err = dbpkg.StorePlanFeedback(db, planID, "slice-2", "comment", "needs rework", "")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "slice-2", "comment", "needs rework", ""); err != nil {
 		t.Fatalf("store comment slice-2: %v", err)
 	}
 
 	// Insert answer rows.
-	err = dbpkg.StorePlanFeedback(db, planID, "questions", "answer", "lazy", "q-caching")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "questions", "answer", "lazy", "q-caching"); err != nil {
 		t.Fatalf("store answer q-caching: %v", err)
 	}
 
 	// Insert amendment row.
 	amendJSON := `{"slice_num":1,"field":"what","operation":"set","content":"new description"}`
-	err = dbpkg.StorePlanFeedback(db, planID, "amendment", "accepted", amendJSON, "")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "amendment", "accepted", amendJSON, ""); err != nil {
 		t.Fatalf("store amendment: %v", err)
 	}
 
 	// Insert chat messages row.
 	msgsJSON := `[{"role":"user","content":"hello","timestamp":"2026-04-12T00:00:00Z"}]`
-	err = dbpkg.StorePlanFeedback(db, planID, "chat", "messages", msgsJSON, "")
-	if err != nil {
+	if err := storePlanFeedback(dir, planID, "chat", "messages", msgsJSON, ""); err != nil {
 		t.Fatalf("store chat messages: %v", err)
 	}
-	db.Close()
 
 	// Redirect stdout to capture output.
 	old := os.Stdout
@@ -131,17 +106,7 @@ func TestPlanFeedback_OutputStructure(t *testing.T) {
 }
 
 func TestPlanFeedback_EmptyPlan(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "plans"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	// Create empty DB.
-	db, err := dbpkg.Open(filepath.Join(dir, "wipnote.db"))
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	db.Close()
+	dir := writeTempPlanHTML(t, "plan-empty0000")
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()

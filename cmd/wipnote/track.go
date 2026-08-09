@@ -8,11 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/workitem"
 	commandspkg "github.com/shakestzd/wipnote/internal/commands"
 	"github.com/spf13/cobra"
@@ -177,14 +175,7 @@ func isActionable(f *models.Node, nodeMap map[string]*models.Node) bool {
 // openTrackDB opens the SQLite DB if it exists; returns nil without error when
 // the file is absent (file counts are optional).
 func openTrackDB(wipnoteDir string) *sql.DB {
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		return nil
-	}
-	if _, err := os.Stat(dbPath); err != nil {
-		return nil
-	}
-	database, err := db.Open(dbPath)
+	database, err := openDB(wipnoteDir)
 	if err != nil {
 		return nil
 	}

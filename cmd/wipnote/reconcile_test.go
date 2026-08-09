@@ -7,14 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // reconcileTestRepo builds a real git repo under /tmp (so isTestTmpPath does
 // not short-circuit reconcile's artifact commit) with an empty .wipnote store
-// and an initial commit. It points projectDirFlag + WIPNOTE_DB_PATH at it.
+// and an initial commit. It points projectDirFlag at it.
 func reconcileTestRepo(t *testing.T) string {
 	t.Helper()
 	tmpParent, err := os.MkdirTemp("/tmp", "wipnote-reconcile-*")
@@ -29,14 +26,14 @@ func reconcileTestRepo(t *testing.T) string {
 			t.Fatalf("mkdir %s: %v", sub, err)
 		}
 	}
-	dbPath := filepath.Join(root, ".wipnote", ".db", "wipnote.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		t.Fatalf("mkdir db dir: %v", err)
-	}
-	t.Setenv("WIPNOTE_DB_PATH", dbPath)
 	t.Setenv("WIPNOTE_CACHE_DIR", tmpParent)
 	projectDirFlag = root
 	t.Cleanup(func() { projectDirFlag = "" })
+	// Mandatory here above all: reconcile AUTO-COMMITS artifacts, so a test that
+	// escapes isolation does not merely write into the real .wipnote/, it commits
+	// there. projectDirFlag covers findWipnoteDir; these cover every resolver that
+	// consults the environment instead.
+	isolateProjectDir(t, root)
 	return root
 }
 
@@ -64,26 +61,15 @@ func TestReconcileCmd_NothingToReconcile_ExitsZero(t *testing.T) {
 func TestReconcileCmd_DoneButUncommitted_AutoCommitsAndReports(t *testing.T) {
 	root := reconcileTestRepo(t)
 
-	// Insert a done feature row directly into the read index the command
-	// opens, plus a matching uncommitted artifact file under .wipnote/.
+	// The canonical artifact IS the record: a "done" work item whose HTML is
+	// uncommitted. No read-index row is seeded, because the command no longer
+	// consults one — that gate (`if database != nil`) is exactly what used to
+	// make this class silently never run.
 	id := "feat-cccccccc"
-	dbPath := os.Getenv("WIPNOTE_DB_PATH")
-	database, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("db.Open: %v", err)
-	}
-	now := time.Now().UTC()
-	if err := dbpkg.InsertFeature(database, &dbpkg.Feature{
-		ID: id, Type: "feature", Title: "Done Uncommitted",
-		Status: "done", Priority: "medium", CreatedAt: now, UpdatedAt: now,
-	}); err != nil {
-		database.Close()
-		t.Fatalf("InsertFeature: %v", err)
-	}
-	database.Close()
-
 	artifact := filepath.Join(root, ".wipnote", "features", id+".html")
-	if err := os.WriteFile(artifact, []byte("<html>"+id+" done</html>"), 0o644); err != nil {
+	if err := os.WriteFile(artifact, []byte(
+		`<html><body><article id="`+id+`" data-type="feature" data-status="done">`+
+			`<header><h1>Done Uncommitted</h1></header></article></body></html>`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	files := []string{artifact}

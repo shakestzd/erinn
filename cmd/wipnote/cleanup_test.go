@@ -11,6 +11,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 )
 
 // setupCleanupTestDB creates an in-memory SQLite DB for cleanup tests.
@@ -68,177 +69,7 @@ func writeMinimalSessionHTML(t *testing.T, dir, sessionID string) {
 	}
 }
 
-// ---------- collectSessionHTMLIDs tests ----------
-
-func TestCollectSessionHTMLIDs_Empty(t *testing.T) {
-	dir := t.TempDir()
-	sessionsDir := filepath.Join(dir, ".wipnote", "sessions")
-	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	ids, err := collectSessionHTMLIDs(filepath.Join(dir, ".wipnote"))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(ids) != 0 {
-		t.Errorf("expected empty set, got %d entries", len(ids))
-	}
-}
-
-func TestCollectSessionHTMLIDs_MissingDir(t *testing.T) {
-	dir := t.TempDir()
-	// .wipnote/sessions/ does not exist — should return empty set, not error.
-	ids, err := collectSessionHTMLIDs(filepath.Join(dir, ".wipnote"))
-	if err != nil {
-		t.Fatalf("unexpected error for missing dir: %v", err)
-	}
-	if len(ids) != 0 {
-		t.Errorf("expected empty set, got %d entries", len(ids))
-	}
-}
-
-func TestCollectSessionHTMLIDs_MixedFiles(t *testing.T) {
-	dir := t.TempDir()
-	sessionsDir := filepath.Join(dir, ".wipnote", "sessions")
-	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	// Write HTML files.
-	htmlFiles := []string{
-		"sess-aabbccdd.html",
-		"sess-11223344.html",
-	}
-	for _, f := range htmlFiles {
-		if err := os.WriteFile(filepath.Join(sessionsDir, f), []byte("<html/>"), 0o644); err != nil {
-			t.Fatalf("write %s: %v", f, err)
-		}
-	}
-	// Write non-HTML files — should be ignored.
-	nonHTMLFiles := []string{"notes.yaml", "README.txt", "data.json"}
-	for _, f := range nonHTMLFiles {
-		if err := os.WriteFile(filepath.Join(sessionsDir, f), []byte("ignored"), 0o644); err != nil {
-			t.Fatalf("write %s: %v", f, err)
-		}
-	}
-
-	ids, err := collectSessionHTMLIDs(filepath.Join(dir, ".wipnote"))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(ids) != 2 {
-		t.Fatalf("expected 2 IDs, got %d: %v", len(ids), ids)
-	}
-	if _, ok := ids["sess-aabbccdd"]; !ok {
-		t.Errorf("expected sess-aabbccdd in result")
-	}
-	if _, ok := ids["sess-11223344"]; !ok {
-		t.Errorf("expected sess-11223344 in result")
-	}
-	// Non-HTML filenames should NOT appear.
-	for _, f := range nonHTMLFiles {
-		if _, ok := ids[f]; ok {
-			t.Errorf("non-HTML file %q should not be in result", f)
-		}
-	}
-}
-
-// ---------- findContentFreeSessionIDs tests ----------
-
-func TestFindContentFreeSessionIDs_NoMessages(t *testing.T) {
-	database := setupCleanupTestDB(t)
-
-	ghostID := "ghost-no-msg-00000001"
-	withMsgID := "live-with-msg-0000001"
-	insertSessionRow(t, database, ghostID)
-	insertSessionRow(t, database, withMsgID)
-
-	// Insert a message for the live session.
-	_, err := database.Exec(
-		`INSERT INTO messages (session_id, ordinal, role, content) VALUES (?, 1, 'user', 'hello')`,
-		withMsgID,
-	)
-	if err != nil {
-		t.Fatalf("insert message: %v", err)
-	}
-
-	ids, err := findContentFreeSessionIDs(database)
-	if err != nil {
-		t.Fatalf("findContentFreeSessionIDs: %v", err)
-	}
-
-	if !containsID(ids, ghostID) {
-		t.Errorf("ghost session %s should be in candidates", ghostID)
-	}
-	if containsID(ids, withMsgID) {
-		t.Errorf("session with message %s should NOT be in candidates", withMsgID)
-	}
-}
-
-func TestFindContentFreeSessionIDs_NoToolCalls(t *testing.T) {
-	database := setupCleanupTestDB(t)
-
-	ghostID := "ghost-no-tc-000000001"
-	withTCID := "live-with-tc-00000001"
-	insertSessionRow(t, database, ghostID)
-	insertSessionRow(t, database, withTCID)
-
-	// Insert a tool_call for the live session.
-	_, err := database.Exec(
-		`INSERT INTO tool_calls (session_id, tool_name, category) VALUES (?, 'Bash', 'Execution')`,
-		withTCID,
-	)
-	if err != nil {
-		t.Fatalf("insert tool_call: %v", err)
-	}
-
-	ids, err := findContentFreeSessionIDs(database)
-	if err != nil {
-		t.Fatalf("findContentFreeSessionIDs: %v", err)
-	}
-
-	if !containsID(ids, ghostID) {
-		t.Errorf("ghost session %s should be in candidates", ghostID)
-	}
-	if containsID(ids, withTCID) {
-		t.Errorf("session with tool_call %s should NOT be in candidates", withTCID)
-	}
-}
-
-func TestFindContentFreeSessionIDs_NoAgentEvents(t *testing.T) {
-	database := setupCleanupTestDB(t)
-
-	ghostID := "ghost-no-ae-000000001"
-	withAEID := "live-with-ae-00000001"
-	insertSessionRow(t, database, ghostID)
-	insertSessionRow(t, database, withAEID)
-
-	// Insert an agent_event for the live session.
-	_, err := database.Exec(
-		`INSERT INTO agent_events (event_id, agent_id, event_type, timestamp, session_id)
-		 VALUES ('evt-test-ae-001', 'claude-code', 'tool_call', CURRENT_TIMESTAMP, ?)`,
-		withAEID,
-	)
-	if err != nil {
-		t.Fatalf("insert agent_event: %v", err)
-	}
-
-	ids, err := findContentFreeSessionIDs(database)
-	if err != nil {
-		t.Fatalf("findContentFreeSessionIDs: %v", err)
-	}
-
-	if !containsID(ids, ghostID) {
-		t.Errorf("ghost session %s should be in candidates", ghostID)
-	}
-	if containsID(ids, withAEID) {
-		t.Errorf("session with agent_event %s should NOT be in candidates", withAEID)
-	}
-}
-
-// ---------- runCleanupGhostSessions integration tests ----------
+// ---------- shared helpers ----------
 
 // setupHTMLGraphDir creates a .wipnote/ directory tree with an SQLite DB
 // at the given root, and returns the wipnoteDir path.
@@ -265,6 +96,7 @@ func setupHTMLGraphDir(t *testing.T) (string, *sql.DB) {
 }
 
 // captureStdout captures os.Stdout during fn() and returns what was printed.
+// Used across the package, not just here.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	old := os.Stdout
@@ -283,115 +115,54 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-// TestRunCleanupGhostSessions_NeverDeletesHTMLBacked is the critical regression
-// test: a session row with zero events but an HTML file on disk must NOT be deleted.
-func TestRunCleanupGhostSessions_NeverDeletesHTMLBacked(t *testing.T) {
-	if testing.Short() {
-		t.Skip("drives cleanup integration flow")
-	}
+// ---------- ghost-sessions removal ----------
 
-	hgDir, database := setupHTMLGraphDir(t)
-
-	sessionID := "html-backed-sess-0001"
-	insertSessionRow(t, database, sessionID)
-
-	// Write an HTML file — this is the canonical record.
-	writeMinimalSessionHTML(t, filepath.Join(hgDir, "sessions"), sessionID)
-
-	// Close the DB so runCleanupGhostSessions can open it fresh.
-	database.Close()
-
-	// Point project-dir flag to the temp project root.
-	origFlag := projectDirFlag
-	projectDirFlag = filepath.Dir(hgDir)
-	defer func() { projectDirFlag = origFlag }()
-
-	err := runCleanupGhostSessions(false)
+// TestCleanupGhostSessions_Removed pins the removal of `cleanup ghost-sessions`
+// (feat-fc3cc9e0), which this file used to cover with three unit tests and
+// three integration tests.
+//
+// The command deleted rows from `sessions` that had no HTML file and no
+// messages/tool_calls/agent_events. All four tables are now a per-process
+// projection hydrated from canonical artifacts on every openDB, so the DELETE
+// committed to a throwaway database and reindexSessionLedger re-inserted every
+// "deleted" row on the next command — run twice, it reported the same
+// deletions both times.
+//
+// There is no canonical redirect. A session's canonical record IS its ledger
+// entry, so a row with no HTML but a live ledger entry is not a ghost; it is a
+// session whose HTML was never rendered, and deleting the ledger entry would
+// destroy provenance rather than tidy up after it.
+//
+// `cleanup orphan-sessions` is unaffected and still covered below: it removes
+// NDJSON directories from disk, which is durable, and uses the projection only
+// to ask which session dirs have no session — a question the ledger answers.
+func TestCleanupGhostSessions_Removed(t *testing.T) {
+	data, err := os.ReadFile("cleanup.go")
 	if err != nil {
-		t.Fatalf("runCleanupGhostSessions: %v", err)
+		t.Fatalf("read cleanup.go: %v", err)
 	}
-
-	// Verify the row still exists.
-	db2, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
-	if err != nil {
-		t.Fatalf("reopen db: %v", err)
-	}
-	defer db2.Close()
-
-	if !sessionExists(t, db2, sessionID) {
-		t.Errorf("HTML-backed session %s was wrongly deleted", sessionID)
-	}
-}
-
-// TestRunCleanupGhostSessions_DeletesTrueGhosts verifies that a session row
-// with zero events AND no HTML file is deleted.
-func TestRunCleanupGhostSessions_DeletesTrueGhosts(t *testing.T) {
-	hgDir, database := setupHTMLGraphDir(t)
-
-	ghostID := "true-ghost-sess-00001"
-	insertSessionRow(t, database, ghostID)
-	// No HTML file written — this is a true ghost.
-	database.Close()
-
-	origFlag := projectDirFlag
-	projectDirFlag = filepath.Dir(hgDir)
-	defer func() { projectDirFlag = origFlag }()
-
-	err := runCleanupGhostSessions(false)
-	if err != nil {
-		t.Fatalf("runCleanupGhostSessions: %v", err)
-	}
-
-	db2, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
-	if err != nil {
-		t.Fatalf("reopen db: %v", err)
-	}
-	defer db2.Close()
-
-	if sessionExists(t, db2, ghostID) {
-		t.Errorf("true ghost session %s should have been deleted", ghostID)
-	}
-}
-
-// TestRunCleanupGhostSessions_DryRunNoDelete verifies that --dry-run lists
-// ghosts but does not delete them.
-func TestRunCleanupGhostSessions_DryRunNoDelete(t *testing.T) {
-	hgDir, database := setupHTMLGraphDir(t)
-
-	ghostID := "dry-run-ghost-000001"
-	insertSessionRow(t, database, ghostID)
-	// No HTML file — true ghost.
-	database.Close()
-
-	origFlag := projectDirFlag
-	projectDirFlag = filepath.Dir(hgDir)
-	defer func() { projectDirFlag = origFlag }()
-
-	var output string
-	output = captureStdout(t, func() {
-		err := runCleanupGhostSessions(true /* dryRun */)
-		if err != nil {
-			t.Errorf("runCleanupGhostSessions dry-run: %v", err)
+	src := string(data)
+	// The doc comment in cleanup.go deliberately names the removed command and
+	// explains why it went, so the scan targets the implementation, not the
+	// prose.
+	for _, forbidden := range []string{
+		"runCleanupGhostSessions",
+		"DELETE FROM sessions",
+		"cleanupGhostSessionsCmd",
+	} {
+		if strings.Contains(src, forbidden) {
+			t.Errorf("cleanup.go still references %q — a delete against the projection cannot outlive the process", forbidden)
 		}
-	})
-
-	// Ghost should appear in output.
-	if !strings.Contains(output, ghostID[:16]) && !strings.Contains(output, "ghost") {
-		t.Errorf("dry-run output should mention ghost session, got: %q", output)
-	}
-	if !strings.Contains(output, "Dry run") {
-		t.Errorf("dry-run output should contain 'Dry run', got: %q", output)
 	}
 
-	// Row must still exist.
-	db2, err := dbpkg.Open(filepath.Join(hgDir, ".db", "wipnote.db"))
-	if err != nil {
-		t.Fatalf("reopen db: %v", err)
+	sub := cleanupCmd().Commands()
+	for _, c := range sub {
+		if c.Name() == "ghost-sessions" {
+			t.Error("cleanup still registers the ghost-sessions subcommand")
+		}
 	}
-	defer db2.Close()
-
-	if !sessionExists(t, db2, ghostID) {
-		t.Errorf("dry-run should not delete ghost session %s", ghostID)
+	if len(sub) == 0 {
+		t.Error("cleanup lost all subcommands; orphan-sessions must remain")
 	}
 }
 
@@ -511,10 +282,15 @@ func TestRunCleanupOrphanSessions_DeleteWithYesRemovesEligible(t *testing.T) {
 // are no orphan directories.
 func TestRunCleanupOrphanSessions_NoOrphans(t *testing.T) {
 	hgDir, database := setupHTMLGraphDir(t)
-	// Insert a known session AND create its directory — it is NOT an orphan.
-	insertSessionRow(t, database, "known-sess-no-orphan")
-	makeOrphanSessionDir(t, hgDir, "known-sess-no-orphan", 0)
 	database.Close()
+
+	// A session is "known" when the CANONICAL session ledger says so. This
+	// used to INSERT straight into a file-backed sessions table; the command
+	// now reads a projection hydrated from the ledger, so seeding the table
+	// directly seeded a database nothing opens and the known session read as
+	// an orphan (feat-fc3cc9e0).
+	seedSessionLedgerEntry(t, hgDir, "3f6b1c2e-8a44-4d9b-9f21-77c0de5a1b34")
+	makeOrphanSessionDir(t, hgDir, "3f6b1c2e-8a44-4d9b-9f21-77c0de5a1b34", 0)
 
 	origFlag := projectDirFlag
 	projectDirFlag = filepath.Dir(hgDir)
@@ -529,5 +305,18 @@ func TestRunCleanupOrphanSessions_NoOrphans(t *testing.T) {
 
 	if !strings.Contains(output, "No orphan") {
 		t.Errorf("expected 'No orphan' message, got: %q", output)
+	}
+}
+
+// seedSessionLedgerEntry writes one open session into the canonical session
+// ledger, which is what hydrates the projection's `sessions` table.
+func seedSessionLedgerEntry(t *testing.T, wipnoteDir, sessionID string) {
+	t.Helper()
+	if _, err := sessionledger.NewStore(wipnoteDir).Open(sessionledger.Record{
+		SessionID: sessionID,
+		Harness:   "claude-code",
+		StartedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("seed session ledger %s: %v", sessionID, err)
 	}
 }

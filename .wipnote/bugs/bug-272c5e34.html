@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-18T13:26:43.678296"
-             data-updated="2026-05-18T18:31:36.165128" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c">
+             data-updated="2026-08-09T20:41:44.446665" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c" data-affected_files=".wipnote/bugs/bug-272c5e34.html,cmd/wipnote/claude_serve_autostart.go,cmd/wipnote/serve_child.go,cmd/wipnote/sqlite_contention_test.go,internal/otel/indexer/indexer.go,internal/otel/indexer/prompt_id_routing_test.go">
 
         <header>
             <h1>serve indexer &#43; writequeue self-livelock: tight begin-immediate loop SQLITE_BUSY-starves under DELETE journal, blanks dashboard</h1>
@@ -24,24 +24,24 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.847802">Plan: Durable self-contained SQLite contention fix</a></li>
-                    <li><a href="bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.864852">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
-                    <li><a href="bug-dd5db2d1.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.882882">ApplyPragmas open-time PRAGMA journal_mode SQLITE_BUSY uncovered by RetryOnBusy; bug-56b686aa fix insufficient under saturation</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T13:40:38.247979">session d2101130-3162-4850-8793-414841978b28</a></li>
+                    <li><a href="../sessions/d2101130-3162-4850-8793-414841978b28.html" data-relationship="implemented_in" data-since="2026-05-18T13:40:38.247979">session d2101130-3162-4850-8793-414841978b28</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T13:26:43.708912">trk-a30e8df4</a></li>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T13:26:43.708912">trk-a30e8df4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../plans/plan-ae0c37b2.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.847802">Plan: Durable self-contained SQLite contention fix</a></li>
+                    <li><a href="../bugs/bug-74a7bda7.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.864852">Dashboard session indexer logs SQLITE_BUSY during concurrent validation</a></li>
+                    <li><a href="../bugs/bug-dd5db2d1.html" data-relationship="relates_to" data-since="2026-05-18T13:27:33.882882">ApplyPragmas open-time PRAGMA journal_mode SQLITE_BUSY uncovered by RetryOnBusy; bug-56b686aa fix insufficient under saturation</a></li>
                 </ul>
             </section>
         </nav>

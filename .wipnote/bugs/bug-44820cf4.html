@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-06T17:23:43.857222"
-             data-updated="2026-05-06T17:28:04.509761" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:51.743597" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".goreleaser.yml,install.sh">
 
         <header>
             <h1>Install gap: wn symlink missing from install.sh and goreleaser archives</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="28042b78-0bd6-4c1e-9c74-dc7e6c6a46c9.html" data-relationship="implemented_in" data-since="2026-05-06T17:24:12.632598">session 28042b78-0bd6-4c1e-9c74-dc7e6c6a46c9</a></li>
+                    <li><a href="../sessions/28042b78-0bd6-4c1e-9c74-dc7e6c6a46c9.html" data-relationship="implemented_in" data-since="2026-05-06T17:24:12.632598">session 28042b78-0bd6-4c1e-9c74-dc7e6c6a46c9</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-06T17:23:43.864932">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-06T17:23:43.864932">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>wn symlink is created by Homebrew formulas and plugin/build.sh, but not by install.sh (curl installer) or goreleaser-produced release tarballs. Users on those install paths cannot type 'wn'. Add symlink creation to install.sh post-extraction and to .goreleaser.yml archives so the alias is universal.</p>
+            <p>wn symlink is created by Homebrew formulas and plugin/build.sh, but not by install.sh (curl installer) or goreleaser-produced release tarballs. Users on those install paths cannot type &#39;wn&#39;. Add symlink creation to install.sh post-extraction and to .goreleaser.yml archives so the alias is universal.</p>
         </section>
     </article>
 </body>

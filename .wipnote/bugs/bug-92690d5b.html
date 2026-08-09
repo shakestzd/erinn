@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>htmlgraph yolo --track fails when branch already exists: &#39;git worktree add failed: exit status 255 / fatal: a branch named trk-xxx already exists&#39;</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-24T06:05:18.242701"
-             data-updated="2026-05-01T19:31:00.035243" data-agent-assigned="claude-code" data-track-id="trk-be293476">
+             data-updated="2026-08-09T20:42:17.029764" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-affected_files=".htmlgraph/bugs/bug-546cda63.html,.htmlgraph/bugs/bug-680d0ee4.html,.htmlgraph/bugs/bug-792a8319.html,.htmlgraph/bugs/bug-89990f33.html,.htmlgraph/bugs/bug-92690d5b.html,.htmlgraph/bugs/bug-a7d17cd2.html,.htmlgraph/bugs/bug-c4e3551d.html,.htmlgraph/features/feat-55d39535.html,.htmlgraph/features/feat-79d030c4.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-08dcbb33.html,.htmlgraph/tracks/trk-2c83a1e2.html,.htmlgraph/tracks/trk-be293476.html,internal/db/event_repo.go,internal/db/event_repo_test.go,internal/db/schema.go,internal/worktree/worktree.go,internal/worktree/worktree_test.go">
 
         <header>
             <h1>htmlgraph yolo --track fails when branch already exists: &#39;git worktree add failed: exit status 255 / fatal: a branch named trk-xxx already exists&#39;</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-01T18:48:04.756518">trk-be293476</a></li>
+                    <li><a href="../features/feat-5143700e.html" data-relationship="caused_by" data-since="2026-04-24T06:05:18.247679">feat-5143700e</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T18:38:32.600203">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
-                    <li><a href="8e463928-e772-4408-8240-1e2266615e74.html" data-relationship="implemented_in" data-since="2026-05-01T18:57:21.18082">session 8e463928-e772-4408-8240-1e2266615e74</a></li>
+                    <li><a href="../sessions/d230fbcc-d1fa-4ae0-9bac-21f671f3ee06.html" data-relationship="implemented_in" data-since="2026-05-01T18:38:32.600203">session d230fbcc-d1fa-4ae0-9bac-21f671f3ee06</a></li>
+                    <li><a href="../sessions/8e463928-e772-4408-8240-1e2266615e74.html" data-relationship="implemented_in" data-since="2026-05-01T18:57:21.18082">session 8e463928-e772-4408-8240-1e2266615e74</a></li>
                 </ul>
             </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="feat-5143700e.html" data-relationship="caused_by" data-since="2026-04-24T06:05:18.247679">feat-5143700e</a></li>
+                    <li><a href="../tracks/trk-be293476.html" data-relationship="part_of" data-since="2026-05-01T18:48:04.756518">trk-be293476</a></li>
                 </ul>
             </section>
         </nav>
@@ -48,17 +48,17 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="true" data-step-id="step-bug-92690d5b-0" data-agent="claude-code">✅ Add addOrAttachWorktree helper [task:1]</li>
-                <li data-completed="true" data-step-id="step-bug-92690d5b-1" data-agent="claude-code">✅ Wire helper into Ensure functions [task:2]</li>
-                <li data-completed="true" data-step-id="step-bug-92690d5b-2" data-agent="claude-code">✅ Add regression test for re-run [task:3]</li>
-                <li data-completed="true" data-step-id="step-bug-92690d5b-3" data-agent="claude-code">✅ Run quality gates and build [task:4]</li>
-                <li data-completed="true" data-step-id="step-bug-92690d5b-4" data-agent="claude-code">✅ Commit, push, open PR [task:5]</li>
+                <li data-completed="true" data-step-id="step-bug-92690d5b-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add addOrAttachWorktree helper [task:1]</li>
+                <li data-completed="true" data-step-id="step-bug-92690d5b-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire helper into Ensure functions [task:2]</li>
+                <li data-completed="true" data-step-id="step-bug-92690d5b-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add regression test for re-run [task:3]</li>
+                <li data-completed="true" data-step-id="step-bug-92690d5b-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Run quality gates and build [task:4]</li>
+                <li data-completed="true" data-step-id="step-bug-92690d5b-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Commit, push, open PR [task:5]</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Command: `htmlgraph yolo --track trk-6e10c73c`. Expected: attach to the existing worktree/branch for the track. Actual: fails with `git worktree add failed: exit status 255` because the underlying `git worktree add` is invoked with `new branch 'trk-6e10c73c'` (implicit -b), and the branch already exists from a prior run.
+            <p>Command: `htmlgraph yolo --track trk-6e10c73c`. Expected: attach to the existing worktree/branch for the track. Actual: fails with `git worktree add failed: exit status 255` because the underlying `git worktree add` is invoked with `new branch &#39;trk-6e10c73c&#39;` (implicit -b), and the branch already exists from a prior run.
 
 Verbatim output:
 
@@ -66,11 +66,11 @@ Verbatim output:
 htmlgraph yolo --track trk-6e10c73c
   Update available: v0.55.6-58-g75f8b760 → v0.55.6. Run: htmlgraph plugin install
 git worktree add failed: exit status 255
-Preparing worktree (new branch 'trk-6e10c73c')
-fatal: a branch named 'trk-6e10c73c' already exists
+Preparing worktree (new branch &#39;trk-6e10c73c&#39;)
+fatal: a branch named &#39;trk-6e10c73c&#39; already exists
 ```
 
-Likely fix site: whatever invokes `git worktree add` in yolo's track-mode setup. Needs to detect an existing branch/worktree for the track and attach to it (`git worktree add  ` without `-b`, or `cd` into the existing worktree) instead of unconditionally creating a new branch. Also surfaces a UX point — the update-available banner prints on every invocation even while the run is failing.</p>
+Likely fix site: whatever invokes `git worktree add` in yolo&#39;s track-mode setup. Needs to detect an existing branch/worktree for the track and attach to it (`git worktree add  ` without `-b`, or `cd` into the existing worktree) instead of unconditionally creating a new branch. Also surfaces a UX point — the update-available banner prints on every invocation even while the run is failing.</p>
         </section>
     </article>
 </body>

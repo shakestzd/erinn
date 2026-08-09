@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-08T17:21:25.097927"
-             data-updated="2026-06-08T17:28:43.575411" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21">
+             data-updated="2026-08-09T20:42:10.330466" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21" data-affected_files=".devcontainer/post-create.sh,.wipnote/bugs/bug-75b58994.html">
 
         <header>
             <h1>devcontainer post-create.sh calls deleted plugin/build.sh</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5e6e9d6a-faab-44fb-b7d4-0b2db1986dad.html" data-relationship="implemented_in" data-since="2026-06-08T17:21:47.110074">session 5e6e9d6a-faab-44fb-b7d4-0b2db1986dad</a></li>
+                    <li><a href="../sessions/5e6e9d6a-faab-44fb-b7d4-0b2db1986dad.html" data-relationship="implemented_in" data-since="2026-06-08T17:21:47.110074">session 5e6e9d6a-faab-44fb-b7d4-0b2db1986dad</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-06-08T17:21:25.115464">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-08T17:21:25.115464">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>post-create.sh line 73 invokes ./plugin/build.sh, removed in ef0842c54 (ported into 'wipnote build'). Fresh container has no wipnote binary yet, so replace with raw 'go build -o ~/.local/bin/wipnote ./cmd/wipnote/' then 'wipnote build' for plugin mirror.</p>
+            <p>post-create.sh line 73 invokes ./plugin/build.sh, removed in ef0842c54 (ported into &#39;wipnote build&#39;). Fresh container has no wipnote binary yet, so replace with raw &#39;go build -o ~/.local/bin/wipnote ./cmd/wipnote/&#39; then &#39;wipnote build&#39; for plugin mirror.</p>
         </section>
     </article>
 </body>

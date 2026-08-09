@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-20T07:52:35.437335"
-             data-updated="2026-05-20T08:46:06.315695" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293">
+             data-updated="2026-08-09T20:41:45.648618" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293" data-affected_files=".wipnote/bugs/bug-2a99e9d4.html,.wipnote/session-families.json,.wipnote/spikes/spk-4176a9fc.html,cmd/wipnote/provenance_gate_test.go,cmd/wipnote/workitem.go,internal/db/lineage_repo.go">
 
         <header>
             <h1>Spike/feature completion treats /tmp paths as &#39;code-bearing source&#39; and refuses to complete on missing commit; blocks planning-only work flows</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:52:36.816607">Plan: Launch readiness — wipnote public launch blockers</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T08:38:49.655429">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
+                    <li><a href="../sessions/93f818bd-43a6-4355-a4a5-298541e3681f.html" data-relationship="implemented_in" data-since="2026-05-20T08:38:49.655429">session 93f818bd-43a6-4355-a4a5-298541e3681f</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:52:35.448988">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T07:52:35.448988">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../plans/plan-cf1a6ae4.html" data-relationship="relates_to" data-since="2026-05-20T07:52:36.816607">Plan: Launch readiness — wipnote public launch blockers</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Companion to the Write-guard scope bug. When a spike touches /tmp/plan.yaml as a planning scratch buffer, completion refuses with 'code-bearing (touched 1 source path(s) outside .wipnote/, e.g. /tmp/plan.yaml) but has zero linked source commits.' The path-tracker should not classify /tmp (or any path outside the project root) as a source path that requires a commit link. Even with --accepted-advisory, the path remains in the 'touched source paths' set and the gate-record requirement kicks in next. Fix direction: same scope-to-project-root as the Write guard — paths outside the project root are not project source. Planning-only spikes that never touched real project code should complete cleanly.</p>
+            <p>Companion to the Write-guard scope bug. When a spike touches /tmp/plan.yaml as a planning scratch buffer, completion refuses with &#39;code-bearing (touched 1 source path(s) outside .wipnote/, e.g. /tmp/plan.yaml) but has zero linked source commits.&#39; The path-tracker should not classify /tmp (or any path outside the project root) as a source path that requires a commit link. Even with --accepted-advisory, the path remains in the &#39;touched source paths&#39; set and the gate-record requirement kicks in next. Fix direction: same scope-to-project-root as the Write guard — paths outside the project root are not project source. Planning-only spikes that never touched real project code should complete cleanly.</p>
         </section>
     </article>
 </body>

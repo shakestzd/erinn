@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>`htmlgraph compliance auto &lt;id&gt;` — manual end-to-end run with safety integrated</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-03T21:13:47.262244"
-             data-updated="2026-05-04T04:50:59.120585" data-agent-assigned="claude-code" data-track-id="trk-8a7e82d8">
+             data-updated="2026-08-09T20:42:59.808093" data-agent-assigned="claude-code" data-track-id="trk-8a7e82d8" data-affected_files=".htmlgraph/features/feat-38a032e8.html,.htmlgraph/features/feat-834180bf.html,.htmlgraph/plans/plan-72685272.html,.htmlgraph/plans/plan-72685272.yaml,.htmlgraph/spikes/spk-13b6115b.html,.htmlgraph/tracks/trk-8a7e82d8.html,cmd/htmlgraph/compliance.go,cmd/htmlgraph/compliance_auto.go,cmd/htmlgraph/compliance_auto_test.go,internal/workitem/htmlwriter.go">
 
         <header>
             <h1>`htmlgraph compliance auto &lt;id&gt;` — manual end-to-end run with safety integrated</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-8a7e82d8.html" data-relationship="part_of" data-since="2026-05-03T21:13:47.267939">trk-8a7e82d8</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T00:27:20.766948">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                    <li><a href="../sessions/ae976590-da08-4ebb-b8e3-1d352824417c.html" data-relationship="implemented_in" data-since="2026-05-04T00:27:20.766948">session ae976590-da08-4ebb-b8e3-1d352824417c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-8a7e82d8.html" data-relationship="part_of" data-since="2026-05-03T21:13:47.267939">trk-8a7e82d8</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-72685272.html" data-relationship="planned_in" data-since="2026-05-03T21:13:47.277589">plan-72685272</a></li>
+                    <li><a href="../plans/plan-72685272.html" data-relationship="planned_in" data-since="2026-05-03T21:13:47.277589">plan-72685272</a></li>
                 </ul>
             </section>
         </nav>
@@ -51,19 +51,19 @@
 `htmlgraph compliance auto  [--model claude-sonnet-4-6] [--effort medium] [--dry-run] [--preview] [--max-diff-chars 50000] [--max-turns 5] [--max-wall-clock 5m] [--batch-since ]`
 
 **Pipeline:**
-1. Resolve project root via `git -C  rev-parse --show-toplevel`. If not a git repo, write a "compliance skipped: no git history" finding section, exit 0.
-2. Acquire per-feature lockfile `.htmlgraph/locks/compliance-.lock` with current PID. If lockfile exists with a live PID, exit 1 with "compliance already running for ". Defer cleanup on exit.
-3. Load feature node; error "no feature: " if not found.
-4. Read spec via `extractSpecSection()` (existing in `cmd/htmlgraph/compliance.go`). If no spec section: write a "compliance skipped: no spec" finding, exit 0.
+1. Resolve project root via `git -C  rev-parse --show-toplevel`. If not a git repo, write a &#34;compliance skipped: no git history&#34; finding section, exit 0.
+2. Acquire per-feature lockfile `.htmlgraph/locks/compliance-.lock` with current PID. If lockfile exists with a live PID, exit 1 with &#34;compliance already running for &#34;. Defer cleanup on exit.
+3. Load feature node; error &#34;no feature: &#34; if not found.
+4. Read spec via `extractSpecSection()` (existing in `cmd/htmlgraph/compliance.go`). If no spec section: write a &#34;compliance skipped: no spec&#34; finding, exit 0.
 5. Compute spec hash (SHA-256 of spec content) for staleness tracking.
 6. Build diff blob:
    a. Try `db.GetCommitsByFeature` for attributed commits.
    b. If 0 rows: fall back to `git -C  diff ..HEAD -- ` using `db.ListFilesByFeature`.
-   c. If still empty: write "compliance skipped: no diff available" finding, exit 0.
+   c. If still empty: write &#34;compliance skipped: no diff available&#34; finding, exit 0.
    d. For attributed commits: `git -C  show --no-color --first-parent ` (skip merge commit replayed history). Skip commits not present locally (shallow clone safety).
-   e. Truncate at `--max-diff-chars` (default 50000) at nearest line boundary; append `... [truncated N chars from M commits]` footer; set `data-diff-truncated="true"` on the section.
+   e. Truncate at `--max-diff-chars` (default 50000) at nearest line boundary; append `... [truncated N chars from M commits]` footer; set `data-diff-truncated=&#34;true&#34;` on the section.
 7. Build prompt:
-   - System: `Return ONLY valid JSON. No prose, no markdown fences. Schema: {summary: string, criteria: [{text, status: 'pass'|'fail'|'unclear', evidence}], score: 0-100, notes: string}`.
+   - System: `Return ONLY valid JSON. No prose, no markdown fences. Schema: {summary: string, criteria: [{text, status: &#39;pass&#39;|&#39;fail&#39;|&#39;unclear&#39;, evidence}], score: 0-100, notes: string}`.
    - User: spec text + diff blob.
 8. Call inlined `runHeadlessClaude(ctx, req)` (in same package — no separate `internal/headless` harness; YAGNI per critique):
    - Args: `claude -p --bare --output-format json --model  --effort  --max-budget-usd 0.50 --max-turns  --permission-mode dontAsk --allowedTools Read`
@@ -71,11 +71,11 @@
    - Capture stdout into `bytes.Buffer`; capture stderr into a separate `bytes.Buffer` — never leak to caller stderr
    - Honor context cancellation
    - Self-enforce `--max-wall-clock` via `time.AfterFunc` killing the subprocess
-   - Parse JSON; return typed `BudgetExceededError` for `subtype: "error_max_budget_usd"`
-9. Parse `result` field as JSON. If parse fails: write "compliance error: parse failure" finding, exit 1.
+   - Parse JSON; return typed `BudgetExceededError` for `subtype: &#34;error_max_budget_usd&#34;`
+9. Parse `result` field as JSON. If parse fails: write &#34;compliance error: parse failure&#34; finding, exit 1.
 10. Write `
 ` with rendered findings as HTML. Idempotent: replaces existing section by class match. Atomic: render full HTML to `.html.tmp.`, fsync, `os.Rename(tmp, path)` (POSIX atomic rename).
-11. Print one-line summary: `compliance feat-X score=N cost=$0.012 [stale-spec]` — `[stale-spec]` appears if previous section's `data-spec-hash` differs from current.
+11. Print one-line summary: `compliance feat-X score=N cost=$0.012 [stale-spec]` — `[stale-spec]` appears if previous section&#39;s `data-spec-hash` differs from current.
 
 **Flag semantics:**
 - `--dry-run` — skip the LLM call, print the prompt that would be sent
@@ -85,9 +85,10 @@
 **Atomic write upgrade in `internal/workitem/htmlwriter.go`:**
 - Replace `os.WriteFile(path, content, 0644)` in `WriteNodeHTML` with: write to `.tmp.`, `f.Sync()`, `os.Rename(tmp, path)` (POSIX atomic rename)
 - Add a `featureWriteMu sync.Map` (keyed by feature ID) for in-process serialization of `WriteNodeHTML`
-- This upgrade is a P0 safety addition; without it, slice 1's "idempotent replace" guarantee is a textbook lost-update race (per opus critique HIGH-2)</p>
+- This upgrade is a P0 safety addition; without it, slice 1&#39;s &#34;idempotent replace&#34; guarantee is a textbook lost-update race (per opus critique HIGH-2)</p>
         </section>
     </article>
+
 <section class="compliance-findings" data-score="0" data-cost-usd="0" data-model="none" data-spec-hash="none" data-timestamp="2026-05-04T14:49:50Z" data-diff-truncated="false">
 <p><em>compliance skipped: no spec</em></p>
 </section>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>cmd/htmlgraph/main.go has uncommitted reference to undefined executePreviewCmd()</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-22T03:47:23.544284"
-             data-updated="2026-04-22T04:04:43.990944" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+             data-updated="2026-08-09T20:42:05.400993" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae" data-affected_files=".githooks/pre-commit,cmd/htmlgraph/dashboard/js/app.js,cmd/htmlgraph/dashboard_launcher_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/terminal_handlers.go,internal/terminal/terminal.go,internal/worktree/worktree.go">
 
         <header>
             <h1>cmd/htmlgraph/main.go has uncommitted reference to undefined executePreviewCmd()</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:47:23.638194">trk-cd61bbae</a></li>
+                    <li><a href="../tracks/trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:47:23.638194">trk-cd61bbae</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>main.go at line ~143 has 'executePreview := executePreviewCmd()' followed by AddCommand(executePreview). executePreviewCmd is not defined anywhere in the cmd/htmlgraph package or elsewhere in the module. The change is uncommitted (currently preserved as stash@{0} 'uncommitted executePreviewCmd ref in main.go — orphaned, stashed during roborev-fix'). Anyone who pops that stash or otherwise resurfaces the change gets a compile break: 'cmd/htmlgraph/main.go:143:20: undefined: executePreviewCmd'. Fix: either add the missing command implementation (likely a plan-execute-preview feature that was partially scaffolded), or drop the three lines from main.go and the stash. Root: an earlier session drafted an Execute Preview command scaffold without finishing the constructor.</p>
+            <p>main.go at line ~143 has &#39;executePreview := executePreviewCmd()&#39; followed by AddCommand(executePreview). executePreviewCmd is not defined anywhere in the cmd/htmlgraph package or elsewhere in the module. The change is uncommitted (currently preserved as stash@{0} &#39;uncommitted executePreviewCmd ref in main.go — orphaned, stashed during roborev-fix&#39;). Anyone who pops that stash or otherwise resurfaces the change gets a compile break: &#39;cmd/htmlgraph/main.go:143:20: undefined: executePreviewCmd&#39;. Fix: either add the missing command implementation (likely a plan-execute-preview feature that was partially scaffolded), or drop the three lines from main.go and the stash. Root: an earlier session drafted an Execute Preview command scaffold without finishing the constructor.</p>
         </section>
     </article>
 </body>

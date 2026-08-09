@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-04-29T00:11:20.284783"
-             data-updated="2026-05-24T18:59:11.786866" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:45.782239" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-28a9d7a7.html,.htmlgraph/bugs/bug-4d3c3139.html,.htmlgraph/bugs/bug-ccf8b887.html,.htmlgraph/bugs/bug-ff6a3286.html,.htmlgraph/features/feat-09024fb0.html,.htmlgraph/features/feat-1c3ebad9.html,.htmlgraph/features/feat-35519ac2.html,.htmlgraph/features/feat-3cf79e0b.html,.htmlgraph/features/feat-6286f19f.html,.htmlgraph/features/feat-75426991.html,.htmlgraph/features/feat-7b094d00.html,.htmlgraph/features/feat-7b195a56.html,.htmlgraph/features/feat-9104fb56.html,.htmlgraph/features/feat-ac7532be.html,.htmlgraph/features/feat-bc3c0067.html,.htmlgraph/features/feat-c6b3d956.html,.htmlgraph/features/feat-dcf3d618.html,.htmlgraph/features/feat-e195d658.html,.htmlgraph/tracks/trk-0677c709.html,.htmlgraph/tracks/trk-cb36e595.html,.wipnote/bugs/bug-ff6a3286.html,internal/paths/hostpattern.go,internal/paths/hostpattern_test.go,internal/workitem/htmlwriter.go,internal/workitem/htmlwriter_provenance_test.go">
 
         <header>
             <h1>Strip host paths at work-item HTML render time instead of allowlisting at commit gate</h1>
@@ -24,16 +24,16 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-29T00:11:20.293691">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="10380ea4-54f5-4762-9793-72d01b3fc964.html" data-relationship="implemented_in" data-since="2026-05-24T18:52:05.85973">session 10380ea4-54f5-4762-9793-72d01b3fc964</a></li>
+                    <li><a href="../sessions/10380ea4-54f5-4762-9793-72d01b3fc964.html" data-relationship="implemented_in" data-since="2026-05-24T18:52:05.85973">session 10380ea4-54f5-4762-9793-72d01b3fc964</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-29T00:11:20.293691">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -46,7 +46,7 @@ Real fix: scrub host paths at the render layer so they never land in committed H
 
 Implementation surface (verify exact paths):
 - Template rendering for bugs/features/spikes/plans/tracks (likely internal/workitem and internal/plantmpl). Add a path-redaction pass over rendered description and event text fields before writing the HTML.
-- Replace absolute paths matching the gate's patterns (workspaces, home, Users, tmp, private/var) with either basenames, relative paths, or a redacted token.
+- Replace absolute paths matching the gate&#39;s patterns (workspaces, home, Users, tmp, private/var) with either basenames, relative paths, or a redacted token.
 - Preserve readability: do NOT replace paths that are obviously documentation references like example tokens; only target paths that look real (have user-specific prefixes).
 - Update the existing host-path check pre-commit gate to be the safety net it was originally meant to be, not the routine fence we currently allowlist around.
 

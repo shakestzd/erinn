@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-05-20T18:26:13.337736"
-             data-updated="2026-05-20T18:30:48.077225" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4">
+             data-updated="2026-08-09T20:42:11.092756" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.4" data-affected_files=".wipnote/bugs/bug-782a17cf.html,cmd/wipnote/codex.go">
 
         <header>
             <h1>codex marketplace registration: incomplete fix — auto-register (launchCodexDefault) and --dev paths still pass directory root</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T18:26:51.750695">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
+                    <li><a href="../sessions/ec2e7004-43ac-4786-81e1-a118acd55a7a.html" data-relationship="implemented_in" data-since="2026-05-20T18:26:51.750695">session ec2e7004-43ac-4786-81e1-a118acd55a7a</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T18:26:13.348392">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T18:26:13.348392">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
@@ -47,7 +47,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-up to bug-276a9ef4. The v0.60.5 patch (commit b22f44b2e) only fixed runCodexInit (cmd/wipnote/codex.go:781). Two sibling call sites still pass the tree root instead of the manifest file path: line 891 in launchCodexDefault (the auto-register path triggered by plain 'wipnote codex' with no --init) and line 1085 in the --dev path. Repro on macOS v0.60.6: wipnote codex → 'WIPNOTE AGENTS NOT LOADED — invalid marketplace file ~/.local/share/wipnote/codex-marketplace: marketplace root does not contain a supported manifest'. Same fix shape as the original: replace bundled (or localMarketplace) with filepath.Join(
+            <p>Follow-up to bug-276a9ef4. The v0.60.5 patch (commit b22f44b2e) only fixed runCodexInit (cmd/wipnote/codex.go:781). Two sibling call sites still pass the tree root instead of the manifest file path: line 891 in launchCodexDefault (the auto-register path triggered by plain &#39;wipnote codex&#39; with no --init) and line 1085 in the --dev path. Repro on macOS v0.60.6: wipnote codex → &#39;WIPNOTE AGENTS NOT LOADED — invalid marketplace file ~/.local/share/wipnote/codex-marketplace: marketplace root does not contain a supported manifest&#39;. Same fix shape as the original: replace bundled (or localMarketplace) with filepath.Join(
 , .agents, plugins, marketplace.json) in the codex plugin marketplace add invocation, and update any nearby logging.
 [2026-05-20 18:29 claude-code] accepted-advisory (provenance override): Fixed both buggy sites (Site 1 launchCodexDefault line ~891 and Site 2 launchCodexDev line ~1085) to pass marketplace.json file path instead of tree root. Commit 76931a37b.</p>
         </section>

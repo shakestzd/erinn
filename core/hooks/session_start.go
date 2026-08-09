@@ -295,6 +295,12 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// Write canonical session HTML file (non-critical, errors silently logged).
 	CreateSessionHTML(projectDir, s)
 
+	// Record the session in the canonical, GIT-TRACKED sessions ledger. The HTML
+	// written just above lives under .wipnote/sessions/, which is gitignored
+	// runtime telemetry and is pruned on a retention timer — so it cannot be
+	// what an implemented_in edge resolves against. The ledger can.
+	recordSessionLedgerOpen(projectDir, s)
+
 	// Sweep orphans from any previous sessions in this project — closes out
 	// tool calls that crashed mid-flight so session history stays consistent.
 	// BOUNDED on the hot path (bug-504095f2): cap the number of orphans

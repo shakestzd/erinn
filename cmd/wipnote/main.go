@@ -99,6 +99,7 @@ func buildRoot() *cobra.Command {
 	// seam here, where every CLI command and hook handler in this binary picks
 	// it up.
 	initClaimLedgerCommitSeam()
+	initSessionLedgerCommitSeam()
 	initGateLedgerCommitSeam()
 
 	spike := workitemCmd("spike", "spikes")

@@ -8,10 +8,12 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shakestzd/wipnote/core/arch"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
@@ -74,15 +76,11 @@ const (
 	// must cover it and not just the dashed UUID.
 	derivePrunedSessionAlt = "019f424e188c60f444c8eaca668b"
 
-	// A session destined to have a row in the canonical sessions ledger
-	// (feat-1b08a194). Today it is indistinguishable from a pruned session —
-	// no ledger exists, so it tombstones — and the expectation below says so.
-	//
-	// WHEN feat-1b08a194 LANDS this case flips: give it a ledger row, and
-	// deriveExpectedEdges must move it out of deriveSessionShapedTargets into
-	// the valid-id set, at which point the edge indexes as EdgeTargetLive with
-	// NO tombstone marker. That is the acceptance criterion for the gate half
-	// of that feature, and it should fail here first.
+	// A session whose ONLY record is a row in the canonical sessions ledger
+	// (feat-1b08a194): no HTML, no events, no archive — the state every session
+	// reaches once its telemetry is pruned. The ledger is what makes it resolve,
+	// so this is the case that proves the ledger is a validity authority rather
+	// than a second copy of the sessions table.
 	deriveLedgerSession = "55556666-7777-8888-9999-aaaabbbbcccc"
 )
 
@@ -92,13 +90,13 @@ const (
 // would classify it that way on both sides and the test would agree with the
 // bug.
 //
-// deriveLedgerSession sits here only because no ledger exists yet — see its
-// declaration for what moves when feat-1b08a194 lands.
+// deriveLedgerSession is deliberately ABSENT: it resolves through the sessions
+// ledger, so it is a live target rather than a tombstone candidate, and listing
+// it here would let a gate that ignored the ledger still pass.
 var deriveSessionShapedTargets = map[string]bool{
 	deriveLiveSession:      true,
 	derivePrunedSession:    true,
 	derivePrunedSessionAlt: true,
-	deriveLedgerSession:    true,
 }
 
 // buildEdgeDerivationFixture writes a synthetic .wipnote/ tree covering every
@@ -188,7 +186,33 @@ func buildEdgeDerivationFixture(t *testing.T) string {
 				tool: "Bash", success: "true", text: "derive event 1"},
 		})
 
+	// The ledger session gets a canonical row and NOTHING else — no session
+	// HTML, no events, no archive. That asymmetry is the point: it is
+	// indistinguishable from derivePrunedSession on disk, so if the edge to it
+	// comes out live while the edge to the pruned one comes out tombstoned, the
+	// only thing that can have made the difference is the ledger row.
+	writeFixtureSessionLedgerRow(t, wipnoteDir, deriveLedgerSession)
+
 	return projectDir
+}
+
+// writeFixtureSessionLedgerRow records one session in the canonical sessions
+// ledger through the production writer, so the fixture cannot drift from the
+// on-disk format the reindex pass parses.
+func writeFixtureSessionLedgerRow(t *testing.T, wipnoteDir, sessionID string) {
+	t.Helper()
+	written, err := sessionledger.NewStore(wipnoteDir).Open(sessionledger.Record{
+		SessionID:  sessionID,
+		Harness:    "claude-code",
+		ProjectDir: ".",
+		StartedAt:  time.Date(2026, 8, 6, 9, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("write sessions ledger row %s: %v", sessionID, err)
+	}
+	if !written {
+		t.Fatalf("sessions ledger row %s was not written", sessionID)
+	}
 }
 
 // writeFixtureArchCard writes a legacy-format architecture card linking to one
@@ -325,6 +349,17 @@ func deriveValidIDs(t *testing.T, wipnoteDir string) map[string]bool {
 	sessions, _ := filepath.Glob(filepath.Join(wipnoteDir, "sessions", "*.html"))
 	for _, f := range sessions {
 		valid[strings.TrimSuffix(filepath.Base(f), ".html")] = true
+	}
+	// The canonical sessions ledger is a validity source in its own right: a
+	// session with a row but no telemetry is a live target, not a tombstone
+	// (feat-1b08a194). Read the file rather than calling the production
+	// projection, so a projection that stopped running fails this test.
+	ledgerRecords, err := sessionledger.ReadFile(filepath.Join(wipnoteDir, sessionledger.FileName))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("read sessions ledger: %v", err)
+	}
+	for _, r := range ledgerRecords {
+		valid[r.SessionID] = true
 	}
 	return valid
 }
@@ -505,21 +540,21 @@ func TestReindex_TombstoneDistinguishedFromDroppedEdge(t *testing.T) {
 			ghost.from, ghost.rel, ghost.to, row.count, metaOrNone(row.meta), deriveGhostItem)
 	}
 
-	// The handoff case. Tombstoned today because no canonical sessions ledger
-	// exists; when feat-1b08a194 lands this assertion is the one that should
-	// fail first, and the fix is to give the fixture a ledger row and move the
-	// id into the valid-id set rather than to relax the assertion.
+	// The ledger case (feat-1b08a194): a session whose only record is a
+	// canonical ledger row resolves LIVE, with no tombstone marker. It has no
+	// session HTML and no events — exactly derivePrunedSession's on-disk state
+	// — so the ledger row is the only thing that can separate their fates, and
+	// the tombstone assertion above is the control.
 	ledger := censusEdge{from: deriveSpikeID, rel: "implemented_in", to: deriveLedgerSession}
 	ledgerRow, ok := census[ledger]
 	if !ok {
 		t.Errorf("edge to %s went missing entirely: %s -%s-> %s",
 			deriveLedgerSession, ledger.from, ledger.rel, ledger.to)
-	} else if !strings.Contains(ledgerRow.meta, `"tombstoned"`) {
-		t.Errorf("edge to a session with no canonical ledger row is not tombstoned: %s -%s-> %s meta=%s.\n"+
-			"If the sessions ledger (feat-1b08a194) has landed, this is the expected flip: give the fixture\n"+
-			"a ledger row for %s and move it out of deriveSessionShapedTargets into the valid-id set, so it\n"+
-			"classifies EdgeTargetLive with no marker. Do not simply drop this assertion.",
-			ledger.from, ledger.rel, ledger.to, metaOrNone(ledgerRow.meta), deriveLedgerSession)
+	} else if ledgerRow.meta != "" {
+		t.Errorf("edge to a session WITH a canonical ledger row was still tombstoned: %s -%s-> %s meta=%s.\n"+
+			"The ledger is the validity authority for sessions telemetry no longer knows about — a row in it\n"+
+			"must classify EdgeTargetLive. Check that reindexSessionLedger still runs above collectSessionIDs.",
+			ledger.from, ledger.rel, ledger.to, metaOrNone(ledgerRow.meta))
 	}
 }
 

@@ -30,6 +30,7 @@ func sessionCmd() *cobra.Command {
 	cmd.AddCommand(sessionRestoreCmd())
 	cmd.AddCommand(sessionPruneCmd())
 	cmd.AddCommand(sessionArchiveCmd())
+	cmd.AddCommand(sessionLedgerCmd())
 	return cmd
 }
 

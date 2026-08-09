@@ -122,6 +122,11 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 	// closeClaimEpisodesForSession.
 	closeClaimEpisodesForSession(database, projectDir, sessionID, claimledger.OutcomeAbandoned)
 
+	// Stamp the end on the session's canonical ledger row. The row already
+	// exists (SessionStart wrote it), so this only closes the interval — the
+	// session's durability never depended on reaching this line.
+	recordSessionLedgerClose(projectDir, sessionID, time.Now().UTC())
+
 	// --- SESSIONEND-UNIQUE STEPS (best-effort after critical writes) ---
 
 	var featuresWorkedOn []string

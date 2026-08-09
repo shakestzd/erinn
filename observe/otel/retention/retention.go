@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/shakestzd/wipnote/core/sessionledger"
 )
 
 const (
@@ -170,7 +172,38 @@ func archiveSession(wipnoteDir, sessionID string, completedAt time.Time, dryRun 
 		return fmt.Errorf("remove session dir: %w", err)
 	}
 
+	// Enrich the session's canonical ledger row with where its raw events went.
+	// This is the moment the live directory stops existing, so it is the last
+	// point at which anything knows the tarball's location; without it the row
+	// survives but the pointer back to the detail does not.
+	//
+	// completedAt is events.ndjson's mtime — the last observed activity — which
+	// is the best end time available here and the only one the tarball itself
+	// preserves. Enrich never overwrites an end already stamped by SessionEnd.
+	recordArchiveInLedger(wipnoteDir, sessionID, archivePath, completedAt)
+
 	return nil
+}
+
+// recordArchiveInLedger writes the archive location onto the session's row,
+// creating the row when the session predates the ledger. Best-effort: retention
+// reclaims disk and must not fail because canonical history could not be
+// updated, and it runs fire-and-forget from the SessionStart sweep where there
+// is nowhere to report an error to.
+func recordArchiveInLedger(wipnoteDir, sessionID, archivePath string, completedAt time.Time) {
+	store := sessionledger.NewStore(wipnoteDir)
+	rel := archivePath
+	if r, err := filepath.Rel(filepath.Dir(wipnoteDir), archivePath); err == nil {
+		rel = filepath.ToSlash(r)
+	}
+	_, _ = store.Enrich(sessionID, sessionledger.Enrichment{
+		ArchivePath: rel,
+		EndedAt:     completedAt,
+		// completedAt is events.ndjson's mtime — the last write to the session's
+		// own event log, so a genuine last-activity signal. It is NOT the tarball
+		// mtime, which is merely when this function ran.
+		EndSource: sessionledger.EndSourceLastActivity,
+	})
 }
 
 // writeTarGz writes a .tar.gz containing events.ndjson from sessDir.

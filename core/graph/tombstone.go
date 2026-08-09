@@ -120,12 +120,13 @@ const (
 // validIDs is already a multi-source whitelist assembled that way: work items
 // and tracks register during their node passes, collectPlanIDs adds plan ids
 // that have no node table at all, and collectSessionIDs adds ids from the
-// derived sessions table. The canonical sessions ledger (feat-1b08a194) is the
-// next one — its contract is that the ledger, not the derived table, becomes
-// the validity authority, which is a swap of that collector. An id it resolves
-// classifies EdgeTargetLive and indexes with no marker, and an edge previously
-// tombstoned loses its marker on the next pass because InsertEdge replaces the
-// row wholesale. Both are the intended outcomes.
+// sessions table — which now carries the canonical sessions ledger
+// (feat-1b08a194) as well as live telemetry, because reindexSessionLedger
+// projects ledger rows into it just before that collector runs. The ledger is
+// therefore the validity authority for sessions telemetry no longer knows
+// about: an id it records classifies EdgeTargetLive and indexes with no marker,
+// and an edge previously tombstoned loses its marker on the next pass because
+// InsertEdge replaces the row wholesale. Both are the intended outcomes.
 //
 // The one constraint a new collector must honour: it has to run BEFORE
 // purgeStaleEntries, for the same reason collectPlanIDs and collectSessionIDs
@@ -133,13 +134,16 @@ const (
 // moment, so an id registered afterwards is an id the purge has already judged
 // unresolvable.
 //
-// Note for that work: resolving a target here does NOT make it renderable.
-// Titles come from the sessions table in three separate readers — resolveNodes
-// in core/graph/querybuilder.go, resolveProvenanceNode, and loadGraphNodes — so
-// a ledger-only session would resolve as valid, index WITHOUT a tombstone
-// marker, and still render as an unlabelled node. That is strictly worse than
-// the tombstone it replaces, which at least says why it is blank. A ledger read
-// path in those readers has to land with the gate change, not after it.
+// And the constraint that decided the ledger's design: resolving a target here
+// does NOT make it renderable. Titles come from the sessions table in three
+// separate readers — resolveNodes in core/graph/querybuilder.go,
+// resolveProvenanceNode, and loadGraphNodes — so a validity source that is not
+// also visible to those readers yields a node that resolves as live, carries no
+// tombstone marker, and still renders blank: strictly worse than the tombstone
+// it replaced, which at least said why it was blank. The ledger avoids that by
+// projecting into the sessions table rather than becoming a fourth source, and
+// any future authority must do the same or land its own read path in the same
+// change.
 func ClassifyEdgeTarget(targetID string, validIDs map[string]bool) EdgeTargetDisposition {
 	switch {
 	case validIDs[targetID]:

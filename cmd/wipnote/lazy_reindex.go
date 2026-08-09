@@ -120,6 +120,13 @@ func runFullSyncReindex(wipnoteDir string) error {
 	// without it every per-agent attribution query would silently return nothing
 	// until someone happened to run a full reindex.
 	reindexClaimEpisodes(database, wipnoteDir, false)
+	// The sessions ledger is canonical and has to land on THIS path too. The
+	// cold rebuild is what runs after a cache wipe or container restart, and it
+	// never calls reindexSessions — so without the projection every work-item →
+	// implemented_in → session edge whose telemetry is gone would fail the
+	// target-validity gate here and tombstone, even though the ledger has the
+	// session. Must stay above collectSessionIDs, which is what reads it.
+	reindexSessionLedger(database, wipnoteDir, false)
 	collectSessionIDs(database, validIDs)
 	reindexEdges(database, wipnoteDir, validIDs)
 	reindexWorkitemLedgerEdges(database, wipnoteDir, validIDs, false)

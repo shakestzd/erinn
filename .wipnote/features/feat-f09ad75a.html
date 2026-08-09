@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-20T05:45:59.65724"
-             data-updated="2026-05-20T06:08:49.798362" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293">
+             data-updated="2026-08-09T20:43:47.142777" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-641-g0ec8f5293" data-affected_files=".wipnote/features/feat-f09ad75a.html">
 
         <header>
             <h1>Add linux_arm64 to GoReleaser build matrix</h1>
@@ -24,30 +24,30 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T05:45:59.693805">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e3f9fa76-276f-4e93-9a80-203697bd6aa4.html" data-relationship="implemented_in" data-since="2026-05-20T05:46:00.787951">session e3f9fa76-276f-4e93-9a80-203697bd6aa4</a></li>
+                    <li><a href="../sessions/e3f9fa76-276f-4e93-9a80-203697bd6aa4.html" data-relationship="implemented_in" data-since="2026-05-20T05:46:00.787951">session e3f9fa76-276f-4e93-9a80-203697bd6aa4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-20T05:45:59.693805">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-cf1a6ae4.html" data-relationship="planned_in" data-since="2026-05-20T05:45:59.682654">plan-cf1a6ae4</a></li>
+                    <li><a href="../plans/plan-cf1a6ae4.html" data-relationship="planned_in" data-since="2026-05-20T05:45:59.682654">plan-cf1a6ae4</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Publish linux_arm64 binaries so AWS Graviton, Asahi Linux on Apple Silicon, Raspberry Pi 4/5, and similar arm64 Linux users can install via the documented one-liner. Today they hit install.sh's hard-error build-from-source path. Add linux_arm64 to the GoReleaser build matrix; takes effect on the next tagged release. install.sh's linux_arm64 gate update follows in a separate commit after the release publishes (avoids a 404 window for that arch in between).
-[2026-05-20 06:07 claude-code] accepted-advisory (provenance override): No GoReleaser change required; investigation found linux_arm64 was already in the build matrix and asset is published. Actual defect was install.sh's incorrect linux_arm64 exclusion gate, fixed by bug-90fcddec (commit ed9a2f58c, end-to-end smoke-tested on linux_arm64).</p>
+            <p>Publish linux_arm64 binaries so AWS Graviton, Asahi Linux on Apple Silicon, Raspberry Pi 4/5, and similar arm64 Linux users can install via the documented one-liner. Today they hit install.sh&#39;s hard-error build-from-source path. Add linux_arm64 to the GoReleaser build matrix; takes effect on the next tagged release. install.sh&#39;s linux_arm64 gate update follows in a separate commit after the release publishes (avoids a 404 window for that arch in between).
+[2026-05-20 06:07 claude-code] accepted-advisory (provenance override): No GoReleaser change required; investigation found linux_arm64 was already in the build matrix and asset is published. Actual defect was install.sh&#39;s incorrect linux_arm64 exclusion gate, fixed by bug-90fcddec (commit ed9a2f58c, end-to-end smoke-tested on linux_arm64).</p>
         </section>
     </article>
 </body>

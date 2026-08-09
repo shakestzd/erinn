@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-06-10T19:50:01.879656"
-             data-updated="2026-06-10T21:20:51.511696" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+             data-updated="2026-08-09T20:42:54.250545" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-affected_files=".wipnote/features/feat-256d5099.html">
 
         <header>
             <h1>Resolve engine: wipnote arch resolve with pinned glob semantics, batched drift, budget</h1>
@@ -27,25 +27,25 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-ec48cb3c.html" data-relationship="blocked_by">feat-ec48cb3c</a></li>
+                    <li><a href="../features/feat-ec48cb3c.html" data-relationship="blocked_by">feat-ec48cb3c</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T20:47:02.609738">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.882025">plan-edeb2163</a></li>
+                    <li><a href="../sessions/873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T20:47:02.609738">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.884421">trk-53715165</a></li>
+                    <li><a href="../tracks/trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.884421">trk-53715165</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.882025">plan-edeb2163</a></li>
                 </ul>
             </section>
         </nav>
@@ -56,12 +56,12 @@
 matches paths against card globs using the SAME matching primitive as
 internal/blame (resolve lives in the root module — internal/arch — so
 it can reuse internal/blame.WalkAreas and cmd git helpers; core/arch
-stays parse/validate only). Ordering hazard > invariant > subsystem-map
-> decision; budget in WORDS (default ~450 words ≈ 600 tokens), never
-splitting a card, appending a sentinel line "(N cards omitted by
-budget)" when truncated. Drift: ONE git diff --name-only per unique
+stays parse/validate only). Ordering hazard &gt; invariant &gt; subsystem-map
+&gt; decision; budget in WORDS (default ~450 words ≈ 600 tokens), never
+splitting a card, appending a sentinel line &#34;(N cards omitted by
+budget)&#34; when truncated. Drift: ONE git diff --name-only per unique
 verified_at value per invocation (not per card), matched in memory;
-drifted cards prefixed "UNVERIFIED since ".
+drifted cards prefixed &#34;UNVERIFIED since &#34;.
 resolve --for  derives paths via the existing work-item
 file attribution (feature_files machinery).
 [2026-06-10 21:20 claude-code] accepted-advisory (provenance override): Commits cd831de19 and 137023b0e on trk-53715165 implement this feature; ingested as backfill session due to worktree commit attribution gap. Feature files and test coverage verified.</p>

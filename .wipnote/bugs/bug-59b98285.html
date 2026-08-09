@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>DELETE-mode writer contention drops tool_call / message inserts under concurrent hook &#43; OTel &#43; auto-ingest load</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-24T01:05:46.94059"
-             data-updated="2026-04-24T02:08:00.241384" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:00.784242" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".devcontainer/devcontainer.json,.devcontainer/post-create.sh,.gitignore,cmd/htmlgraph/backfill.go,cmd/htmlgraph/cleanup.go,cmd/htmlgraph/cleanup_test.go,cmd/htmlgraph/graph.go,cmd/htmlgraph/ingest.go,cmd/htmlgraph/ingest_gemini.go,cmd/htmlgraph/init.go,cmd/htmlgraph/migrate.go,cmd/htmlgraph/migrate_attribution.go,cmd/htmlgraph/migrate_test.go,cmd/htmlgraph/plan_feedback_cmd.go,cmd/htmlgraph/plan_feedback_cmd_test.go,cmd/htmlgraph/plan_finalize_yaml.go,cmd/htmlgraph/plan_typed_sections.go,cmd/htmlgraph/plan_yaml_extras.go,cmd/htmlgraph/projects.go,cmd/htmlgraph/projects_test.go,cmd/htmlgraph/purge_spikes.go,cmd/htmlgraph/query.go,cmd/htmlgraph/reindex.go,cmd/htmlgraph/related.go,cmd/htmlgraph/serve_child.go,cmd/htmlgraph/session.go,cmd/htmlgraph/status.go,cmd/htmlgraph/statusline.go,cmd/htmlgraph/statusline_test.go,cmd/htmlgraph/sweep.go,cmd/htmlgraph/trace.go,cmd/htmlgraph/track.go,cmd/htmlgraph/workitem_test.go,internal/hooks/runner.go,internal/hooks/yolo_guard.go,internal/hooks/yolo_guard_test.go,internal/workitem/project.go">
 
         <header>
             <h1>DELETE-mode writer contention drops tool_call / message inserts under concurrent hook &#43; OTel &#43; auto-ingest load</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T01:05:46.956438">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T01:14:33.896425">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-24T01:14:33.896425">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-24T01:05:46.956438">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Symptom: .htmlgraph/logs/serve-46c1de7d.log fills with 'database is locked (5) (SQLITE_BUSY)' warnings — 156+ entries observed today — for both auto-ingest message upserts and hook tool_call inserts. Dashboard API queries intermittently fail reads because the DB is exclusively locked. Result: silent data loss in the canonical read index.\n\nRoot cause: journal_mode=DELETE (forced by the fstype-unsafe detection on virtiofs — correct choice for avoiding the WAL-SHM mmap SIGBUS) serializes all writers through a single exclusive lock. With three concurrent writer paths (hook binary per tool_call, OTel receiver batching spans, auto-ingest transcriber replaying JSONL), busy_timeout=5000 isn't enough — many begin-deferred transactions fail to upgrade to exclusive immediately.\n\nCompounding factor observed: launcher's ensureServeForOtel auto-spawns a second supervisor when the user also starts one manually. Double the writers, double the contention. Worth a separate check-and-skip fix in ensureServeForOtel (probe for any supervisor on any port, not just the expected one), but the underlying contention remains even with a single supervisor.\n\nCandidate fixes (pick one or combine):\n\n1. BEGIN IMMEDIATE for all writes — busy_timeout actually blocks on exclusive-upgrade rather than failing immediately on the deferred path. Small diff, moderate improvement, still serializes writers.\n\n2. Single-process write queue in Go — all DB writes funnel through one goroutine behind a channel. The OTel writer already uses SetMaxOpenConns(1); extend the same discipline to hooks and auto-ingest. Medium refactor.\n\n3. Relocate the read-index DB to a Docker volume on ext4 (canonical HTML stays in the virtiofs bind mount). WAL-mode then works without the SIGBUS risk, writers don't block readers, multi-writer concurrency returns. Largest change but architecturally correct. devcontainer.json adds a named volume like htmlgraph-db:/workspaces/htmlgraph/.htmlgraph/.db/ and DBPath resolution gains a small override. One rebuild to land.\n\nRecommendation: ship (1) as an immediate mitigation; plan (3) as the durable fix. Files impacted: internal/db/schema.go (transaction setup), internal/otel/receiver/writer.go, cmd/htmlgraph/claude_serve_autostart.go (duplicate-supervisor detection), .devcontainer/devcontainer.json (for option 3).</p>
+            <p>Symptom: .htmlgraph/logs/serve-46c1de7d.log fills with &#39;database is locked (5) (SQLITE_BUSY)&#39; warnings — 156+ entries observed today — for both auto-ingest message upserts and hook tool_call inserts. Dashboard API queries intermittently fail reads because the DB is exclusively locked. Result: silent data loss in the canonical read index.\n\nRoot cause: journal_mode=DELETE (forced by the fstype-unsafe detection on virtiofs — correct choice for avoiding the WAL-SHM mmap SIGBUS) serializes all writers through a single exclusive lock. With three concurrent writer paths (hook binary per tool_call, OTel receiver batching spans, auto-ingest transcriber replaying JSONL), busy_timeout=5000 isn&#39;t enough — many begin-deferred transactions fail to upgrade to exclusive immediately.\n\nCompounding factor observed: launcher&#39;s ensureServeForOtel auto-spawns a second supervisor when the user also starts one manually. Double the writers, double the contention. Worth a separate check-and-skip fix in ensureServeForOtel (probe for any supervisor on any port, not just the expected one), but the underlying contention remains even with a single supervisor.\n\nCandidate fixes (pick one or combine):\n\n1. BEGIN IMMEDIATE for all writes — busy_timeout actually blocks on exclusive-upgrade rather than failing immediately on the deferred path. Small diff, moderate improvement, still serializes writers.\n\n2. Single-process write queue in Go — all DB writes funnel through one goroutine behind a channel. The OTel writer already uses SetMaxOpenConns(1); extend the same discipline to hooks and auto-ingest. Medium refactor.\n\n3. Relocate the read-index DB to a Docker volume on ext4 (canonical HTML stays in the virtiofs bind mount). WAL-mode then works without the SIGBUS risk, writers don&#39;t block readers, multi-writer concurrency returns. Largest change but architecturally correct. devcontainer.json adds a named volume like htmlgraph-db:[host-path]/.htmlgraph/.db/ and DBPath resolution gains a small override. One rebuild to land.\n\nRecommendation: ship (1) as an immediate mitigation; plan (3) as the durable fix. Files impacted: internal/db/schema.go (transaction setup), internal/otel/receiver/writer.go, cmd/htmlgraph/claude_serve_autostart.go (duplicate-supervisor detection), .devcontainer/devcontainer.json (for option 3).</p>
         </section>
     </article>
 </body>

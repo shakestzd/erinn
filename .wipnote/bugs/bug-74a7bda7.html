@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-06T19:51:04.708615"
-             data-updated="2026-05-18T04:03:23.048233" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4">
+             data-updated="2026-08-09T20:42:10.071259" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-affected_files=".wipnote/bugs/bug-74a7bda7.html,cmd/wipnote/api_ingest.go,cmd/wipnote/api_plans.go,cmd/wipnote/api_plans_test.go,cmd/wipnote/api_preview_test.go,cmd/wipnote/api_provenance_test.go,cmd/wipnote/api_transcript.go,cmd/wipnote/busy_filesystem_agnostic_test.go,cmd/wipnote/mux_readonly_topology_test.go,cmd/wipnote/reindex_rebuild_test.go,cmd/wipnote/serve.go,cmd/wipnote/serve_child.go,cmd/wipnote/serve_terminal_gate_test.go,cmd/wipnote/serve_test.go,cmd/wipnote/session.go,cmd/wipnote/sqlite_write_boundary_test.go,internal/daemon/apply/apply.go,internal/daemon/apply/cli_route.go,internal/daemon/apply/mvp4_test.go,internal/db/busy_retry.go,internal/db/busy_retry_test.go,internal/db/pragmas.go,internal/db/pragmas_busy_whitebox_test.go,internal/db/pragmas_test.go,internal/hooks/dbgate.go,internal/otel/receiver/writer.go,internal/workitem/collection.go">
 
         <header>
             <h1>Dashboard session indexer logs SQLITE_BUSY during concurrent validation</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-ba376a49.html" data-relationship="caused_by" data-since="2026-05-06T19:51:04.718174">bug-ba376a49</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-06T19:51:04.721839">trk-a30e8df4</a></li>
+                    <li><a href="../bugs/bug-ba376a49.html" data-relationship="caused_by" data-since="2026-05-06T19:51:04.718174">bug-ba376a49</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T01:06:04.160299">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
+                    <li><a href="../sessions/c947cf68-388b-46d5-8ac1-508e67034762.html" data-relationship="implemented_in" data-since="2026-05-18T01:06:04.160299">session c947cf68-388b-46d5-8ac1-508e67034762</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-06T19:51:04.721839">trk-a30e8df4</a></li>
                 </ul>
             </section>
         </nav>
@@ -54,8 +54,8 @@
         <section data-content>
             <h3>Description</h3>
             <p>While validating Codex hook fixes with the dashboard server running on 8088, the server log repeatedly emitted: indexer: session 019dfeb937d1d14c30f073aaa699: commit: database is locked (SQLITE_BUSY). This happened while hook validation and test commands were also touching the project SQLite DB. Need determine whether the session indexer should back off/retry more gracefully or avoid noisy repeated commit failures under concurrent readers/writers.
-[2026-05-18 03:58 claude-code] accepted-advisory (provenance override): Fix delivered in commits 83208befb (core: read-only dashboard mux + writeDB reroute + db.RetryOnBusy backoff + read-pool cap + writer WAL-assert), 749265995 (roborev HIGH followup: mutating dashboard HTTP handlers routed to writable handle), d44cd4cd1 (roborev LOW followup: regression-proof session-ingest topology test). All commits authored by subagents; this devcontainer's session-provenance gate (bug-63f42308) cannot auto-link subagent commits even though they genuinely exist. Commits are real and green (go build/vet/test: 42 ok, 0 FAIL) and roborev-clean (job 3114 on d44cd4cd1: no issues found). Audited override accepted; source provenance is genuine.
-[2026-05-18 04:02 claude-code] accepted-advisory (provenance override): Fix delivered in commits 83208befb (core: read-only dashboard mux + writeDB reroute + db.RetryOnBusy backoff + read-pool cap + writer WAL-assert), 749265995 (roborev HIGH followup: mutating dashboard HTTP handlers routed to writable handle), d44cd4cd1 (roborev LOW followup: regression-proof session-ingest topology test). All commits authored by subagents; this devcontainer's session-provenance gate (bug-63f42308) cannot auto-link subagent commits even though they genuinely exist. Commits are real and green (wipnote check --gate recorded for session c947cf68, all packages ok) and roborev-clean (job 3114 on d44cd4cd1: no issues found). Audited override accepted; source provenance is genuine.</p>
+[2026-05-18 03:58 claude-code] accepted-advisory (provenance override): Fix delivered in commits 83208befb (core: read-only dashboard mux + writeDB reroute + db.RetryOnBusy backoff + read-pool cap + writer WAL-assert), 749265995 (roborev HIGH followup: mutating dashboard HTTP handlers routed to writable handle), d44cd4cd1 (roborev LOW followup: regression-proof session-ingest topology test). All commits authored by subagents; this devcontainer&#39;s session-provenance gate (bug-63f42308) cannot auto-link subagent commits even though they genuinely exist. Commits are real and green (go build/vet/test: 42 ok, 0 FAIL) and roborev-clean (job 3114 on d44cd4cd1: no issues found). Audited override accepted; source provenance is genuine.
+[2026-05-18 04:02 claude-code] accepted-advisory (provenance override): Fix delivered in commits 83208befb (core: read-only dashboard mux + writeDB reroute + db.RetryOnBusy backoff + read-pool cap + writer WAL-assert), 749265995 (roborev HIGH followup: mutating dashboard HTTP handlers routed to writable handle), d44cd4cd1 (roborev LOW followup: regression-proof session-ingest topology test). All commits authored by subagents; this devcontainer&#39;s session-provenance gate (bug-63f42308) cannot auto-link subagent commits even though they genuinely exist. Commits are real and green (wipnote check --gate recorded for session c947cf68, all packages ok) and roborev-clean (job 3114 on d44cd4cd1: no issues found). Audited override accepted; source provenance is genuine.</p>
         </section>
     </article>
 </body>

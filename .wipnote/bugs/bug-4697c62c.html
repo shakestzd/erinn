@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>API handlers silently swallow SQLITE_BUSY and return empty results</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-26T12:03:23.858535"
-             data-updated="2026-04-26T16:13:04.990806" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:41:52.348308" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files="cmd/htmlgraph/api.go,cmd/htmlgraph/api_busy_test.go,cmd/htmlgraph/api_plans.go,cmd/htmlgraph/api_plans_test.go,cmd/htmlgraph/api_tree.go,cmd/htmlgraph/api_tree_test.go,cmd/htmlgraph/integration_otel_visibility_test.go,cmd/htmlgraph/main.go,cmd/htmlgraph/plan_cmds.go,cmd/htmlgraph/plan_create.go,cmd/htmlgraph/plan_mutations.go,cmd/htmlgraph/plan_promote_slice.go,cmd/htmlgraph/plan_promote_slice_test.go,cmd/htmlgraph/plan_validate.go,cmd/htmlgraph/plan_yaml_cmds.go,cmd/htmlgraph/plan_yaml_cmds_test.go,cmd/htmlgraph/worktree_helpers_test.go,commands/htmlgraph/git-commit.toml,docs/blog/posts/plan-mode-crispi.md,docs/reference/cli.md,go.mod,go.sum,internal/db/plan_feedback.go,internal/db/plan_feedback_test.go,internal/hooks/posttooluse.go,internal/hooks/tooluse_shared.go,internal/hooks/transcript_assistant.go,internal/hooks/transcript_assistant_test.go,internal/hooks/transcript_user_prompt.go,internal/hooks/transcript_user_prompt_test.go,internal/plantmpl/plantmpl.go,internal/plantmpl/plantmpl_test.go,internal/plantmpl/slice_card.go,internal/plantmpl/slice_card_test.go,internal/plantmpl/templates/plan_page.gohtml,internal/plantmpl/templates/slice_card.gohtml,internal/planyaml/schema.go,internal/planyaml/schema_test.go,internal/planyaml/validate.go,internal/planyaml/validate_test.go,internal/storage/dbpath.go,internal/storage/dbpath_test.go,internal/worktree/worktree.go,packages/codex-marketplace/.agents/plugins/htmlgraph/commands/git-commit.md,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/execute/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/skills/plan/SKILL.md,packages/codex-marketplace/.agents/plugins/htmlgraph/static/components.js,packages/gemini-extension/commands/htmlgraph/git-commit.toml,packages/gemini-extension/skills/execute/SKILL.md,packages/gemini-extension/skills/plan/SKILL.md,packages/gemini-extension/static/components.js,plugin/skills/execute/SKILL.md,plugin/skills/plan/SKILL.md,skills/execute/SKILL.md,skills/plan/SKILL.md,static/components.js">
 
         <header>
             <h1>API handlers silently swallow SQLITE_BUSY and return empty results</h1>
@@ -24,29 +24,29 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="bug-f0eff9b7.html" data-relationship="relates_to" data-since="2026-04-26T12:03:31.984403">Host registry accumulates thousands of ghost projects</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="bebc2f35-a728-46b6-9ec6-dc5822379ce0.html" data-relationship="implemented_in" data-since="2026-04-26T12:08:57.67492">session bebc2f35-a728-46b6-9ec6-dc5822379ce0</a></li>
+                    <li><a href="../sessions/bebc2f35-a728-46b6-9ec6-dc5822379ce0.html" data-relationship="implemented_in" data-since="2026-04-26T12:08:57.67492">session bebc2f35-a728-46b6-9ec6-dc5822379ce0</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-26T12:03:23.865333">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-26T12:03:23.865333">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-f0eff9b7.html" data-relationship="relates_to" data-since="2026-04-26T12:03:31.984403">Host registry accumulates thousands of ghost projects</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Per-project serve-child runs two sql.DB writers concurrently against the same WAL SQLite file (the read DB handle plus the OTel indexer writer at serve_child.go:73). Combined with active hook ingest, every read query intermittently hits SQLITE_BUSY. The API handlers swallow the error and return a misleading success: api_tree.go:101 returns nil rows, treeHandler serializes [], the dashboard renders 0 events. api.go:331 calls QueryRow(...).Scan(&totalEvents) and discards the error, so /api/stats returns total_events:0. Same for active_sessions/cost_today/etc. Reproducer: open dashboard while hooks are firing; tree/stats endpoints intermittently return [] / zeros despite otel_signals having thousands of rows. Workaround discovered: kill _serve-child PID, parent supervisor respawns clean, reads succeed for a while until contention rebuilds. Two-part fix needed: (a) propagate Scan/Query errors instead of swallowing them so 500s are visible instead of false-success [] / 0, (b) eliminate the dual-writer contention (single writer connection, BEGIN IMMEDIATE serialization, or split read pool with WAL mode busy_timeout).</p>
+            <p>Per-project serve-child runs two sql.DB writers concurrently against the same WAL SQLite file (the read DB handle plus the OTel indexer writer at serve_child.go:73). Combined with active hook ingest, every read query intermittently hits SQLITE_BUSY. The API handlers swallow the error and return a misleading success: api_tree.go:101 returns nil rows, treeHandler serializes [], the dashboard renders 0 events. api.go:331 calls QueryRow(...).Scan(&amp;totalEvents) and discards the error, so /api/stats returns total_events:0. Same for active_sessions/cost_today/etc. Reproducer: open dashboard while hooks are firing; tree/stats endpoints intermittently return [] / zeros despite otel_signals having thousands of rows. Workaround discovered: kill _serve-child PID, parent supervisor respawns clean, reads succeed for a while until contention rebuilds. Two-part fix needed: (a) propagate Scan/Query errors instead of swallowing them so 500s are visible instead of false-success [] / 0, (b) eliminate the dual-writer contention (single writer connection, BEGIN IMMEDIATE serialization, or split read pool with WAL mode busy_timeout).</p>
         </section>
     </article>
 </body>

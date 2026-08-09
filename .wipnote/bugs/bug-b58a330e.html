@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>OTel receiver NewWriter hardcodes journal_mode=WAL in DSN, bypassing fstype-aware BuildPragmas</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="high"
              data-created="2026-04-23T21:34:23.44247"
-             data-updated="2026-04-23T21:51:47.589336" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:26.734831" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-affected_files=".htmlgraph/bugs/bug-0beaa018.html,.htmlgraph/bugs/bug-10ca4796.html,.htmlgraph/bugs/bug-1b095c09.html,.htmlgraph/bugs/bug-27cbefbc.html,.htmlgraph/bugs/bug-3043976d.html,.htmlgraph/bugs/bug-6d235100.html,.htmlgraph/bugs/bug-b58a330e.html,.htmlgraph/bugs/bug-dd81395e.html,.htmlgraph/bugs/bug-e5c2df6d.html,.htmlgraph/bugs/bug-ec4d3d8f.html,.htmlgraph/tracks/trk-0677c709.html,cmd/htmlgraph/hook.go,internal/otel/receiver/writer.go,internal/otel/receiver/writer_test.go">
 
         <header>
             <h1>OTel receiver NewWriter hardcodes journal_mode=WAL in DSN, bypassing fstype-aware BuildPragmas</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T21:34:23.447784">trk-0677c709</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T21:35:04.810581">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                    <li><a href="../sessions/5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8.html" data-relationship="implemented_in" data-since="2026-04-23T21:35:04.810581">session 5d76afd1-7d5b-49f6-8b45-56a9ba4e96c8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-04-23T21:34:23.447784">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>internal/otel/receiver/writer.go:46 constructs the SQLite DSN with '_pragma=journal_mode(WAL)' hardcoded, bypassing the fstype-aware BuildPragmas helper from commit 8cc7a775. On unsafe filesystems (virtiofs, FUSE, 9p, overlay) BuildPragmas correctly resolves to DELETE to avoid the WAL-SHM mmap SIGBUS, but NewWriter then re-opens the DB and forces WAL, persistently tipping the DB back to WAL mode. Downstream effect: hooks like user-prompt and subagent-start that re-apply DELETE on Open() fail because serve-child holds WAL connections (switching modes needs exclusive access). The hook binary swallows the open error and returns a no-op fallback, so no UserQuery or task_delegation events are written — activity feed goes silent, no error surfaces anywhere. Fix: drop the journal_mode clause from NewWriter's DSN and rely on BuildPragmas/ApplyPragmas. Keep other pragmas (busy_timeout, synchronous, foreign_keys) if they serve a single-writer purpose. Add a test that NewWriter on an unsafe-fs tmpdir does NOT flip journal_mode to WAL. Files: internal/otel/receiver/writer.go.</p>
+            <p>internal/otel/receiver/writer.go:46 constructs the SQLite DSN with &#39;_pragma=journal_mode(WAL)&#39; hardcoded, bypassing the fstype-aware BuildPragmas helper from commit 8cc7a775. On unsafe filesystems (virtiofs, FUSE, 9p, overlay) BuildPragmas correctly resolves to DELETE to avoid the WAL-SHM mmap SIGBUS, but NewWriter then re-opens the DB and forces WAL, persistently tipping the DB back to WAL mode. Downstream effect: hooks like user-prompt and subagent-start that re-apply DELETE on Open() fail because serve-child holds WAL connections (switching modes needs exclusive access). The hook binary swallows the open error and returns a no-op fallback, so no UserQuery or task_delegation events are written — activity feed goes silent, no error surfaces anywhere. Fix: drop the journal_mode clause from NewWriter&#39;s DSN and rely on BuildPragmas/ApplyPragmas. Keep other pragmas (busy_timeout, synchronous, foreign_keys) if they serve a single-writer purpose. Add a test that NewWriter on an unsafe-fs tmpdir does NOT flip journal_mode to WAL. Files: internal/otel/receiver/writer.go.</p>
         </section>
     </article>
 </body>

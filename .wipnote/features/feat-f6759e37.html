@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Daemon read path with launcher-guaranteed availability and fail-loud policy</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-f6759e37"
+             data-type="feature"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-09T14:52:02.601083"
+             data-updated="2026-08-09T15:33:31.075093" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630" data-rollup-commits="1" data-rollup-commits-source="git_commits" data-rollup-computed-at="2026-08-09T15:33:31Z" data-rollup-files="34" data-rollup-files-source="feature_files" data-rollup-telemetry="unavailable">
+
+        <header>
+            <h1>Daemon read path with launcher-guaranteed availability and fail-loud policy</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T14:57:17.355958">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T14:52:02.613094">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="spawned_from" data-since="2026-08-09T14:52:11.680819">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Hooks are fresh processes and cannot afford to parse canonical state, which is the only reason they read the derived index. The fix is a read path on the resident process that already exists — the headless mode already runs the socket listener, write queue and background maintenance without the dashboard, so this is adding a capability rather than building a service. AVAILABILITY POLICY, decided: the launcher owns it. A session started by a wipnote launcher guarantees the daemon — the launcher ensures it is running, attaching if one already exists, and writes its socket path into the session environment alongside the variables it already sets. Hooks then do not negotiate availability; they read the path and use it. If the daemon becomes unreachable mid-session, hooks retry a bounded number of times and then REPORT LOUDLY and pause execution gracefully. They do not silently fall back to a different data path — a quiet fallback is how two code paths diverge without anyone noticing, which is the defect class this whole track exists to remove. A session NOT started by a launcher has no such guarantee and must work without the daemon, reading as it does today. That is two behaviours, but the mode is explicit and announced rather than inferred: the launcher already writes a launch marker, so a hook can know which contract it is under and say so. Ownership follows from the same rule — the launcher starts or attaches, and never stops the daemon on session exit, so a shared daemon outlives any one session. Scope includes the socket read protocol, which today has five write ops and no reads, and a parsed-canonical cache with an invalidation story, since serving stale work-item status to a guard is the failure this must not introduce.</p>
+        </section>
+    </article>
+</body>
+</html>

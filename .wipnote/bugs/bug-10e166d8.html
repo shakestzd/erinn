@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Only 82 of 828 implemented_in edges declared in HTML reach the index</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-10e166d8"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-09T04:52:59.74843"
+             data-updated="2026-08-09T12:28:26.913831" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Only 82 of 828 implemented_in edges declared in HTML reach the index</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-e6e82b5a.html" data-relationship="caused_by" data-since="2026-08-09T05:17:16.464386">Scope stopping the graph index: what reads it, what breaks, what it costs</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T04:52:59.763549">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>ROOT CAUSE CONFIRMED BY DIRECT MEASUREMENT, and it inverts the framing. Canonical HTML declares implemented-in edges targeting 156 distinct session identifiers. Exactly 3 of those exist in the sessions table, and a 40-target sample of the missing 153 found zero present on disk in any form — the sessions were pruned or never ingested. The 82 surviving edges are those pointing at the 3 live sessions. So the target-validity gate is not hiding a relationship type; it is correctly refusing dangling references, exactly as designed. The REAL defect is a policy gap the gate exposes: work items are permanent and git-tracked, sessions are ephemeral and prunable, and the edge bridging them is declared in the permanent artifact. When the session ages out, the gate silently erases the provenance record that the work was ever implemented in a session at all — which contradicts the causal-lineage mission. DECISION NEEDED, then implementation: either preserve edges whose source is canonical HTML even when the session target no longer resolves, marking the target unresolvable so queries can distinguish tombstones from live nodes, or accept that provenance decays with session retention and record that as an explicit, documented property rather than an accident. Recommendation is preserve-with-tombstone: the edge itself is canonical and git-tracked; only its target is ephemeral.
+Acceptance Criteria
+A deliberate, recorded policy on edges to pruned sessions, implemented in the gate, with a test distinguishing a tombstoned target from a dropped edge.</p>
+        </section>
+    </article>
+</body>
+</html>

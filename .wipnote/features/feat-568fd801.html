@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-19T00:38:27.243349"
-             data-updated="2026-05-19T15:46:25.128948" data-agent-assigned="claude-code" data-track-id="trk-f15004d6">
+             data-updated="2026-08-09T20:43:06.571893" data-agent-assigned="claude-code" data-track-id="trk-f15004d6" data-affected_files=".wipnote/features/feat-568fd801.html,cmd/wipnote/claim.go,internal/db/claim_repo.go,internal/db/claim_repo_test.go,internal/hooks/pretooluse.go">
 
         <header>
             <h1>Tier 2 — Populate claims.write_scope.Paths in PreToolUse alongside the heartbeat UPDATE</h1>
@@ -24,28 +24,28 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-c3bbb1ed.html" data-relationship="planned_in" data-since="2026-05-19T00:38:27.248666">plan-c3bbb1ed</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-f15004d6.html" data-relationship="part_of" data-since="2026-05-19T00:38:27.254109">trk-f15004d6</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-f1c6f92e.html" data-relationship="blocked_by">feat-f1c6f92e</a></li>
+                    <li><a href="../features/feat-f1c6f92e.html" data-relationship="blocked_by">feat-f1c6f92e</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="1ddaa17f-dfe6-4e94-a3c1-55b4357477ba.html" data-relationship="implemented_in" data-since="2026-05-19T13:56:44.350968">session 1ddaa17f-dfe6-4e94-a3c1-55b4357477ba</a></li>
+                    <li><a href="../sessions/1ddaa17f-dfe6-4e94-a3c1-55b4357477ba.html" data-relationship="implemented_in" data-since="2026-05-19T13:56:44.350968">session 1ddaa17f-dfe6-4e94-a3c1-55b4357477ba</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-f15004d6.html" data-relationship="part_of" data-since="2026-05-19T00:38:27.254109">trk-f15004d6</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-c3bbb1ed.html" data-relationship="planned_in" data-since="2026-05-19T00:38:27.248666">plan-c3bbb1ed</a></li>
                 </ul>
             </section>
         </nav>
@@ -62,7 +62,7 @@ exist (claim.go:38-44, schema.go:202) and are never populated today.
 Clear write_scope when the claim is released or expires
 (ReleaseAllClaimsForSession / ReapExpiredClaims in claim_repo.go).
 Surface scope in `wipnote claim list` / `claim show`.
-[2026-05-19 15:45 claude-code] accepted-advisory (provenance override): Implementation committed as f115c152f on track branch trk-f15004d6 in the isolated worktree (correct yolo-worktree model per user direction). Subject carries (feat-568fd801) attribution; quality gate verified green from the worktree (build/vet/test 0 FAIL). Durable git_commits provenance is backfilled at track→main integration via 'wipnote ingest commits' on main; deferred here only because feature-complete's provenance index reads main, not the track branch.</p>
+[2026-05-19 15:45 claude-code] accepted-advisory (provenance override): Implementation committed as f115c152f on track branch trk-f15004d6 in the isolated worktree (correct yolo-worktree model per user direction). Subject carries (feat-568fd801) attribution; quality gate verified green from the worktree (build/vet/test 0 FAIL). Durable git_commits provenance is backfilled at track→main integration via &#39;wipnote ingest commits&#39; on main; deferred here only because feature-complete&#39;s provenance index reads main, not the track branch.</p>
         </section>
     </article>
 </body>

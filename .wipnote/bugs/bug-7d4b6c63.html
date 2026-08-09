@@ -13,7 +13,7 @@
              data-status="done"
              data-priority="medium"
              data-created="2026-05-23T08:10:13.368638"
-             data-updated="2026-05-23T16:52:20.328969" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-08-09T20:42:12.286565" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c" data-affected_files=".wipnote/bugs/bug-7d4b6c63.html,cmd/wipnote/launcher_mode.go,cmd/wipnote/worktree_helpers.go,cmd/wipnote/yolo.go,cmd/wipnote/yolo_carryover_test.go,internal/worktree/carryover.go,internal/worktree/carryover_test.go,internal/worktree/worktree.go">
 
         <header>
             <h1>yolo dirty-main warning is misleading: recommends --work-item even when --track/--feature already creates a managed worktree</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T08:10:13.38166">trk-be293476</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T16:52:19.930208">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                    <li><a href="../sessions/3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-23T16:52:19.930208">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T08:10:13.38166">trk-be293476</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>PlanLaunch (internal/launcher/plan/plan.go:97) emits DirtyMainWarning recommending 'use a managed worktree (--work-item )' even in yolo --track/--feature runs where a worktree IS being created. Reads as if isolation didn't happen. Rephrase/suppress when a worktree is created.</p>
+            <p>PlanLaunch (internal/launcher/plan/plan.go:97) emits DirtyMainWarning recommending &#39;use a managed worktree (--work-item )&#39; even in yolo --track/--feature runs where a worktree IS being created. Reads as if isolation didn&#39;t happen. Rephrase/suppress when a worktree is created.</p>
         </section>
     </article>
 </body>

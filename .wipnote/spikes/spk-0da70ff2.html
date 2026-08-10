@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Benchmark post-cutover performance cliffs at scale</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-0da70ff2"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-08-10T10:15:33.730793"
+             data-updated="2026-08-10T10:27:30.409689" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f" data-rollup-computed-at="2026-08-10T10:27:30Z" data-rollup-git="unavailable" data-rollup-telemetry="unavailable">
+
+        <header>
+            <h1>Benchmark post-cutover performance cliffs at scale</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/019fe7af-9ba5-7e60-b288-656d6fe72e6f.html" data-relationship="implemented_in" data-since="2026-08-10T10:15:40.249316">session 019fe7af-9ba5-7e60-b288-656d6fe72e6f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:15:33.741337">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-ba544d57.html" data-relationship="relates_to" data-since="2026-08-10T10:15:40.541679">Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</a></li>
+                    <li><a href="../bugs/bug-369da005.html" data-relationship="relates_to" data-since="2026-08-10T10:15:40.635856">Deploying the SQLite cutover will block all writes in every session</a></li>
+                    <li><a href="../bugs/bug-1151e5ae.html" data-relationship="relates_to" data-since="2026-08-10T10:15:40.731908">Daemon derived-op write path is a void: every socket op is discarded</a></li>
+                    <li><a href="../bugs/bug-d76f588a.html" data-relationship="relates_to" data-since="2026-08-10T10:15:40.822763">SessionEnd discards five of its six writes</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../features/feat-fc3cc9e0.html" data-relationship="spawned_from" data-since="2026-08-10T10:15:40.450404">Eliminate project-level SQLite storage and cache</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Measure source-built post-cutover wipnote across hook overhead, dashboard telemetry startup, telemetry growth and retention, per-command hydration scaling, and lineage scaling. Produce measured curves, root causes, and proposed fixes without implementation.</p>
+        </section>
+    </article>
+</body>
+</html>

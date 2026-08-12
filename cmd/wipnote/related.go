@@ -91,17 +91,21 @@ func setDescriptionCmd(kind string) *cobra.Command {
 		Use:     "set-description <id> [text]",
 		Short:   "Set or update a " + kind + "'s description with optional structured sections",
 		Args:    cobra.RangeArgs(1, 2),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			// Text may come positionally (set-description <id> <text>) or via
 			// --description, which is what the directives document for `edit`.
+			//
+			// An EMPTY string is a meaningful value here — it is the only way
+			// to clear a stale description — so "was it supplied?" is asked via
+			// arg count and Flags().Changed, never by testing text != "".
 			text := description
-			if len(args) == 2 {
-				if text != "" {
-					return fmt.Errorf("pass the description either positionally or with --description, not both")
-				}
+			descFlagSet := c.Flags().Changed("description")
+			switch {
+			case len(args) == 2 && descFlagSet:
+				return fmt.Errorf("pass the description either positionally or with --description, not both")
+			case len(args) == 2:
 				text = args[1]
-			}
-			if text == "" && acceptance == "" && testStrategy == "" && expectedBehavior == "" {
+			case !descFlagSet && acceptance == "" && testStrategy == "" && expectedBehavior == "":
 				return fmt.Errorf("nothing to set: pass description text positionally, or use --description / --acceptance / --test-strategy / --expected-behavior")
 			}
 			return runSetDescription(kind, args[0], text, acceptance, testStrategy, expectedBehavior, allowHostPaths)

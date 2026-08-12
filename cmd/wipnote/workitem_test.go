@@ -2246,3 +2246,44 @@ func TestLearningNonFatal_InvalidKind(t *testing.T) {
 		t.Errorf("remediation command should contain properly quoted body %q; stderr: %s", expectedBodyQuoted, stderrStr)
 	}
 }
+
+// TestSetDescription_EmptyStringClears pins the code-review finding on the
+// `edit` alias work: an empty description is a MEANINGFUL value — it is the
+// only way to clear a stale description — so the "nothing to set" guard must
+// key off whether the caller supplied a value, not off whether that value is
+// non-empty. Both `set-description <id> ""` and `--description ""` must reach
+// runSetDescription; only supplying nothing at all is an error.
+func TestSetDescription_EmptyStringClears(t *testing.T) {
+	cmd := setDescriptionCmd("feature")
+
+	// Positional empty string: allowed (this is the historical clear path).
+	cmd.SetArgs([]string{"feat-nonexistent", ""})
+	err := cmd.Execute()
+	if err != nil && strings.Contains(err.Error(), "nothing to set") {
+		t.Errorf("positional empty string must not be rejected as 'nothing to set', got: %v", err)
+	}
+
+	// --description "": also allowed.
+	cmd2 := setDescriptionCmd("feature")
+	cmd2.SetArgs([]string{"feat-nonexistent", "--description", ""})
+	err = cmd2.Execute()
+	if err != nil && strings.Contains(err.Error(), "nothing to set") {
+		t.Errorf("--description \"\" must not be rejected as 'nothing to set', got: %v", err)
+	}
+
+	// Nothing supplied at all: this IS the error case.
+	cmd3 := setDescriptionCmd("feature")
+	cmd3.SetArgs([]string{"feat-nonexistent"})
+	err = cmd3.Execute()
+	if err == nil || !strings.Contains(err.Error(), "nothing to set") {
+		t.Errorf("supplying no description at all should error with 'nothing to set', got: %v", err)
+	}
+
+	// Both forms at once: rejected as ambiguous.
+	cmd4 := setDescriptionCmd("feature")
+	cmd4.SetArgs([]string{"feat-nonexistent", "text", "--description", "other"})
+	err = cmd4.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Errorf("supplying both forms should be rejected, got: %v", err)
+	}
+}

@@ -63,10 +63,24 @@ func OpenEphemeralProjection() (*sql.DB, error) {
 //
 // Reads behave identically to a fully-indexed projection: every table exists,
 // so queries succeed and return no rows rather than failing with "no such
-// table". It is NOT safe for writes: several tables rely on UNIQUE indexes for
-// upsert/conflict semantics, which this handle does not create.
+// table".
+//
+// It is NOT safe for writes — several tables rely on UNIQUE indexes for
+// upsert/conflict semantics that this handle does not create — so the handle
+// sets PRAGMA query_only, which makes the engine reject writes outright rather
+// than leaving "nobody writes through it" as an unenforced convention. That
+// also makes core/hooks.isReadOnlyDB report true for it, so the hook write
+// router sends writes to a properly-schema'd handle instead of this one.
 func OpenEphemeralProjectionTablesOnly() (*sql.DB, error) {
-	return openEphemeralProjection(true)
+	database, err := openEphemeralProjection(true)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := database.Exec("PRAGMA query_only = ON"); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("open ephemeral projection: set query_only: %w", err)
+	}
+	return database, nil
 }
 
 func openEphemeralProjection(tablesOnly bool) (*sql.DB, error) {

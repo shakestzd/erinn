@@ -307,7 +307,16 @@ func bulkWalks(projectDir string, relToAbs map[string]string) *bulkWalkResult {
 	if cached, ok := bulkWalkCache[key]; ok {
 		return cached
 	}
-	res := &bulkWalkResult{lastModified: bulkLastModified(projectDir, scope)}
+	lastModified := bulkLastModified(projectDir, scope)
+	if lastModified == nil {
+		// The walk FAILED (git missing, pathspec rejected, not a repo) — that
+		// is different from a walk that succeeded and matched nothing. Caching
+		// the failure would make one transient error poison every later
+		// hydration in this process with zero "updated" timestamps, so return
+		// an uncached empty result and let the next call retry.
+		return &bulkWalkResult{}
+	}
+	res := &bulkWalkResult{lastModified: lastModified}
 	bulkWalkCache[key] = res
 	return res
 }
@@ -320,7 +329,14 @@ func bulkWalkScope(relToAbs map[string]string) string {
 	var common []string
 	first := true
 	for rel := range relToAbs {
-		parts := strings.Split(path.Dir(filepath.ToSlash(rel)), "/")
+		slashed := filepath.ToSlash(rel)
+		if slashed == ".." || strings.HasPrefix(slashed, "../") {
+			// A path outside projectDir would produce a ".." pathspec, which
+			// git rejects — failing the whole walk for every other path. Fall
+			// back to an unrestricted walk instead.
+			return ""
+		}
+		parts := strings.Split(path.Dir(slashed), "/")
 		if first {
 			common = append([]string(nil), parts...)
 			first = false

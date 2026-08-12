@@ -186,7 +186,7 @@ func runRelevant(query string, opts relevantOptions) error {
 		return err
 	}
 
-	results = rankResults(results)
+	results = rankResults(results, qType)
 	results = filterResults(results, opts.typeFilter, opts.statusFilter, opts.minScore)
 
 	total := len(results)
@@ -660,24 +660,31 @@ func getOrCreate(scores map[string]*relevantResult, node *relevantResult) *relev
 	return r
 }
 
-// rankResults sorts results by score descending, with recap artifacts ranked
-// below work items at every score.
+// rankResults sorts results by score descending. For KEYWORD queries only,
+// recap artifacts are ranked below work items at every score.
 //
 // Recaps embed the full git diff of a change as HTML, so their text matches
-// almost any query term and they score near the ceiling on unrelated searches
-// (bug-3af1d597: every top hit for "performance", "benchmark" and "telemetry"
-// was one recap file citing diff lines, pushing the actual features, bugs,
-// spikes and tracks below the fold). That defeats the documented first step of
-// `wipnote relevant <topic>` — finding existing lineage before creating a work
-// item — because the lineage is exactly what gets buried.
+// almost any query term and they score near the ceiling on unrelated keyword
+// searches (bug-3af1d597: every top hit for "performance", "benchmark" and
+// "telemetry" was one recap file citing diff lines, pushing the actual
+// features, bugs, spikes and tracks below the fold). That defeats the
+// documented first step of `wipnote relevant <topic>` — finding existing
+// lineage before creating a work item — because the lineage is what gets buried.
 //
-// They stay searchable and reachable via --type recap; they just stop
-// outranking the items they describe.
-func rankResults(results []relevantResult) []relevantResult {
+// The demotion is scoped to keyword queries because the same property inverts
+// for the other two query kinds: for a SHA or a file path, the recap grounded
+// on exactly that commit range or file IS the precise answer, and demoting it
+// below every loosely-matching work item pushes it past --limit and reports
+// "no recap" for a commit that has one. Diff text is noise when the query is a
+// topic and signal when the query is a location.
+func rankResults(results []relevantResult, qType queryType) []relevantResult {
+	demoteRecaps := qType == queryTypeKeyword
 	sort.SliceStable(results, func(i, j int) bool {
-		iRecap, jRecap := results[i].Type == "recap", results[j].Type == "recap"
-		if iRecap != jRecap {
-			return jRecap // non-recap first
+		if demoteRecaps {
+			iRecap, jRecap := results[i].Type == "recap", results[j].Type == "recap"
+			if iRecap != jRecap {
+				return jRecap // non-recap first
+			}
 		}
 		return results[i].Score > results[j].Score
 	})

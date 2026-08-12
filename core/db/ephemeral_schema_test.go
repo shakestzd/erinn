@@ -147,3 +147,44 @@ func TestEphemeralTablesOnlyKeepsReadsWorking(t *testing.T) {
 		t.Fatalf("tables-only projection created %d explicit indexes, want 0", idx)
 	}
 }
+
+// TestEphemeralTablesOnlyRejectsWrites pins the ENFORCEMENT of the invariant
+// that makes the index-less handle safe. Without query_only the invariant is
+// only a comment: core/hooks.isReadOnlyDB reads PRAGMA query_only to decide
+// whether a handle may be written through, so a handle that does not set it is
+// classified writable and the hook write router will Exec against a schema
+// missing the UNIQUE indexes that upserts depend on.
+func TestEphemeralTablesOnlyRejectsWrites(t *testing.T) {
+	lean, err := OpenEphemeralProjectionTablesOnly()
+	if err != nil {
+		t.Fatalf("open tables-only: %v", err)
+	}
+	defer lean.Close()
+
+	var queryOnly int
+	if err := lean.QueryRow(`PRAGMA query_only`).Scan(&queryOnly); err != nil {
+		t.Fatalf("read query_only: %v", err)
+	}
+	if queryOnly == 0 {
+		t.Fatal("tables-only projection has query_only=0; isReadOnlyDB would classify it writable")
+	}
+
+	if _, err := lean.Exec(`INSERT INTO features (id, title) VALUES ('feat-x', 't')`); err == nil {
+		t.Fatal("write through the tables-only projection succeeded; it must be rejected")
+	}
+
+	// The fully-indexed projection must stay writable — only the lean handle
+	// is locked down.
+	full, err := OpenEphemeralProjection()
+	if err != nil {
+		t.Fatalf("open full: %v", err)
+	}
+	defer full.Close()
+	var fullQueryOnly int
+	if err := full.QueryRow(`PRAGMA query_only`).Scan(&fullQueryOnly); err != nil {
+		t.Fatalf("read full query_only: %v", err)
+	}
+	if fullQueryOnly != 0 {
+		t.Fatal("the full ephemeral projection must remain writable")
+	}
+}

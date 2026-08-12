@@ -168,11 +168,20 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 // on a writable open.
 //
 // CURRENT BEHAVIOUR (feat-fc3cc9e0): there is no per-project SQLite file left to
-// open read-only, so this returns the same process-local in-memory projection as
-// OpenHookDB. dbPath is ignored. The projection starts EMPTY, so every read
-// through this handle sees no rows — callers must already be nil-DB-safe (they
-// are; that was the roborev-478 finding 1 contract), and any fact a guard
-// genuinely needs has to come from canonical state instead.
+// open read-only, so this returns a process-local in-memory projection.
+// dbPath is ignored. The projection starts EMPTY, so every read through this
+// handle sees no rows — callers must already be nil-DB-safe (they are; that was
+// the roborev-478 finding 1 contract), and any fact a guard genuinely needs has
+// to come from canonical state instead.
+//
+// Because the projection is empty AND this handle is never written through, it
+// is built WITHOUT the 97 indexes (feat-2bd74c58): an index on a table with no
+// rows accelerates nothing, and building them measured 8.3ms of the 9.7ms this
+// call used to cost — per hook invocation, i.e. per tool call. Every table is
+// still created, so reads return zero rows exactly as before rather than
+// failing with "no such table"; TestEphemeralTablesOnlyKeepsReadsWorking pins
+// that. Do NOT reuse this handle for writes: upsert paths depend on UNIQUE
+// indexes this projection does not have.
 //
 // The contention rationale that motivated a read-only open no longer applies:
 // an in-memory database takes no file lock and cannot contend with the daemon or
@@ -183,7 +192,7 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 // the caller MUST treat as a signal to return canonical-success.
 func OpenHookDBReadOnly(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 	_ = dbPath
-	database, err := db.OpenEphemeralProjection()
+	database, err := db.OpenEphemeralProjectionTablesOnly()
 	if err != nil {
 		db.Record(db.SubsystemHookWriter, err)
 		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())

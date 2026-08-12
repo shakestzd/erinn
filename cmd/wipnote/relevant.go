@@ -660,9 +660,25 @@ func getOrCreate(scores map[string]*relevantResult, node *relevantResult) *relev
 	return r
 }
 
-// rankResults sorts results by score descending.
+// rankResults sorts results by score descending, with recap artifacts ranked
+// below work items at every score.
+//
+// Recaps embed the full git diff of a change as HTML, so their text matches
+// almost any query term and they score near the ceiling on unrelated searches
+// (bug-3af1d597: every top hit for "performance", "benchmark" and "telemetry"
+// was one recap file citing diff lines, pushing the actual features, bugs,
+// spikes and tracks below the fold). That defeats the documented first step of
+// `wipnote relevant <topic>` — finding existing lineage before creating a work
+// item — because the lineage is exactly what gets buried.
+//
+// They stay searchable and reachable via --type recap; they just stop
+// outranking the items they describe.
 func rankResults(results []relevantResult) []relevantResult {
-	sort.Slice(results, func(i, j int) bool {
+	sort.SliceStable(results, func(i, j int) bool {
+		iRecap, jRecap := results[i].Type == "recap", results[j].Type == "recap"
+		if iRecap != jRecap {
+			return jRecap // non-recap first
+		}
 		return results[i].Score > results[j].Score
 	})
 	return results

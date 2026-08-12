@@ -350,8 +350,11 @@ func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, val
 	pattern := filepath.Join(wipnoteDir, dir, "*.html")
 	files, _ := filepath.Glob(pattern)
 
-	// One batched git-log walk for every file in this directory instead of
-	// two `git log` subprocesses per file (bug-4e5816f4).
+	// Batched git-log walks for every file in this directory instead of two
+	// `git log` subprocesses per file (bug-4e5816f4), and since feat-2bd74c58
+	// the walks are shared across every work-item directory and the per-file
+	// --follow call fires only for paths a bulk walk cannot resolve
+	// (renames/copies) rather than for all of them (bug-085e3337).
 	batch := batchGitFileTimestamps(projectDir, files)
 
 	var total, upserted, errCount int

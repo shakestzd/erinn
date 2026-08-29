@@ -238,12 +238,8 @@ func TestBulkLastModified_MatchesGitLastModified(t *testing.T) {
 	}
 
 	trackedPath := filepath.Join(repoDir, "features/feat-a.html")
-	relToAbs := map[string]string{
-		"features/feat-a.html":         trackedPath,
-		"features/feat-untracked.html": untracked,
-	}
 
-	got := bulkLastModified(repoDir, relToAbs)
+	got := bulkLastModified(repoDir, "features")
 
 	wantUpdated, err := gitLastModified(repoDir, trackedPath)
 	if err != nil {

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Derived otel_signals holds 61,611 rows against 154,614 canonical NDJSON lines</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0fc17d53"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="critical"
+             data-created="2026-08-09T16:50:51.979788"
+             data-updated="2026-08-09T20:41:38.955765" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Derived otel_signals holds 61,611 rows against 154,614 canonical NDJSON lines</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-critical">Critical Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T16:52:42.250698">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T16:50:51.995023">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-ba544d57.html" data-relationship="relates_to" data-since="2026-08-09T16:50:57.57388">Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>DIAGNOSED 2026-08-09: silent data loss, live, affecting every current reader of otel_signals. Root cause is a UNIQUE index on otel_signals(span_id) in core/db/otel_schema.go combined with INSERT OR IGNORE in the receiver writer. At most one row can exist per span_id; every later signal sharing that span is discarded with no error. In OTel span_id identifies a span, not a signal, and Claude Code emits many logs against one enclosing interaction span. Measured: 86,758 of 155,855 ingestable lines dropped (92.6 percent of the gap). The remainder is the documented 5000-metric-rows-per-session prune, which is by design. Isolated repro reproduced the loss to the decimal with zero residual. Ruled out with evidence: counting artifact, ingest lag, frozen bookmark, shouldPersistSignal, retention. Survivors are biased toward whichever signal arrived first per span, so dashboard aggregates are not a random sample. Canonical NDJSON is intact and the loss is recoverable by re-ingest.
+Acceptance Criteria
+Row count matches ingestable line count minus the documented metric prune. Existing installs recover the lost rows rather than staying at their current checkpoint.
+Expected Behavior
+Every ingestable NDJSON signal line becomes exactly one otel_signals row. Signals sharing a span_id all persist, because span_id is not a signal identity.</p>
+        </section>
+    </article>
+</body>
+</html>

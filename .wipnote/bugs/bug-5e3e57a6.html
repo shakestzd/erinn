@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Pre-migration plans missing canonical HTML files (e.g., plan-14772c97)</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-04T22:47:08.93704"
-             data-updated="2026-05-04T22:47:08.957531" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-08-09T20:42:01.723616" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
 
         <header>
             <h1>Pre-migration plans missing canonical HTML files (e.g., plan-14772c97)</h1>
@@ -27,24 +27,24 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-79f41c6d.html" data-relationship="caused_by" data-since="2026-05-04T22:47:08.950638">feat-79f41c6d</a></li>
+                    <li><a href="../features/feat-79f41c6d.html" data-relationship="caused_by" data-since="2026-05-04T22:47:08.950638">feat-79f41c6d</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-04T22:47:08.957212">trk-cb36e595</a></li>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-05-04T22:47:08.957212">trk-cb36e595</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>plan-14772c97 (Agent Teams plugin integration, finalized 2026-04-11) has only a .yaml file in .htmlgraph/plans/; no corresponding .html canonical file exists. AGENTS.md states .htmlgraph/*.html is the canonical store. The missing HTML means the plan is invisible to htmlgraph plan list (HTML-backed), htmlgraph plan show, and htmlgraph plan set-status — all return 'plan file not found'. It does appear in htmlgraph plan list-yaml.
+            <p>plan-14772c97 (Agent Teams plugin integration, finalized 2026-04-11) has only a .yaml file in .htmlgraph/plans/; no corresponding .html canonical file exists. AGENTS.md states .htmlgraph/*.html is the canonical store. The missing HTML means the plan is invisible to htmlgraph plan list (HTML-backed), htmlgraph plan show, and htmlgraph plan set-status — all return &#39;plan file not found&#39;. It does appear in htmlgraph plan list-yaml.
 
-Likely an artifact of the HTML-canonical migration (plan-3bbc313f, done 2026-05-01): pre-migration plans that weren't actively touched at migration time may have been missed by the regeneration sweep.
+Likely an artifact of the HTML-canonical migration (plan-3bbc313f, done 2026-05-01): pre-migration plans that weren&#39;t actively touched at migration time may have been missed by the regeneration sweep.
 
-Surfaced today during the agent-teams plan integration. plan-2c7f1b7d explicitly supersedes plan-14772c97 in its design.constraints, but the CLI couldn't mark plan-14772c97 as completed because of the missing HTML.
+Surfaced today during the agent-teams plan integration. plan-2c7f1b7d explicitly supersedes plan-14772c97 in its design.constraints, but the CLI couldn&#39;t mark plan-14772c97 as completed because of the missing HTML.
 
 Cohort scope: unknown how many other pre-migration plans share this state. A scan of .htmlgraph/plans/*.yaml without paired .html would identify the full cohort.
 

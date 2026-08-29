@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Empty-spike worktree sweep liveness guard can never return true</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0b322d67"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T21:18:53.817108"
+             data-updated="2026-08-09T21:18:53.830332" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Empty-spike worktree sweep liveness guard can never return true</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T21:18:53.830221">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>workItemHasLiveHeartbeat in cmd/wipnote/config.go queries the claims table, which no hydration pass populates and which an audit found may have zero production writers. The guard therefore always returns false, leaving only an mtime TTL, a git-lock check and a clean-tree check between a live agent&#39;s worktree and git worktree remove. A live agent idling on a clean tree satisfies all three. Mitigated today only because EmptySpikeWorktreeCleanup defaults to false and no project config enables it. The loop&#39;s comment describes it as liveness-aware, which is false and must be corrected regardless of whether the guard is fixed.</p>
+        </section>
+    </article>
+</body>
+</html>

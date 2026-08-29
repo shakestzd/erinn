@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-12T02:15:31.61979"
-             data-updated="2026-05-18T21:03:43.537349" data-track-id="trk-08dcbb33">
+             data-updated="2026-08-09T20:43:46.344449" data-track-id="trk-08dcbb33">
 
         <header>
             <h1>Canonical write-time path normalizer in internal/paths</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:31.638087">plan-2133adf2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:19:35.983872">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
+                    <li><a href="../sessions/a400442f-4147-4bd1-a006-5a728ef93bad.html" data-relationship="implemented_in" data-since="2026-05-12T02:19:35.983872">session a400442f-4147-4bd1-a006-5a728ef93bad</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:31.630155">trk-08dcbb33</a></li>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-12T02:15:31.630155">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2133adf2.html" data-relationship="planned_in" data-since="2026-05-12T02:15:31.638087">plan-2133adf2</a></li>
                 </ul>
             </section>
         </nav>
@@ -50,18 +50,18 @@
 to `internal/paths/resolve.go`. It:
   1. If `absPath` is already relative, return `(absPath, true)`
      unchanged.
-  2. If `repoRoot == ""`, resolve canonically:
+  2. If `repoRoot == &#34;&#34;`, resolve canonically:
      a. Try `ResolveViaGitCommonDir(filepath.Dir(absPath))`.
      b. If that returns `.git` (main worktree case) or empty, walk up
         from `filepath.Dir(absPath)` looking for the nearest
         `.wipnote/` directory.
      c. If both fail and `absPath` matches `HostPathPattern`, return
-        `("unresolved:" + absPath, true)`. Otherwise return
+        `(&#34;unresolved:&#34; + absPath, true)`. Otherwise return
         `(absPath, true)` (treat as already-relative-but-exotic).
   3. Apply `filepath.EvalSymlinks` to both `repoRoot` and `absPath`
      before relativization.
   4. Compute `filepath.Rel(canonicalRoot, evaledAbsPath)`; if the
-     result starts with `..`, return `("unresolved:" + absPath, true)`.
+     result starts with `..`, return `(&#34;unresolved:&#34; + absPath, true)`.
   5. Convert the relative path to forward slashes via
      `filepath.ToSlash` and return `(rel, true)`.
 
@@ -77,7 +77,7 @@ runtime normalizer reference the same definition.
 Add a sibling `MustNormalize(absPath, repoRoot string) string` that
 returns the normalized path on success or the original `absPath` on
 failure, logging at debug level. Use this in hot paths where the hook
-shouldn't fail on a normalization edge case.</p>
+shouldn&#39;t fail on a normalization edge case.</p>
         </section>
     </article>
 </body>

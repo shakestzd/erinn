@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-ba544d57"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-09T16:31:56.999908"
+             data-updated="2026-08-09T20:43:34.829496" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T16:32:53.497571">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T16:31:57.016119">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-09T16:32:12.371305">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                    <li><a href="../bugs/bug-444e0d3b.html" data-relationship="relates_to" data-since="2026-08-09T16:32:12.464818">Pinned SQLite driver embeds an engine with the WAL-reset corruption bug</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-f92c53ee.html" data-relationship="spawned_from" data-since="2026-08-09T16:32:12.274542">Find a Go-friendly engine for SQL over NDJSON without ingestion</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Telemetry is ingested from per-session NDJSON into a table that costs 377 seconds of every full rebuild, holds 61 thousand rows and the clear majority of a 145MB index, and is read by nothing behavioural — only dashboard endpoints. The NDJSON is already the source of truth and already in canonical shape: kind, signal id, session, canonical name, native name, timestamp and an attribute bag, matching the table&#39;s own columns. The driver bumped tonight carries a virtual-table subpackage, verified working by prototype at 65 milliseconds for a grouped aggregate across a thousand shards, in pure Go with no ingestion step. THE DESIGN DECISION THAT MAKES THIS BETTER THAN A PORT: the work-item attribution column appears nowhere in the stream — zero occurrences — because it is resolved at ingest by consulting whichever work item was claimed at that instant, from the single mutable slot this session proved was wrong. So attribution is currently frozen into each row from a broken lookup. Instead, derive it at query time by joining a signal&#39;s timestamp and agent against the canonical claim ledger, which records work item, agent, start and end as intervals. Historical signals then re-attribute correctly as the ledger improves, rather than carrying a permanent stamp from a defective read. PHASES: first a virtual table over the shard directory with constraint pushdown so a session-scoped query opens one file rather than scanning all — the prototype confirmed the index-info plumbing delivers real constraints. Then move the dashboard readers. Then attribution as a join. Then retire the ingest path, which is the 377 seconds. Retention becomes deleting old shard files rather than pruning rows, which is simpler than the prune that cost eighteen minutes per rebuild before it was fixed. TWO KNOWN GOTCHAS from the prototype, both non-obvious: module registration affects only connections opened after the call, so any query or ping beforehand leaves it unregistered on that pooled connection; and arguments in the create-virtual-table clause arrive as raw unparsed text with quote characters included. SCALE CAUTION: one live shard is 160MB and 124 thousand lines, far beyond the prototype&#39;s fixture, so measure against the real corpus before committing to a full-scan design and lean on pushdown.</p>
+        </section>
+    </article>
+</body>
+</html>

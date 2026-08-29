@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-16T04:16:54.899744"
-             data-updated="2026-05-18T21:03:42.282628" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:43:32.620075" data-track-id="trk-0677c709">
 
         <header>
             <h1>Gate-record-required completion (session-local indexable gate record)</h1>
@@ -27,25 +27,25 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:54.913101">feat-2bfd67e9</a></li>
+                    <li><a href="../features/feat-2bfd67e9.html" data-relationship="blocked_by" data-since="2026-05-16T04:16:54.913101">feat-2bfd67e9</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T13:54:18.871897">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
+                    <li><a href="../sessions/ffcb8c20-2576-4e99-92f9-96f78f70cc45.html" data-relationship="implemented_in" data-since="2026-05-16T13:54:18.871897">session ffcb8c20-2576-4e99-92f9-96f78f70cc45</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:54.905136">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-16T04:16:54.905136">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:54.91197">plan-83f909bc</a></li>
+                    <li><a href="../plans/plan-83f909bc.html" data-relationship="planned_in" data-since="2026-05-16T04:16:54.91197">plan-83f909bc</a></li>
                 </ul>
             </section>
         </nav>
@@ -54,17 +54,17 @@
             <h3>Description</h3>
             <p>Add wipnote check --gate (cmd/wipnote/check.go) that detects the project
 manifest (go.mod/package.json/pyproject.toml/Cargo.toml) and runs the
-project's full build/vet/test, writing a SESSION-LOCAL signed result
+project&#39;s full build/vet/test, writing a SESSION-LOCAL signed result
 (not cross-session HEAD-SHA-pinned) re-validated immediately before
 complete. Store the record as a read-index row (e.g. a gate_records
 table) — derived, NOT canonical .wipnote HTML — so it respects the
 HTML-only canonicity constraint and slice-7 can JOIN against it for the
-"ran-gate" scorecard dimension. complete (cmd/wipnote/workitem.go)
+&#34;ran-gate&#34; scorecard dimension. complete (cmd/wipnote/workitem.go)
 refuses code-bearing items lacking a valid session-local passing record
 re-checked at complete time. Include an env-flake allowlist
 (plugin/config) with a recorded per-entry justification so known
 environmental failures (the /tmp noexec class hit twice this session)
-don't mask genuine failures and can't be a blanket excuse; report
+don&#39;t mask genuine failures and can&#39;t be a blanket excuse; report
 allowlist hits in the gate output.</p>
         </section>
     </article>

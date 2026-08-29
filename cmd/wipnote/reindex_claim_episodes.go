@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/shakestzd/wipnote/core/claimledger"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
@@ -189,16 +190,39 @@ func applyActiveFeatureIDFromClaims(database *sql.DB, verbose bool) {
 	if database == nil {
 		return
 	}
+	// The agent set MUST match writesLegacyActiveFeature's — see
+	// legacyActiveFeatureAgents for why they are one list. Projecting only
+	// __root__ here while the writer also accepted "codex" meant a Codex
+	// launcher's claim never survived a projection rebuild.
+	agents := legacyActiveFeatureAgents()
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(agents)), ",")
+
+	// Precedence is explicit rather than implied by row order: a session can
+	// hold claims under more than one permitted agent, and the column has a
+	// single slot. Root wins; ties within an agent break on the newest claim.
+	args := make([]any, 0, len(agents)*2+1)
+	for _, a := range agents {
+		args = append(args, a)
+	}
+	args = append(args, dbpkg.AgentRootSentinel)
+	for _, a := range agents {
+		args = append(args, a)
+	}
+
 	if _, err := database.Exec(`
 		UPDATE sessions
 		SET active_feature_id = (
-			SELECT work_item_id FROM active_work_items awi
-			WHERE awi.session_id = sessions.session_id AND awi.agent_id = ?
+			SELECT awi.work_item_id FROM active_work_items awi
+			WHERE awi.session_id = sessions.session_id
+			  AND awi.agent_id IN (`+placeholders+`)
+			ORDER BY CASE WHEN awi.agent_id = ? THEN 0 ELSE 1 END, awi.claimed_at DESC
+			LIMIT 1
 		)
 		WHERE EXISTS (
 			SELECT 1 FROM active_work_items awi
-			WHERE awi.session_id = sessions.session_id AND awi.agent_id = ?
-		)`, dbpkg.AgentRootSentinel, dbpkg.AgentRootSentinel); err != nil && verbose {
+			WHERE awi.session_id = sessions.session_id
+			  AND awi.agent_id IN (`+placeholders+`)
+		)`, args...); err != nil && verbose {
 		fmt.Printf("reindex active work items: set sessions.active_feature_id: %v\n", err)
 	}
 }

@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-03T02:03:51.929812"
-             data-updated="2026-06-03T02:03:51.950675" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+             data-updated="2026-08-09T20:41:47.237229" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
 
         <header>
             <h1>Research guard accepts a local Read as sufficient — web research not enforced for external-contract edits</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-06-03T02:03:51.950354">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-03T02:03:51.950354">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-through on bug-a4dd9cfd: that four-layer fix instilled web-first DISPOSITION (research-routing.md appended to all 3 harness system prompts, the researcher agent prompt, the agent-context skill) but added NO enforcement. checkYoloResearchGuard (internal/hooks/yolo_guard.go:431; satisfaction query yolo_guard.go:853-879) is satisfied by any local Read/Grep/Glob or cat/find/grep Bash, so an agent greps one local file and writes a fix to a harness/SDK/dependency bug without ever consulting upstream docs. The block message already names the web tools but the PASS condition never requires them. Fix: add a hasRecentWebResearch check (require WebSearch/WebFetch/web_search/google_web_search or 'gh search' in the research window) and trigger it when the pending write targets external-contract surface (go.mod/go.sum, internal/hooks/, plugin/, packages/, the plugin manifest). Always-on, cross-harness via the existing PreToolUse JSON decision:block path. Hard enforcement keyed on error CONTENT is infeasible (Claude PostToolUse payload carries no tool-result text), so trigger on the path being edited, which is mechanical and reliable.</p>
+            <p>Follow-through on bug-a4dd9cfd: that four-layer fix instilled web-first DISPOSITION (research-routing.md appended to all 3 harness system prompts, the researcher agent prompt, the agent-context skill) but added NO enforcement. checkYoloResearchGuard (internal/hooks/yolo_guard.go:431; satisfaction query yolo_guard.go:853-879) is satisfied by any local Read/Grep/Glob or cat/find/grep Bash, so an agent greps one local file and writes a fix to a harness/SDK/dependency bug without ever consulting upstream docs. The block message already names the web tools but the PASS condition never requires them. Fix: add a hasRecentWebResearch check (require WebSearch/WebFetch/web_search/google_web_search or &#39;gh search&#39; in the research window) and trigger it when the pending write targets external-contract surface (go.mod/go.sum, internal/hooks/, plugin/, packages/, the plugin manifest). Always-on, cross-harness via the existing PreToolUse JSON decision:block path. Hard enforcement keyed on error CONTENT is infeasible (Claude PostToolUse payload carries no tool-result text), so trigger on the path being edited, which is mechanical and reliable.</p>
         </section>
     </article>
 </body>

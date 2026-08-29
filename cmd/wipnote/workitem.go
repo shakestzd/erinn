@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -265,13 +266,21 @@ func runWiSetStatus(typeName, id, status string) error {
 	return wiSetStatusWithAgent(typeName, id, status, sessionID, agentID)
 }
 
+// legacyActiveFeatureAgents is the closed set of agent identities permitted to
+// occupy sessions.active_feature_id, in PRECEDENCE order (root first).
+//
+// applyActiveFeatureIDFromClaims consumes this same list deliberately. The
+// writer and the hydrator disagreed once already: this function accepted
+// "codex", while hydration projected only __root__ into the column, so a Codex
+// launcher's claim was written at runtime and then silently dropped on every
+// projection rebuild. Keeping one definition is what stops them drifting apart
+// again.
+func legacyActiveFeatureAgents() []string {
+	return []string{dbpkg.AgentRootSentinel, "codex"}
+}
+
 func writesLegacyActiveFeature(agentID string) bool {
-	switch agentID {
-	case dbpkg.AgentRootSentinel, "codex":
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(legacyActiveFeatureAgents(), agentID)
 }
 
 // wiSetStatusWithAgent is the testable core of runWiSetStatus that accepts

@@ -350,8 +350,15 @@ func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, val
 	pattern := filepath.Join(wipnoteDir, dir, "*.html")
 	files, _ := filepath.Glob(pattern)
 
-	// One batched git-log walk for every file in this directory instead of
-	// two `git log` subprocesses per file (bug-4e5816f4).
+	// One bulk `git log` walk resolves "updated" for every file in this
+	// directory instead of a subprocess per file (bug-4e5816f4), and since
+	// feat-2bd74c58 that walk is shared across every work-item directory.
+	//
+	// "created" is still resolved by one `git log --follow` subprocess PER
+	// FILE — it is not batchable, and batchGitFileTimestamps does not try
+	// (see the WHY "created" IS NOT BATCHED note in git_timestamps.go). Those
+	// per-file calls now run concurrently, which is what took this from 213.9s
+	// to ~50s on a 1,027-item corpus; they did not become rare (bug-085e3337).
 	batch := batchGitFileTimestamps(projectDir, files)
 
 	var total, upserted, errCount int

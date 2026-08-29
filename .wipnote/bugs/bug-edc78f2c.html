@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Canonical snapshot edge derivation is quadratic under concentrated fanout</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-edc78f2c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-10T10:25:05.515903"
+             data-updated="2026-08-10T10:25:13.439775" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>Canonical snapshot edge derivation is quadratic under concentrated fanout</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:25:05.525158">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="spawned_from" data-since="2026-08-10T10:25:13.439538">Benchmark post-cutover performance cliffs at scale</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Snapshot construction uses linear hasEdge scans while appending derived track contains edges and reverse session implements edges. Complexity is O(sum track_size squared plus sum session_fanout squared), so the current 1,060-item benign endpoint can hide a 5,000-item cliff when work concentrates in one track/session. Use the existing composite edgeKeys membership map and add concentrated-fanout curve benchmarks.</p>
+        </section>
+    </article>
+</body>
+</html>

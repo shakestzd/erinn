@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>batchGitFileTimestamps is only half-batched: gitFirstAdded still spawns one git log per file, costing 205s per openDB command</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-085e3337"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-08-10T10:44:43.428898"
+             data-updated="2026-08-12T02:26:22.114978" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="5740200b-6b40-41e9-8bde-b4adeb1d0ff4" data-rollup-unavailable="no_read_index">
+
+        <header>
+            <h1>batchGitFileTimestamps is only half-batched: gitFirstAdded still spawns one git log per file, costing 205s per openDB command</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="committed_in">
+                <h3>Committed In:</h3>
+                <ul>
+                    <li><a href="568b86c8b4e976395eefa0fef90b9591bfbb260b.html" data-relationship="committed_in" data-since="2026-08-11T20:25:31">perf(feat-2bd74c58): fix the measured scale cliffs in hydration and hook DB open</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:44:43.439911">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>CORRECTED after implementation. The COST is confirmed: gitFirstAdded at cmd/wipnote/git_timestamps.go runs git log --diff-filter=A --follow per file, 195-216ms each, 213.9s for 1027 work items, and wipnote track show measured 204647ms end to end. Affected commands verified empirically: track show, who, blame, claims list, trace, report, code-areas. THE FIX PROPOSED IN THE BENCHMARK REPORT WAS WRONG. Replacing the per-file call with one oldest-first git log --diff-filter=A --name-only --reverse walk disagreed with the --follow reference on 566 of 1075 files, 53 percent. The synthetic fixtures in git_timestamps_batch_test.go all passed against that broken version; only a real-corpus equivalence run caught it, which is exactly what the existing comment above the rename test warned would happen. ROOT CAUSE OF THE WRONGNESS, diagnosed on one case: feat-075c110d.html has exactly one A event under its current path at 11:43:34, while --follow reports creation at 11:42:27, because the file was created under a different name a minute earlier and git does not record the move as a rename. A bulk walk sees an ordinary A event and has no signal that it is really a move target, so filtering on R or C events does not help and neither does treating unresolved paths as the special case - the path is not unresolved. Correct tracing needs --find-copies-harder, an O(n squared) whole-tree scan. Conclusion: created is not batchable. SHIPPED FIX: keep the per-file --follow call and run the calls concurrently across runtime.NumCPU workers, which is identical by construction. Verified on the real corpus at 1075 files: 0 mismatches, batch 49.34s versus per-file reference 293.46s. End to end wipnote track show 204647ms to 54212ms, a factor of 3.8. Additionally the last-modified walk is now scoped to the .wipnote directory and memoized per repo and HEAD, so the four work-item directories share one walk instead of four. REMAINING HEADROOM, not taken: a persistent per-user cache of created timestamps would make warm runs about 1s, but it reintroduces persistent derived state that feat-fc3cc9e0 just removed and carries a staleness failure mode after history rewrites. That is a design call for the maintainer, not a performance detail.</p>
+        </section>
+    </article>
+</body>
+</html>

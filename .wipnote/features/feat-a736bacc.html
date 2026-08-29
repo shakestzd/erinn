@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-10T17:57:21.187262"
-             data-updated="2026-06-10T17:57:21.192295" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
+             data-updated="2026-08-09T20:43:28.956218" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
 
         <header>
             <h1>Split api_plans.go (1329 lines) into read/write/HTML-mutation modules</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T17:57:21.192181">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T17:57:21.192181">trk-13e39042</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>api_plans.go is 1329 lines — 2.6x the 500-line fail threshold in code-hygiene rules — and is the hottest comprehension bottleneck in the dashboard: feedback GET/POST, finalize, chat, delete, HTML mutation, and section counting all live in one file. Mechanical split along responsibility seams: (1) api_plans_read.go — GET handlers (feedback GET, status, render, sections); (2) api_plans_write.go — mutation handlers (feedback POST, finalize, delete, chat) including the writable-connection wiring from bug-528478ad; (3) api_plans_html.go — goquery HTML mutation helpers (finalize-time checked-attr sync etc.); keep shared types/route registration in api_plans.go. No behavior change; all existing tests stay green; respect import direction and function-size limits. Motivation: cut per-agent research tax on the most-touched dashboard file (observed 2026-06-10: agents repeatedly re-derive this file's structure).</p>
+            <p>api_plans.go is 1329 lines — 2.6x the 500-line fail threshold in code-hygiene rules — and is the hottest comprehension bottleneck in the dashboard: feedback GET/POST, finalize, chat, delete, HTML mutation, and section counting all live in one file. Mechanical split along responsibility seams: (1) api_plans_read.go — GET handlers (feedback GET, status, render, sections); (2) api_plans_write.go — mutation handlers (feedback POST, finalize, delete, chat) including the writable-connection wiring from bug-528478ad; (3) api_plans_html.go — goquery HTML mutation helpers (finalize-time checked-attr sync etc.); keep shared types/route registration in api_plans.go. No behavior change; all existing tests stay green; respect import direction and function-size limits. Motivation: cut per-agent research tax on the most-touched dashboard file (observed 2026-06-10: agents repeatedly re-derive this file&#39;s structure).</p>
         </section>
     </article>
 </body>

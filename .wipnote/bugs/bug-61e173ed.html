@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>signalvtab corpus benchmark skips session filter on NULL session_id</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-61e173ed"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-10T10:19:49.089345"
+             data-updated="2026-08-10T10:20:00.265583" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>signalvtab corpus benchmark skips session filter on NULL session_id</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-10T10:19:49.098608">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-ba544d57.html" data-relationship="relates_to" data-since="2026-08-10T10:20:00.265464">Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="spawned_from" data-since="2026-08-10T10:20:00.174435">Benchmark post-cutover performance cliffs at scale</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>TestCorpusMeasurements selects a session_id into string, but real corpus rows can return NULL; Scan fails and the test logs/skips the session-filter measurement instead of failing. The benchmark therefore appears complete while omitting a dashboard-critical query shape. Handle nullable values and make missing measurements explicit failures.</p>
+        </section>
+    </article>
+</body>
+</html>

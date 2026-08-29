@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-10T06:15:30.787092"
-             data-updated="2026-06-10T06:15:30.79795" data-agent-assigned="claude-code" data-track-id="trk-2e707ed1" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-08-09T20:42:23.995157" data-agent-assigned="claude-code" data-track-id="trk-2e707ed1" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
 
         <header>
             <h1>WorktreeCreate hook fails on Claude Code native worktree isolation: missing worktree_base_path</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-2e707ed1.html" data-relationship="part_of" data-since="2026-06-10T06:15:30.79782">trk-2e707ed1</a></li>
+                    <li><a href="../tracks/trk-2e707ed1.html" data-relationship="part_of" data-since="2026-06-10T06:15:30.79782">trk-2e707ed1</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Dispatching a Claude Code subagent with isolation=worktree fails because the wipnote WorktreeCreate hook handler exits with 'missing worktree_base_path'. The harness's native worktree-spawn payload evidently lacks the field the handler requires (or names it differently). Handler should treat the field as optional / derive a default base path instead of hard-failing, since a failing hook blocks the entire isolation feature. Surfaced 2026-06-10 while trying to run two coder agents in parallel. Check core/hooks worktree-create handler and the hook payload contract in the Claude Code hooks doc.</p>
+            <p>Dispatching a Claude Code subagent with isolation=worktree fails because the wipnote WorktreeCreate hook handler exits with &#39;missing worktree_base_path&#39;. The harness&#39;s native worktree-spawn payload evidently lacks the field the handler requires (or names it differently). Handler should treat the field as optional / derive a default base path instead of hard-failing, since a failing hook blocks the entire isolation feature. Surfaced 2026-06-10 while trying to run two coder agents in parallel. Check core/hooks worktree-create handler and the hook payload contract in the Claude Code hooks doc.</p>
         </section>
     </article>
 </body>

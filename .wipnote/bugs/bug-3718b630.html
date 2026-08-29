@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-18T10:49:05.534363"
-             data-updated="2026-05-18T10:49:05.552682" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c">
+             data-updated="2026-08-09T20:41:48.851908" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-582-gc8646013c">
 
         <header>
             <h1>Completing a subagent-delegated work item requires manual --accepted-advisory &#43; session-scoped gate — enforce in binary/hooks, not memory/advisory</h1>
@@ -27,20 +27,20 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="bug-f9622af9.html" data-relationship="caused_by" data-since="2026-05-18T10:49:05.545255">bug-f9622af9</a></li>
+                    <li><a href="../bugs/bug-f9622af9.html" data-relationship="caused_by" data-since="2026-05-18T10:49:05.545255">bug-f9622af9</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T10:49:05.552054">trk-a30e8df4</a></li>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-05-18T10:49:05.552054">trk-a30e8df4</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>When a work item's code is written by a delegated subagent, the orchestrator's 'wipnote  complete ' is double-gated: (a) it needs a session-scoped passing 'wipnote check --gate' run by the orchestrator itself, because a subagent's gate record is session-bound and does not count; and (b) it requires --accepted-advisory because subagent commits are not auto-linked to the active work item. This is a still-live attribution gap in the same family as bug-63f42308 (which is done and scoped only to Codex hook-event feature_id population). The fix must land in the binary/hooks — auto-link subagent commits to the active work item and/or make gate records visible to the completing orchestrator session — NOT be papered over by per-user memory or advisory skill prose. Memory/advisory enforcement creates a false positive: completion appears to work via a memorized workaround while the underlying defect stays hidden, masking the real bug from all wipnote users.</p>
+            <p>When a work item&#39;s code is written by a delegated subagent, the orchestrator&#39;s &#39;wipnote  complete &#39; is double-gated: (a) it needs a session-scoped passing &#39;wipnote check --gate&#39; run by the orchestrator itself, because a subagent&#39;s gate record is session-bound and does not count; and (b) it requires --accepted-advisory because subagent commits are not auto-linked to the active work item. This is a still-live attribution gap in the same family as bug-63f42308 (which is done and scoped only to Codex hook-event feature_id population). The fix must land in the binary/hooks — auto-link subagent commits to the active work item and/or make gate records visible to the completing orchestrator session — NOT be papered over by per-user memory or advisory skill prose. Memory/advisory enforcement creates a false positive: completion appears to work via a memorized workaround while the underlying defect stays hidden, masking the real bug from all wipnote users.</p>
         </section>
     </article>
 </body>

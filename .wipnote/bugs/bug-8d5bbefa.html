@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-24T22:46:41.600625"
-             data-updated="2026-05-24T22:47:15.445241" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+             data-updated="2026-08-09T20:42:15.272585" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
 
         <header>
             <h1>Plan finalize hits SQLITE_BUSY (database is locked) from dashboard</h1>
@@ -27,21 +27,21 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T22:46:46.671253">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T22:46:46.671253">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="relates_to">
                 <h3>Relates To:</h3>
                 <ul>
-                    <li><a href="feat-f3bcbcef.html" data-relationship="relates_to" data-since="2026-05-24T22:47:10.457697">Single local writer transport for event/index writes</a></li>
-                    <li><a href="feat-156e0a1a.html" data-relationship="relates_to" data-since="2026-05-24T22:47:15.444621">Contention observability and regression gate</a></li>
+                    <li><a href="../features/feat-f3bcbcef.html" data-relationship="relates_to" data-since="2026-05-24T22:47:10.457697">Single local writer transport for event/index writes</a></li>
+                    <li><a href="../features/feat-156e0a1a.html" data-relationship="relates_to" data-since="2026-05-24T22:47:15.444621">Contention observability and regression gate</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Real-user testing via the Warp harness on a separate external project (NOT this dev repo). In the dashboard plan-review view, all 6 sections approved (0 pending), clicking Finalize Plan failed with the red error: 'finalizing plan: finalize plan plan-ab3c1585: database is locked (5) (SQLITE_BUSY)'. SQLITE_BUSY is supposed to be eliminated by the single local writer transport and writer-queue work, so this is a regression/gap, not expected. Hypothesis: the plan finalize write path opens its own writable SQLite connection and contends outside the serialized writer (likely an unclassified writable call site per the write-boundary inventory), or a concurrent hook/indexer writer holds the lock past busy_timeout. Needed: trace the plan-finalize write path end to end, route all its writes through the single local writer transport, and verify busy_timeout + journal mode on that connection. Repro signal: Warp harness, external project, dashboard Finalize action with all sections approved. Evidence: user screenshot timestamped 2026-05-24 18:41.</p>
+            <p>Real-user testing via the Warp harness on a separate external project (NOT this dev repo). In the dashboard plan-review view, all 6 sections approved (0 pending), clicking Finalize Plan failed with the red error: &#39;finalizing plan: finalize plan plan-ab3c1585: database is locked (5) (SQLITE_BUSY)&#39;. SQLITE_BUSY is supposed to be eliminated by the single local writer transport and writer-queue work, so this is a regression/gap, not expected. Hypothesis: the plan finalize write path opens its own writable SQLite connection and contends outside the serialized writer (likely an unclassified writable call site per the write-boundary inventory), or a concurrent hook/indexer writer holds the lock past busy_timeout. Needed: trace the plan-finalize write path end to end, route all its writes through the single local writer transport, and verify busy_timeout + journal mode on that connection. Repro signal: Warp harness, external project, dashboard Finalize action with all sections approved. Evidence: user screenshot timestamped 2026-05-24 18:41.</p>
         </section>
     </article>
 </body>

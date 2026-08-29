@@ -291,7 +291,7 @@ func TestRankResults_OrderByScore(t *testing.T) {
 		{ID: "feat-bbb", Score: 5.0},
 		{ID: "feat-ccc", Score: 3.0},
 	}
-	ranked := rankResults(items)
+	ranked := rankResults(items, queryTypeKeyword)
 	if ranked[0].ID != "feat-bbb" {
 		t.Errorf("first ranked item should be feat-bbb (score 5), got %s", ranked[0].ID)
 	}
@@ -523,5 +523,35 @@ func TestRelevantCmd_DefaultLimitIsBounded(t *testing.T) {
 	}
 	if f.DefValue == "0" {
 		t.Error("--limit default must not be 0 (unbounded) — default output must be bounded per GH#151")
+	}
+}
+
+// TestRankResults_RecapDemotionIsKeywordOnly pins bug-3af1d597's fix AND the
+// limit the code review found on it: recaps must sink below work items for a
+// topic search (their embedded diffs match almost anything), but must NOT sink
+// for a SHA or file-path query, where the recap grounded on exactly that commit
+// range or file is the precise answer and demoting it pushes it past --limit.
+func TestRankResults_RecapDemotionIsKeywordOnly(t *testing.T) {
+	newItems := func() []relevantResult {
+		return []relevantResult{
+			{ID: "recap-x", Type: "recap", Score: 98.0},
+			{ID: "feat-aaa", Type: "feature", Score: 5.0},
+		}
+	}
+
+	keyword := rankResults(newItems(), queryTypeKeyword)
+	if keyword[0].ID != "feat-aaa" {
+		t.Errorf("keyword query: work item should outrank a higher-scoring recap, got %s first", keyword[0].ID)
+	}
+
+	for _, qt := range []struct {
+		name string
+		typ  queryType
+	}{{"sha", queryTypeSHA}, {"file", queryTypeFile}} {
+		ranked := rankResults(newItems(), qt.typ)
+		if ranked[0].ID != "recap-x" {
+			t.Errorf("%s query: the exact-match recap must keep its score order, got %s first",
+				qt.name, ranked[0].ID)
+		}
 	}
 }

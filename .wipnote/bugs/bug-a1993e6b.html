@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="high"
              data-created="2026-05-13T07:25:41.384065"
-             data-updated="2026-05-18T21:03:44.963614" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43">
+             data-updated="2026-08-09T20:42:21.413175" data-track-id="trk-08dcbb33" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1820-g8bd77dc43">
 
         <header>
             <h1>checkProjectDivergence false-positives when worktree CWD vs main session-dir</h1>
@@ -27,19 +27,19 @@
             <section data-edge-type="caused_by">
                 <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="feat-fdf99806.html" data-relationship="caused_by" data-since="2026-05-13T07:25:41.39195">feat-fdf99806</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T07:25:41.396948">trk-08dcbb33</a></li>
+                    <li><a href="../features/feat-fdf99806.html" data-relationship="caused_by" data-since="2026-05-13T07:25:41.39195">feat-fdf99806</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T08:01:49.096126">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
+                    <li><a href="../sessions/e5179b35-6359-4fe4-b95a-3b0e86dd85cc.html" data-relationship="implemented_in" data-since="2026-05-13T08:01:49.096126">session e5179b35-6359-4fe4-b95a-3b0e86dd85cc</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-05-13T07:25:41.396948">trk-08dcbb33</a></li>
                 </ul>
             </section>
         </nav>
@@ -55,7 +55,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>checkProjectDivergence in internal/hooks/pretooluse.go:661 compares ResolveProjectDir(event.CWD) against sess.ProjectDir. When a session is started in main repo but events fire from a linked worktree (or vice versa), the two values can differ even though they are the SAME LOGICAL PROJECT (worktree + main share a .git common dir). The mismatch triggers a hard block on every Write/Edit with the message 'CWD has changed to a different project'. Wedged the YOLO session attempting to start feat-5ddde9d7 inside the trk-08dcbb33 worktree on 2026-05-13 — exactly the failure mode that motivated the auto-commit work in feat-fdf99806. Fix: treat linked worktrees of the same repo as the same project by normalizing both paths through paths.ResolveViaGitCommonDir before declaring divergence.</p>
+            <p>checkProjectDivergence in internal/hooks/pretooluse.go:661 compares ResolveProjectDir(event.CWD) against sess.ProjectDir. When a session is started in main repo but events fire from a linked worktree (or vice versa), the two values can differ even though they are the SAME LOGICAL PROJECT (worktree + main share a .git common dir). The mismatch triggers a hard block on every Write/Edit with the message &#39;CWD has changed to a different project&#39;. Wedged the YOLO session attempting to start feat-5ddde9d7 inside the trk-08dcbb33 worktree on 2026-05-13 — exactly the failure mode that motivated the auto-commit work in feat-fdf99806. Fix: treat linked worktrees of the same repo as the same project by normalizing both paths through paths.ResolveViaGitCommonDir before declaring divergence.</p>
         </section>
     </article>
 </body>

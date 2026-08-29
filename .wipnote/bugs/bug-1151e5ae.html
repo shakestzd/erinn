@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Daemon derived-op write path is a void: every socket op is discarded</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1151e5ae"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T21:18:53.514815"
+             data-updated="2026-08-09T21:18:53.528233" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Daemon derived-op write path is a void: every socket op is discarded</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T21:18:53.528117">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>runWriterOnly wires apply.NewApplier against the daemon&#39;s own ephemeral in-memory projection, while the socket Reader answers from canonical files via readsrv. Nothing ever reads what the applier writes. Every socket-delivered agent_event.upsert, session.insert, feature.status and raw SQL op is discarded. This is larger in scope than the maintenance loops: it means ackMeansDurable returning true licenses a caller to skip its own write in favour of a write that goes nowhere. Callers must be audited to distinguish those skipping a canonical write from those skipping a merely derived one.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-11T13:03:57.400064"
-             data-updated="2026-05-18T21:03:40.738488" data-track-id="trk-0677c709">
+             data-updated="2026-08-09T20:42:50.449775" data-track-id="trk-0677c709">
 
         <header>
             <h1>Contention observability and regression gate</h1>
@@ -27,26 +27,26 @@
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-33c26c74.html" data-relationship="blocked_by" data-since="2026-05-11T13:03:57.412203">feat-33c26c74</a></li>
-                    <li><a href="feat-229f3333.html" data-relationship="blocked_by" data-since="2026-05-11T13:03:57.415596">feat-229f3333</a></li>
+                    <li><a href="../features/feat-33c26c74.html" data-relationship="blocked_by" data-since="2026-05-11T13:03:57.412203">feat-33c26c74</a></li>
+                    <li><a href="../features/feat-229f3333.html" data-relationship="blocked_by" data-since="2026-05-11T13:03:57.415596">feat-229f3333</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="91971d7c-e6f1-49b9-addf-28eb6f721357.html" data-relationship="implemented_in" data-since="2026-05-11T18:09:45.990715">session 91971d7c-e6f1-49b9-addf-28eb6f721357</a></li>
+                    <li><a href="../sessions/91971d7c-e6f1-49b9-addf-28eb6f721357.html" data-relationship="implemented_in" data-since="2026-05-11T18:09:45.990715">session 91971d7c-e6f1-49b9-addf-28eb6f721357</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-11T13:03:57.403301">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-11T13:03:57.403301">trk-0677c709</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-ae0c37b2.html" data-relationship="planned_in" data-since="2026-05-11T13:03:57.409441">plan-ae0c37b2</a></li>
+                    <li><a href="../plans/plan-ae0c37b2.html" data-relationship="planned_in" data-since="2026-05-11T13:03:57.409441">plan-ae0c37b2</a></li>
                 </ul>
             </section>
         </nav>
@@ -59,9 +59,9 @@ queue depth when the single writer is enabled, and add a stress command or
 test fixture that runs dashboard/indexer/hooks/CLI operations together.
 Use this as a release gate for Launch Readiness.
 
-Threshold tuning: the stress-fixture pass criterion is "zero SQLITE_BUSY
-from in-repo writer/indexer/hook paths." That is distinct from "zero
-SQLITE_BUSY anywhere" — external producers (MCP, user-installed tools)
+Threshold tuning: the stress-fixture pass criterion is &#34;zero SQLITE_BUSY
+from in-repo writer/indexer/hook paths.&#34; That is distinct from &#34;zero
+SQLITE_BUSY anywhere&#34; — external producers (MCP, user-installed tools)
 can still produce BUSY and are not gated by this slice (see slice 5
 scope clarification).</p>
         </section>

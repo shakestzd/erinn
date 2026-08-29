@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>INSERT OR IGNORE on otel_signals still turns constraint violations into silence</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b2cb24ca"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-09T17:49:56.667278"
+             data-updated="2026-08-09T20:42:26.109268" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>INSERT OR IGNORE on otel_signals still turns constraint violations into silence</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T17:49:56.684999">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-0fc17d53.html" data-relationship="relates_to" data-since="2026-08-09T17:50:22.856991">Derived otel_signals holds 61,611 rows against 154,614 canonical NDJSON lines</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The span_id UNIQUE index that dropped 86,758 signals (bug-0fc17d53) is fixed, but the mechanism that made that loss SILENT rather than loud is still in place and still general. The writer inserts with INSERT OR IGNORE, and SQLite applies that conflict resolution to NOT NULL and CHECK violations as well as to the primary key. Any future constraint a signal fails to satisfy - a new CHECK, a column made NOT NULL, another index - is discarded with no error, no log line, and a checkpoint that advances as if the row had been stored. That is exactly how a 56 percent data loss survived unnoticed.
+
+The OR IGNORE is load-bearing and must NOT simply be removed. signal_id is the primary key and idempotent replay depends on that silence: reindexOtelEvents documents it, and the bug-0fc17d53 recovery path depends on it harder still, because recovery replays the entire corpus over a table that already holds most of it. Removing it turns recovery into a wall of primary-key errors.
+
+The obvious detector was considered and deliberately rejected while fixing bug-0fc17d53. Flagging RowsAffected == 0 fires on nearly every row of a legitimate replay, so it is pure noise, and a warning that fires constantly trains people to ignore it. Telling &#34;already present, expected&#34; apart from &#34;constraint rejected, a bug&#34; needs to know whether the row already exists, which costs an extra query per ignored row on the hot write path. A half-working detector is worse than none, so none was shipped.
+
+The work is to separate the two cases cheaply. Options to evaluate rather than assume: replace OR IGNORE with an explicit ON CONFLICT(signal_id) DO NOTHING, which targets only the primary-key conflict and should let NOT NULL and CHECK violations raise - most promising and close to free, but verify against the actual driver rather than the docs; or sample-verify ignored rows instead of every one; or add a test that enumerates every constraint on otel_signals and proves each produces a loud failure, which catches the class without touching the write path.</p>
+        </section>
+    </article>
+</body>
+</html>

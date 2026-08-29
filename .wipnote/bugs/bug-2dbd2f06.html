@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>PreToolUse blocks read-only Bash references to .wipnote corpus</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2dbd2f06"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-10T10:19:48.761455"
+             data-updated="2026-08-10T10:24:15.886432" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>PreToolUse blocks read-only Bash references to .wipnote corpus</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:19:48.771847">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-369da005.html" data-relationship="relates_to" data-since="2026-08-10T10:19:59.811742">Deploying the SQLite cutover will block all writes in every session</a></li>
+                    <li><a href="../plans/plan-ee999752.html" data-relationship="relates_to" data-since="2026-08-10T10:19:59.903732">Plan: Cross-harness enforcement floor — always-on commit gates &#43; CLI claim/write invariants</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="spawned_from" data-since="2026-08-10T10:19:59.72101">Benchmark post-cutover performance cliffs at scale</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>PreToolUse rejects read-only Bash before execution. It first blocked a command merely referencing .wipnote/sessions; it also blocks a multi-command source inspection containing only cd, sed, and git show with no managed-store reference or write. The guard appears to classify command shape/compound Bash as a write rather than resolving effects. This prevents safe code review and corpus measurement; provide effect-aware classification or documented read-only commands.</p>
+        </section>
+    </article>
+</body>
+</html>

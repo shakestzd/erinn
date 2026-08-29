@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Update CLAUDE.md / orchestrator skill &#43; (optional) `htmlgraph-teammate` subagent definition</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-04T23:28:34.692518"
-             data-updated="2026-05-04T23:28:34.723901" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
+             data-updated="2026-08-09T20:43:09.930574" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
 
         <header>
             <h1>Update CLAUDE.md / orchestrator skill &#43; (optional) `htmlgraph-teammate` subagent definition</h1>
@@ -24,23 +24,23 @@
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.708146">plan-2c7f1b7d</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-a49b5185.html" data-relationship="blocked_by" data-since="2026-05-04T23:28:34.716805">feat-a49b5185</a></li>
-                    <li><a href="feat-b3bbb6a3.html" data-relationship="blocked_by" data-since="2026-05-04T23:28:34.7234">feat-b3bbb6a3</a></li>
+                    <li><a href="../features/feat-a49b5185.html" data-relationship="blocked_by" data-since="2026-05-04T23:28:34.716805">feat-a49b5185</a></li>
+                    <li><a href="../features/feat-b3bbb6a3.html" data-relationship="blocked_by" data-since="2026-05-04T23:28:34.7234">feat-b3bbb6a3</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.696893">trk-8f9bc323</a></li>
+                    <li><a href="../tracks/trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.696893">trk-8f9bc323</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.708146">plan-2c7f1b7d</a></li>
                 </ul>
             </section>
         </nav>
@@ -50,18 +50,18 @@
             <p>Update documentation to reflect the auto-injection (slice 1) and the now-actually-persisted teammate identity (slice 2). Document the v2.1.64+ JSON control payload feature in CLAUDE.md as not yet implemented. Optionally add a HtmlGraph-specific subagent definition usable as a teammate by natural-language reference.
 
 **Implementation:**
-1. **CLAUDE.md update.** The existing "Agent Teams (experimental)" section needs three updates:
-   - Replace the manual-setup statement with: "HtmlGraph auto-injects `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `htmlgraph claude` / `yolo` / `dev`. To opt out, set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0` in your shell or `agent_teams.enabled: false` in `.htmlgraph/config.json`."
-   - Add: "Teammate identity (`teammate_name`, `team_name`, `idle_reason`) is persisted to `agent_events` for every team-hook event, enabling SQL queries that filter or aggregate by teammate."
-   - Add: "**Hook control payloads** — Claude Code v2.1.64+ accepts JSON `{\"continue\": false, \"stopReason\": \"...\"}` from hooks as an alternative to exit-code 2. **HtmlGraph currently emits exit-code 2 only**; JSON control payloads are not yet implemented. See `bug-XXXXXXXX` for adoption tracking." — file the tracking bug as part of slice 3 work and substitute the real ID when committing.
-   - Add note: "agent_teams.enabled=false disables auto-injection only; an explicitly-set parent env var still passes through. To fully disable, both unset the env var AND set the config flag."
-2. **orchestrator-directives-skill SKILL.md update.** Same three updates as CLAUDE.md, plus: rename the existing "Set automatically by `htmlgraph claude`/`htmlgraph yolo`; no manual step required" line if it currently differs (the research found it says "Environment variable: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`" as a user requirement — flip to "Set automatically..."). Update the "blocked teammates cannot be /resume'd" caveat to mention JSON payload as a non-stranding alternative when implemented.
+1. **CLAUDE.md update.** The existing &#34;Agent Teams (experimental)&#34; section needs three updates:
+   - Replace the manual-setup statement with: &#34;HtmlGraph auto-injects `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `htmlgraph claude` / `yolo` / `dev`. To opt out, set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0` in your shell or `agent_teams.enabled: false` in `.htmlgraph/config.json`.&#34;
+   - Add: &#34;Teammate identity (`teammate_name`, `team_name`, `idle_reason`) is persisted to `agent_events` for every team-hook event, enabling SQL queries that filter or aggregate by teammate.&#34;
+   - Add: &#34;**Hook control payloads** — Claude Code v2.1.64+ accepts JSON `{\&#34;continue\&#34;: false, \&#34;stopReason\&#34;: \&#34;...\&#34;}` from hooks as an alternative to exit-code 2. **HtmlGraph currently emits exit-code 2 only**; JSON control payloads are not yet implemented. See `bug-XXXXXXXX` for adoption tracking.&#34; — file the tracking bug as part of slice 3 work and substitute the real ID when committing.
+   - Add note: &#34;agent_teams.enabled=false disables auto-injection only; an explicitly-set parent env var still passes through. To fully disable, both unset the env var AND set the config flag.&#34;
+2. **orchestrator-directives-skill SKILL.md update.** Same three updates as CLAUDE.md, plus: rename the existing &#34;Set automatically by `htmlgraph claude`/`htmlgraph yolo`; no manual step required&#34; line if it currently differs (the research found it says &#34;Environment variable: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`&#34; as a user requirement — flip to &#34;Set automatically...&#34;). Update the &#34;blocked teammates cannot be /resume&#39;d&#34; caveat to mention JSON payload as a non-stranding alternative when implemented.
 3. **Extract shared doc** (per opus + sonnet medium findings): extract the agent-teams content into `docs/agent-teams.md` as the single source of truth. Both CLAUDE.md and the orchestrator skill reference mirrored regions delimited by ``/``. Add a `TestAgentTeamsDocsMirror` test asserting byte-equivalence of mirrored regions so drift becomes a CI failure.
 4. **(Optional, gated on q-teammate-subagent-definition-scope) `plugin/agents/htmlgraph-teammate.md`.** New file with frontmatter:
    ```yaml
    ---
    name: htmlgraph-teammate
-   description: General-purpose teammate aware of HtmlGraph conventions (work-item attribution, slice-based planning, spec sections). Spawn via natural language: "spawn a teammate using htmlgraph-teammate to ..."
+   description: General-purpose teammate aware of HtmlGraph conventions (work-item attribution, slice-based planning, spec sections). Spawn via natural language: &#34;spawn a teammate using htmlgraph-teammate to ...&#34;
    model: sonnet
    color: cyan
    tools: [Read, Write, Edit, Bash, Grep, Glob]
@@ -69,23 +69,23 @@
    memory: project
    ---
    ```
-   Body briefs the teammate on: HtmlGraph's work-item attribution (start before changes, complete after), slice-card planning workflow, `
-` format (Requirement/Scenario), the orchestrator delegation pattern, and the OODA active-observer integration if relevant. ~50-line system prompt. Note: skills/mcpServers don't propagate to teammates, so the definition can only inline conventions.
+   Body briefs the teammate on: HtmlGraph&#39;s work-item attribution (start before changes, complete after), slice-card planning workflow, `
+` format (Requirement/Scenario), the orchestrator delegation pattern, and the OODA active-observer integration if relevant. ~50-line system prompt. Note: skills/mcpServers don&#39;t propagate to teammates, so the definition can only inline conventions.
 
 
 ## Why
-Documentation drift is a real cost: CLAUDE.md's current claim about teammate identity capture is partially false (the DB column is NULL); after slices 1+2 ship, the claim becomes accurate but the docs still say "you have to set the env var manually." Updating both files in lockstep ensures documentation matches behavior. The JSON control payload mention is informational — readers should know about the v2.1.64+ feature even if our hooks don't yet emit it. The optional teammate definition makes HtmlGraph's conventions composable into Claude Code's team workflow with one natural-language reference, removing friction for users who want to spawn teams that follow project conventions.
+Documentation drift is a real cost: CLAUDE.md&#39;s current claim about teammate identity capture is partially false (the DB column is NULL); after slices 1+2 ship, the claim becomes accurate but the docs still say &#34;you have to set the env var manually.&#34; Updating both files in lockstep ensures documentation matches behavior. The JSON control payload mention is informational — readers should know about the v2.1.64+ feature even if our hooks don&#39;t yet emit it. The optional teammate definition makes HtmlGraph&#39;s conventions composable into Claude Code&#39;s team workflow with one natural-language reference, removing friction for users who want to spawn teams that follow project conventions.
 
 
 ## Done When
-- CLAUDE.md 'Agent Teams (experimental)' section reflects auto-injection (no manual setup), persisted teammate identity, and JSON control payload availability
+- CLAUDE.md &#39;Agent Teams (experimental)&#39; section reflects auto-injection (no manual setup), persisted teammate identity, and JSON control payload availability
 - `plugin/skills/orchestrator-directives-skill/SKILL.md` agent-teams section matches CLAUDE.md (single source of truth for the policy, mirrored into the skill)
 - If question `q-teammate-subagent-definition-scope` answer is `include-in-slice-3`: `plugin/agents/htmlgraph-teammate.md` exists with valid frontmatter and a body that briefs the teammate on HtmlGraph conventions
 - If question answer is `defer-to-followon`: file a follow-on bug `Add htmlgraph-teammate subagent definition` referencing this slice as the parent context
 - If question answer is `define-multiple-roles`: create at least two definitions (`htmlgraph-teammate-coder.md`, `htmlgraph-teammate-researcher.md`) with appropriately scoped tool allowlists
 - Single-source `docs/agent-teams.md` exists with the canonical agent-teams content; CLAUDE.md and `plugin/skills/orchestrator-directives-skill/SKILL.md` reference it via mirrored region OR include-by-link
 - `TestAgentTeamsDocsMirror` test asserts byte-equivalence of the mirrored region across CLAUDE.md and the orchestrator skill
-- JSON control payload mention reframed as 'not yet implemented; see bug-XXX for adoption tracking' (no ambiguous 'available for future use' phrasing)
+- JSON control payload mention reframed as &#39;not yet implemented; see bug-XXX for adoption tracking&#39; (no ambiguous &#39;available for future use&#39; phrasing)
 - **File a tracking bug** for JSON control payload adoption as part of slice 3 work; substitute the real bug ID into the docs</p>
         </section>
     </article>

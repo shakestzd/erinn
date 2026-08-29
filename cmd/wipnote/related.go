@@ -80,16 +80,38 @@ func runRelated(featureID string) error {
 // setDescriptionCmd returns a cobra.Command that sets any work item's description
 // with optional structured sections. kind identifies the work item type (e.g. "feature").
 func setDescriptionCmd(kind string) *cobra.Command {
-	var acceptance, testStrategy, expectedBehavior string
+	var acceptance, testStrategy, expectedBehavior, description string
 	var allowHostPaths bool
 	cmd := &cobra.Command{
-		Use:   "set-description <id> <text>",
-		Short: "Set or update a " + kind + "'s description with optional structured sections",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runSetDescription(kind, args[0], args[1], acceptance, testStrategy, expectedBehavior, allowHostPaths)
+		// "edit" is an alias because that is the name the orchestrator
+		// directives use, and reaching for it previously produced
+		// "unknown flag: --description" followed by the parent help, which
+		// does not make the real command discoverable (bug-df9af5c7).
+		Aliases: []string{"edit"},
+		Use:     "set-description <id> [text]",
+		Short:   "Set or update a " + kind + "'s description with optional structured sections",
+		Args:    cobra.RangeArgs(1, 2),
+		RunE: func(c *cobra.Command, args []string) error {
+			// Text may come positionally (set-description <id> <text>) or via
+			// --description, which is what the directives document for `edit`.
+			//
+			// An EMPTY string is a meaningful value here — it is the only way
+			// to clear a stale description — so "was it supplied?" is asked via
+			// arg count and Flags().Changed, never by testing text != "".
+			text := description
+			descFlagSet := c.Flags().Changed("description")
+			switch {
+			case len(args) == 2 && descFlagSet:
+				return fmt.Errorf("pass the description either positionally or with --description, not both")
+			case len(args) == 2:
+				text = args[1]
+			case !descFlagSet && acceptance == "" && testStrategy == "" && expectedBehavior == "":
+				return fmt.Errorf("nothing to set: pass description text positionally, or use --description / --acceptance / --test-strategy / --expected-behavior")
+			}
+			return runSetDescription(kind, args[0], text, acceptance, testStrategy, expectedBehavior, allowHostPaths)
 		},
 	}
+	cmd.Flags().StringVar(&description, "description", "", "Description text (alternative to passing it positionally)")
 	cmd.Flags().StringVar(&acceptance, "acceptance", "", "Acceptance criteria")
 	cmd.Flags().StringVar(&testStrategy, "test-strategy", "", "Test strategy")
 	cmd.Flags().StringVar(&expectedBehavior, "expected-behavior", "", "Expected behavior")

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Re-running finalize creates duplicate features instead of reconciling</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-3631e754"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T18:45:53.455523"
+             data-updated="2026-08-09T20:05:20.225564" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Re-running finalize creates duplicate features instead of reconciling</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-fc3cc9e0.html" data-relationship="caused_by" data-since="2026-08-09T18:46:00.170074">Eliminate project-level SQLite storage and cache</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T18:45:53.468788">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>DOES NOT CURRENTLY REPRODUCE as of 2026-08-09 16:05 EDT. Originally observed failing: a second finalize run created duplicate features instead of reconciling (second run feature[0] = feat-d7f5618a, want feat-9c5b3647). Re-verified directly: TestFinalizeYAML_ReconcilesFeedbackApprovals now passes. The fix is present in the uncommitted working-tree diff and was landed by the in-flight feat-fc3cc9e0 work between the two observations. finalizeYAMLWithDB and finalizeYAMLCanonical now short-circuit re-finalize via existingFeatureIDsFromPlan reading slice.FeatureID from the reloaded YAML, falling back to findFeaturesForPlanCanonical which reads canonical planned_in edges, replacing the raw SQL findFeaturesForPlan query that previously supplied idempotency. Keep open until that diff is committed, since the fix is currently uncommitted and would be lost with it. Secondary finding: finalizeYAMLWithDB has no production caller. The HTTP handler and the CLI both call finalizeYAMLCanonical. Consider deleting it and its three tests as dead code, or repointing them at the canonical path.</p>
+<h2>Acceptance Criteria</h2>
+<p>Test passes with the fix committed rather than only present in an uncommitted diff.</p>
+<h2>Expected Behavior</h2>
+<p>A repeated finalize reconciles to existing features rather than creating duplicates. Idempotency comes from an explicit canonical read, not from a SQL uniqueness constraint.</p>
+        </section>
+    </article>
+</body>
+</html>

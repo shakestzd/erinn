@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,13 +8,69 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/sessionledger"
 	"github.com/shakestzd/wipnote/internal/launcher"
 )
 
 // continueTestUUID is a valid Claude Code session UUID used in continue tests.
 // isClaudeCodeSessionID must pass for TranscriptResumeID to be set.
 const continueTestUUID = "019ee378-abcd-7000-8000-000000000001"
+
+// openContinueTestProject creates a project whose only state is CANONICAL.
+//
+// It deliberately hands back no *sql.DB. resolveContinueLaunchContext opens its
+// own projection, and since the feat-fc3cc9e0 cutover every openDB call returns
+// a private in-memory database — so rows seeded into a handle here would be
+// invisible to the code under test, which is exactly how the previous fixture
+// silently stopped testing anything. Seeding canonical artifacts instead makes
+// these tests exercise the real hydration path.
+func openContinueTestProject(t *testing.T) string {
+	t.Helper()
+	projectRoot := t.TempDir()
+	for _, sub := range []string{"features", "sessions", "claims"} {
+		if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote", sub), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	return projectRoot
+}
+
+// seedContinueFixture writes the canonical artifacts a resumable session is
+// actually made of: the work item, the session-ledger row carrying its harness,
+// an OPEN claim episode tying the two together, and the worktree directory.
+// Hydration turns those into the features / sessions / active_work_items rows
+// the resumable-session queries read.
+//
+// startedAt doubles as the session's created_at, which is what the resumable
+// query ranks on — so ordering between fixtures is expressed by seeding
+// different start times rather than by patching a derived column afterwards.
+//
+// agentID selects which projection branch supplies work_item_id:
+// dbpkg.AgentRootSentinel also populates sessions.active_feature_id (via
+// applyActiveFeatureIDFromClaims), whereas any other agent leaves that column
+// empty so only the active_work_items branch of the query can match.
+func seedContinueFixture(t *testing.T, projectRoot, harness, workItemID, sessionID, worktreeRel string, startedAt time.Time, agentID string) {
+	t.Helper()
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+
+	html := `<!DOCTYPE html><html><body><article id="` + workItemID +
+		`" data-type="feature" data-status="in-progress" data-priority="medium">` +
+		`<h1>Continue Test</h1></article></body></html>`
+	if err := os.WriteFile(filepath.Join(wipnoteDir, "features", workItemID+".html"), []byte(html), 0o644); err != nil {
+		t.Fatalf("write feature %s: %v", workItemID, err)
+	}
+	if err := os.MkdirAll(filepath.Join(projectRoot, filepath.FromSlash(worktreeRel)), 0o755); err != nil {
+		t.Fatalf("mkdir worktree: %v", err)
+	}
+	if _, err := sessionledger.NewStore(wipnoteDir).Open(sessionledger.Record{
+		SessionID: sessionID,
+		Harness:   harness,
+		StartedAt: startedAt,
+	}); err != nil {
+		t.Fatalf("seed session ledger %s: %v", sessionID, err)
+	}
+	seedEpisode(t, wipnoteDir, sessionID, sessionID, agentID, workItemID, startedAt, time.Time{}, "")
+}
 
 func TestResolveContinueLaunchContext_HarnessPolicies(t *testing.T) {
 	for _, tc := range []struct {
@@ -30,8 +85,9 @@ func TestResolveContinueLaunchContext_HarnessPolicies(t *testing.T) {
 		{name: "antigravity stays fresh", currentHarness: "antigravity", previousHarness: "antigravity", wantResumeID: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			projectRoot, database := openContinueTestProject(t)
-			seedContinueFixture(t, database, projectRoot, tc.previousHarness, "feat-continue", continueTestUUID, ".claude/worktrees/feat-continue")
+			projectRoot := openContinueTestProject(t)
+			seedContinueFixture(t, projectRoot, tc.previousHarness, "feat-continue", continueTestUUID,
+				".claude/worktrees/feat-continue", time.Now().UTC().Add(-time.Hour), dbpkg.AgentRootSentinel)
 
 			got, err := resolveContinueLaunchContext(projectRoot, projectRoot, tc.currentHarness, launcher.ContinueWorkIntent(
 				"feat-continue", tc.previousHarness, continueTestUUID, ".claude/worktrees/feat-continue", true,
@@ -67,8 +123,9 @@ func TestResolveContinueLaunchContext_HarnessPolicies(t *testing.T) {
 
 func TestResolveContinueLaunchContext_MissingWorktreeFallsBackFresh(t *testing.T) {
 	const sessMissing = "019ee378-abcd-7000-8000-000000000002"
-	projectRoot, database := openContinueTestProject(t)
-	seedContinueFixture(t, database, projectRoot, "claude", "feat-missing", sessMissing, ".claude/worktrees/feat-missing")
+	projectRoot := openContinueTestProject(t)
+	seedContinueFixture(t, projectRoot, "claude", "feat-missing", sessMissing,
+		".claude/worktrees/feat-missing", time.Now().UTC().Add(-time.Hour), dbpkg.AgentRootSentinel)
 	if err := os.RemoveAll(filepath.Join(projectRoot, ".claude", "worktrees", "feat-missing")); err != nil {
 		t.Fatalf("remove worktree: %v", err)
 	}
@@ -87,24 +144,43 @@ func TestResolveContinueLaunchContext_MissingWorktreeFallsBackFresh(t *testing.T
 	}
 }
 
-func TestResolveContinueLaunchContext_LiveCollisionDisablesTranscriptResume(t *testing.T) {
+// TestContinueLiveCollisionDetectsForeignClaimant covers the collision check
+// that disables transcript resume when another session still holds the item.
+//
+// It seeds the handle directly and calls continueLiveCollision rather than
+// driving resolveContinueLaunchContext end to end, because the `claims` table
+// has NO canonical hydration source (bug-ec1ff126): reindex projects
+// claim_episodes and active_work_items, but nothing populates claims, and
+// LiveCollision reads claims heartbeats. In a hydrated projection it therefore
+// sees nothing. Testing at this seam keeps the collision logic covered
+// honestly; the end-to-end assertion becomes possible again only once claims
+// hydration is restored.
+func TestContinueLiveCollisionDetectsForeignClaimant(t *testing.T) {
 	const (
-		sessLiveBase  = "019ee378-abcd-7000-8000-000000000003"
-		sessLiveOther = "019ee378-abcd-7000-8000-000000000004"
+		otherSession = "019ee378-abcd-7000-8000-000000000004"
+		workItemID   = "feat-live"
 	)
-	projectRoot, database := openContinueTestProject(t)
-	seedContinueFixture(t, database, projectRoot, "claude", "feat-live", sessLiveBase, ".claude/worktrees/feat-live")
+	projectRoot := openContinueTestProject(t)
+	// claims.work_item_id is a foreign key, so the work item has to exist. Seed
+	// it canonically and let hydration create the row.
+	html := `<!DOCTYPE html><html><body><article id="` + workItemID +
+		`" data-type="feature" data-status="in-progress" data-priority="medium">` +
+		`<h1>Live Claim</h1></article></body></html>`
+	if err := os.WriteFile(filepath.Join(projectRoot, ".wipnote", "features", workItemID+".html"), []byte(html), 0o644); err != nil {
+		t.Fatalf("write feature: %v", err)
+	}
+	database, err := openDB(filepath.Join(projectRoot, ".wipnote"))
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
+	}
+	defer database.Close()
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	if err := dbpkg.InsertSession(database, &models.Session{
-		SessionID:       sessLiveOther,
-		AgentAssigned:   "claude-code",
-		Status:          "active",
-		CreatedAt:       time.Now().UTC(),
-		ActiveFeatureID: "feat-live",
-		ProjectDir:      ".",
-		Harness:         "claude",
-	}); err != nil {
+	if _, err := database.Exec(`
+		INSERT INTO sessions (session_id, agent_assigned, status, created_at, harness, project_dir)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		otherSession, "claude-code", "active", now, "claude", ".",
+	); err != nil {
 		t.Fatalf("insert live session: %v", err)
 	}
 	if _, err := database.Exec(`
@@ -112,23 +188,29 @@ func TestResolveContinueLaunchContext_LiveCollisionDisablesTranscriptResume(t *t
 			claim_id, work_item_id, owner_session_id, owner_agent, status,
 			leased_at, lease_expires_at, last_heartbeat_at, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"claim-live-001", "feat-live", sessLiveOther, "claude-code", "claimed",
+		"claim-live-001", workItemID, otherSession, "claude-code", "claimed",
 		now, now, now, now, now,
 	); err != nil {
 		t.Fatalf("insert claim: %v", err)
 	}
 
-	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "claude", launcher.ContinueWorkIntent(
-		"feat-live", "claude", sessLiveBase, ".claude/worktrees/feat-live", true,
-	))
-	if err != nil {
-		t.Fatalf("resolveContinueLaunchContext: %v", err)
+	collision, msg := continueLiveCollision(database, projectRoot, workItemID)
+	if !collision {
+		t.Fatal("expected a live collision for a foreign claimant with a fresh heartbeat")
 	}
-	if got.TranscriptResumeID != "" {
-		t.Fatalf("TranscriptResumeID = %q, want empty on live collision", got.TranscriptResumeID)
+	if !strings.Contains(msg, "still live in session "+otherSession) {
+		t.Fatalf("collision message = %q, want it to name session %s", msg, otherSession)
 	}
-	if !containsWarning(got.Warnings, "still live in session "+sessLiveOther) {
-		t.Fatalf("warnings = %v, want live-collision warning", got.Warnings)
+
+	// A stale heartbeat is not a live collision: liveness is heartbeat recency,
+	// not the mere existence of a claim row.
+	stale := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
+	if _, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`, stale, "claim-live-001"); err != nil {
+		t.Fatalf("stale heartbeat: %v", err)
+	}
+	if collision, _ := continueLiveCollision(database, projectRoot, workItemID); collision {
+		t.Fatal("a stale heartbeat must not count as a live collision")
 	}
 }
 
@@ -137,13 +219,14 @@ func TestResolveContinueLaunchContext_HonorsSelectedResumeSessionID(t *testing.T
 		sessPicked     = "019ee378-abcd-7000-8000-000000000005"
 		sessNewerCross = "019ee378-abcd-7000-8000-000000000006"
 	)
-	projectRoot, database := openContinueTestProject(t)
-	seedContinueFixture(t, database, projectRoot, "codex", "feat-picked", sessPicked, ".claude/worktrees/feat-picked")
-	seedContinueFixture(t, database, projectRoot, "claude", "feat-picked", sessNewerCross, ".claude/worktrees/feat-cross")
-	if _, err := database.Exec(`UPDATE sessions SET created_at = ? WHERE session_id = ?`,
-		time.Now().UTC().Add(time.Minute).Format(time.RFC3339), sessNewerCross); err != nil {
-		t.Fatalf("update cross session created_at: %v", err)
-	}
+	projectRoot := openContinueTestProject(t)
+	base := time.Now().UTC().Add(-time.Hour)
+	seedContinueFixture(t, projectRoot, "codex", "feat-picked", sessPicked,
+		".claude/worktrees/feat-picked", base, dbpkg.AgentRootSentinel)
+	// Newer, cross-harness, same work item: it would win the ranking, so the
+	// explicit ResumeSessionID has to override it.
+	seedContinueFixture(t, projectRoot, "claude", "feat-picked", sessNewerCross,
+		".claude/worktrees/feat-cross", base.Add(30*time.Minute), dbpkg.AgentRootSentinel)
 
 	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "codex", launcher.ContinueWorkIntent(
 		"feat-picked", "codex", sessPicked, ".claude/worktrees/feat-picked", true,
@@ -167,19 +250,29 @@ func TestResolveContinueLaunchContext_HonorsSelectedResumeSessionIDFromActiveWor
 		sessPickedAWI     = "019ee378-abcd-7000-8000-000000000007"
 		sessNewerCrossAWI = "019ee378-abcd-7000-8000-000000000008"
 	)
-	projectRoot, database := openContinueTestProject(t)
-	seedContinueFixture(t, database, projectRoot, "codex", "feat-picked-awi", sessPickedAWI, ".claude/worktrees/feat-picked-awi")
-	if _, err := database.Exec(`UPDATE sessions SET active_feature_id = '' WHERE session_id = ?`, sessPickedAWI); err != nil {
-		t.Fatalf("clear active_feature_id: %v", err)
+	projectRoot := openContinueTestProject(t)
+	base := time.Now().UTC().Add(-time.Hour)
+	// A NON-root agent holds the claim, so applyActiveFeatureIDFromClaims leaves
+	// sessions.active_feature_id empty and only the active_work_items branch of
+	// the resumable query can resolve this session's work item.
+	seedContinueFixture(t, projectRoot, "codex", "feat-picked-awi", sessPickedAWI,
+		".claude/worktrees/feat-picked-awi", base, "agent-awi")
+	seedContinueFixture(t, projectRoot, "claude", "feat-picked-awi", sessNewerCrossAWI,
+		".claude/worktrees/feat-cross-awi", base.Add(30*time.Minute), dbpkg.AgentRootSentinel)
+
+	// Guard the premise: if active_feature_id were populated the test would pass
+	// through the legacy branch and prove nothing about active_work_items.
+	database, err := openDB(filepath.Join(projectRoot, ".wipnote"))
+	if err != nil {
+		t.Fatalf("openDB: %v", err)
 	}
-	if err := dbpkg.SetActiveWorkItem(database, sessPickedAWI, dbpkg.AgentRootSentinel, "feat-picked-awi"); err != nil {
-		t.Fatalf("SetActiveWorkItem: %v", err)
+	if got := dbpkg.GetActiveFeatureIDForSession(database, sessPickedAWI); got != "" {
+		t.Fatalf("premise broken: sessions.active_feature_id = %q, want empty", got)
 	}
-	seedContinueFixture(t, database, projectRoot, "claude", "feat-picked-awi", sessNewerCrossAWI, ".claude/worktrees/feat-cross-awi")
-	if _, err := database.Exec(`UPDATE sessions SET created_at = ? WHERE session_id = ?`,
-		time.Now().UTC().Add(time.Minute).Format(time.RFC3339), sessNewerCrossAWI); err != nil {
-		t.Fatalf("update cross session created_at: %v", err)
+	if got := dbpkg.GetActiveWorkItem(database, sessPickedAWI, "agent-awi"); got != "feat-picked-awi" {
+		t.Fatalf("active_work_items = %q, want feat-picked-awi", got)
 	}
+	_ = database.Close()
 
 	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "codex", launcher.ContinueWorkIntent(
 		"feat-picked-awi", "codex", sessPickedAWI, ".claude/worktrees/feat-picked-awi", true,
@@ -195,61 +288,6 @@ func TestResolveContinueLaunchContext_HonorsSelectedResumeSessionIDFromActiveWor
 	}
 	if strings.Contains(got.HandoffMarkdown, sessNewerCrossAWI) {
 		t.Fatalf("handoff markdown used newer cross-harness session:\n%s", got.HandoffMarkdown)
-	}
-}
-
-func openContinueTestProject(t *testing.T) (string, *sql.DB) {
-	t.Helper()
-	projectRoot := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote"), 0o755); err != nil {
-		t.Fatalf("mkdir .wipnote: %v", err)
-	}
-	t.Setenv("WIPNOTE_DB_PATH", filepath.Join(projectRoot, "cache", "wipnote.db"))
-	database, err := openDB(filepath.Join(projectRoot, ".wipnote"))
-	if err != nil {
-		t.Fatalf("openDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Close() })
-	return projectRoot, database
-}
-
-func seedContinueFixture(t *testing.T, database *sql.DB, projectRoot, harness, workItemID, sessionID, worktreeRel string) {
-	t.Helper()
-	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := database.Exec(`
-		INSERT INTO features (id, title, type, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO NOTHING`,
-		workItemID, "Continue Test", "feature", "in-progress", now, now,
-	); err != nil {
-		t.Fatalf("insert feature: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(projectRoot, filepath.FromSlash(worktreeRel)), 0o755); err != nil {
-		t.Fatalf("mkdir worktree: %v", err)
-	}
-	if err := dbpkg.InsertSession(database, &models.Session{
-		SessionID:        sessionID,
-		AgentAssigned:    harness + "-cli",
-		Status:           "completed",
-		CreatedAt:        time.Now().UTC(),
-		ActiveFeatureID:  workItemID,
-		ProjectDir:       ".",
-		ExecWorktreePath: worktreeRel,
-		Branch:           workItemID,
-		Harness:          harness,
-	}); err != nil {
-		t.Fatalf("InsertSession: %v", err)
-	}
-	if _, err := database.Exec(`
-		UPDATE sessions
-		SET handoff_notes = ?, recommended_next = ?, blockers = ?
-		WHERE session_id = ?`,
-		"Finish the continue path wiring.",
-		"Resume in the existing worktree.",
-		`["FAIL: stale worktree path"]`,
-		sessionID,
-	); err != nil {
-		t.Fatalf("update session handoff: %v", err)
 	}
 }
 
@@ -301,10 +339,13 @@ func TestIsClaudeCodeSessionID(t *testing.T) {
 func TestResolveContinueLaunchContext_OtelIDBlockedFromResume(t *testing.T) {
 	// 28-char hex OTel session ID — the kind the launcher used to stamp into
 	// WIPNOTE_SESSION_ID before Fix A, causing "No sessions match" in Claude Code.
+	// It is session-SHAPED (graph.IsSessionShapedID accepts 28-char hex), so it
+	// survives canonical seeding; it is just not a Claude Code UUID.
 	const otelSessionID = "019ee144e0d5f26e46d6cc07fed9"
 
-	projectRoot, database := openContinueTestProject(t)
-	seedContinueFixture(t, database, projectRoot, "claude", "feat-otel-guard", otelSessionID, ".claude/worktrees/feat-otel-guard")
+	projectRoot := openContinueTestProject(t)
+	seedContinueFixture(t, projectRoot, "claude", "feat-otel-guard", otelSessionID,
+		".claude/worktrees/feat-otel-guard", time.Now().UTC().Add(-time.Hour), dbpkg.AgentRootSentinel)
 
 	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "claude", launcher.ContinueWorkIntent(
 		"feat-otel-guard", "claude", otelSessionID, ".claude/worktrees/feat-otel-guard", true,

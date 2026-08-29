@@ -216,3 +216,4 @@ tmp/Test*/
 /wipnote
 # local drafts and notes — never publish
 /private/
+.wipnote/debug.log*

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/core/agent"
+	"github.com/shakestzd/wipnote/core/claimledger"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 	"time"
@@ -1640,5 +1641,97 @@ func TestCheckYoloWorktreeGuardWIPNOTEYOLO(t *testing.T) {
 	reason = checkYoloWorktreeGuard("Edit", "feat-abc", true)
 	if reason != "" {
 		t.Errorf("expected checkYoloWorktreeGuard to allow Edit on feature branch, got: %s", reason)
+	}
+}
+
+// TestCheckYoloWorkItemGuardReadsCanonicalClaimLedger pins the fix for
+// bug-369da005.
+//
+// It reproduces the exact post-cutover condition: the derived index handed to
+// the guard is an EMPTY projection (what OpenHookDBReadOnly returns now that
+// there is no per-project SQLite file), while the canonical claim ledger holds
+// a genuine open episode. Before the canonical check existed, checks 1-3 all
+// read that empty index, returned false, and the guard — which fails closed —
+// blocked every Write/Edit in every session on the machine.
+func TestCheckYoloWorkItemGuardReadsCanonicalClaimLedger(t *testing.T) {
+	const sessionID = "019ee378-abcd-7000-8000-0000000000aa"
+	projectRoot := t.TempDir()
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+
+	// An EMPTY tables-only projection is precisely what the hook read path
+	// supplies post-cutover. Using the real thing keeps this test honest: if
+	// the projection ever starts hydrating again, the test still passes for
+	// the right reason.
+	database, err := db.OpenEphemeralProjectionTablesOnly()
+	if err != nil {
+		t.Fatalf("open ephemeral projection: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+
+	target := filepath.Join(projectRoot, "main.go")
+
+	// With no canonical claim, the guard must still BLOCK — a missing shard is
+	// an authoritative "no claim", not an unverifiable one. Without this half,
+	// a fix that simply failed open would pass the other half.
+	if got := checkYoloWorkItemGuard("Write", "", false, sessionID, database, target, projectRoot); got == "" {
+		t.Fatal("expected a block when no canonical claim episode exists")
+	}
+
+	// Now open a real episode through the canonical writer.
+	store := claimledger.NewStore(wipnoteDir)
+	if _, _, err := store.Open(sessionID, claimledger.Episode{
+		WorkItemID:    "feat-canonical",
+		SessionID:     sessionID,
+		RootSessionID: sessionID,
+		AgentID:       db.AgentRootSentinel,
+		StartedAt:     time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("open claim episode: %v", err)
+	}
+
+	if got := checkYoloWorkItemGuard("Write", "", false, sessionID, database, target, projectRoot); got != "" {
+		t.Fatalf("guard blocked despite an open canonical claim episode: %s", got)
+	}
+
+	// Closing the episode must restore the block: the canonical read has to
+	// track claim lifecycle, not merely detect that a ledger file exists.
+	if _, err := store.Close(sessionID, sessionID, db.AgentRootSentinel, "feat-canonical",
+		claimledger.OutcomeCompleted, time.Now().UTC()); err != nil {
+		t.Fatalf("close claim episode: %v", err)
+	}
+	if got := checkYoloWorkItemGuard("Write", "", false, sessionID, database, target, projectRoot); got == "" {
+		t.Fatal("expected a block after the claim episode was closed")
+	}
+}
+
+// TestCanonicalOpenClaimFailsOpenOnUnreadableLedger verifies the "cannot
+// verify" branch. A corrupt or unreadable shard must NOT be reported as "no
+// claim" — that is the fail-closed mistake bug-369da005 was made of.
+func TestCanonicalOpenClaimFailsOpenOnUnreadableLedger(t *testing.T) {
+	const sessionID = "019ee378-abcd-7000-8000-0000000000bb"
+	projectRoot := t.TempDir()
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	store := claimledger.NewStore(wipnoteDir)
+
+	// A shard path that cannot be read as a file: make it a directory.
+	if err := os.MkdirAll(store.ShardPath(sessionID), 0o755); err != nil {
+		t.Fatalf("mkdir shard path: %v", err)
+	}
+
+	workItem, ok := canonicalOpenClaim(wipnoteDir, sessionID)
+	if workItem != "" {
+		t.Fatalf("workItem = %q, want empty", workItem)
+	}
+	if ok {
+		t.Fatal("ok = true for an unreadable ledger; must report cannot-verify so the caller fails open")
+	}
+
+	// And the guard must therefore allow rather than block.
+	if got := checkYoloWorkItemGuard("Write", "", false, sessionID, nil,
+		filepath.Join(projectRoot, "main.go"), projectRoot); got != "" {
+		t.Fatalf("guard blocked on an unverifiable ledger: %s", got)
 	}
 }

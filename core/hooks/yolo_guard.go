@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/agent"
+	"github.com/shakestzd/wipnote/core/claimledger"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
 )
@@ -234,6 +235,20 @@ func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string
 	if sessionID != "" && database != nil && ancestorHasActiveWorkItem(database, sessionID) {
 		return ""
 	}
+	// Check 4: the CANONICAL claim ledger. Checks 1-3 all read the derived
+	// SQLite index, which the hook read path no longer hydrates (bug-369da005) —
+	// without this they are structurally incapable of returning true and the
+	// guard degrades into a universal write block. See canonicalOpenClaim.
+	//
+	// ok=false means the ledger could not be consulted at all, which is
+	// "cannot verify", not "no claim" — fail OPEN there, matching the
+	// fail-open posture the sibling research guard already had.
+	if sessionID != "" && projectRoot != "" {
+		workItem, ok := canonicalOpenClaim(filepath.Join(projectRoot, ".wipnote"), sessionID)
+		if !ok || workItem != "" {
+			return ""
+		}
+	}
 	msg := "An active work item is required before writing code. " +
 		"Run: wipnote feature start <id>  or  wipnote feature create \"title\" --track <trk-id>"
 	if sessionID != "" {
@@ -245,6 +260,74 @@ func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string
 		}
 	}
 	return msg
+}
+
+// canonicalOpenClaim reports the work item held by an OPEN claim episode for
+// sessionID, read from the CANONICAL claim ledger (.wipnote/claims/) rather
+// than the derived SQLite index.
+//
+// WHY THIS EXISTS. Checks 1-3 of checkYoloWorkItemGuard all query the derived
+// index. Since the feat-fc3cc9e0 cutover the hook read path opens that index
+// via OpenHookDBReadOnly, which returns a per-process in-memory projection it
+// never hydrates: every table is empty, so those three checks can only ever
+// return false. Because the guard fails CLOSED, that turned it into a universal
+// Write/Edit block for every session on the machine the moment a post-cutover
+// binary shipped (bug-369da005). The sibling research guard survived the same
+// cutover only because it fails OPEN and so merely went inert.
+//
+// The claim ledger is the canonical record that `wipnote feature start` writes,
+// so consulting it restores what this guard was actually built to assert
+// instead of deleting the guard. This mirrors rootSessionForClaimLedger, which
+// replaced an equivalent dead agent_lineage_trace lookup for the same reason.
+//
+// COST. Two direct shard reads, never ReadAll: shards are keyed by ROOT
+// session, so a Claude Code session (whose subagents share the root's session
+// ID) resolves on the first read, and a Codex subagent — which owns a distinct
+// session ID but is recorded inside the root's shard — resolves on the
+// family-root read. That keeps the work bounded per tool call, which matters
+// because this runs on every Write/Edit.
+//
+// RETURN CONTRACT. ok reports whether the ledger was successfully consulted.
+// A MISSING shard is a successful read of zero episodes (readShard maps
+// os.IsNotExist to nil, nil) and therefore authoritative "no claim" — the guard
+// must still block there, which is the case it exists to catch. Only a genuine
+// read error yields ok=false, which callers must treat as "cannot verify" and
+// fail open.
+func canonicalOpenClaim(wipnoteDir, sessionID string) (workItem string, ok bool) {
+	if wipnoteDir == "" || sessionID == "" {
+		return "", false
+	}
+	roots := []string{sessionID}
+	// Only distinct when sessionID is a descendant; yoloFamilyRoot returns ""
+	// for a session that is its own family root.
+	if root := yoloFamilyRoot(wipnoteDir, sessionID); root != "" {
+		roots = append(roots, root)
+	}
+
+	store := claimledger.NewStore(wipnoteDir)
+	consulted := false
+	for _, root := range roots {
+		episodes, err := store.ReadShard(root)
+		if err != nil {
+			continue // unreadable shard: cannot verify via this one
+		}
+		consulted = true
+		// Newest-first: a session that re-claimed should resolve to its most
+		// recent open episode.
+		for i := len(episodes) - 1; i >= 0; i-- {
+			e := episodes[i]
+			if !e.IsOpen() || e.WorkItemID == "" {
+				continue
+			}
+			// Either this session holds the claim itself, or the family root
+			// does and this session is a descendant inheriting it — the
+			// canonical mirror of check 3's parent-chain fallback.
+			if e.SessionID == sessionID || e.SessionID == root {
+				return e.WorkItemID, true
+			}
+		}
+	}
+	return "", consulted
 }
 
 func latestProjectClaim(database *sql.DB, projectRoot string) (string, string) {

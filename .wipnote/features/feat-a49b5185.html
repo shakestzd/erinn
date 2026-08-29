@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Auto-inject `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` with opt-out via config</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-04T23:28:34.626816"
-             data-updated="2026-05-04T23:28:34.661673" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
+             data-updated="2026-08-09T20:43:28.141851" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
 
         <header>
             <h1>Auto-inject `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` with opt-out via config</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.638103">trk-8f9bc323</a></li>
+                    <li><a href="../tracks/trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.638103">trk-8f9bc323</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.661355">plan-2c7f1b7d</a></li>
+                    <li><a href="../plans/plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.661355">plan-2c7f1b7d</a></li>
                 </ul>
             </section>
         </nav>
@@ -43,28 +43,28 @@
             <p>Auto-inject `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` into the env of the spawned `claude` subprocess in `htmlgraph claude`, `htmlgraph yolo`, `htmlgraph dev`. Honor user-set env var (any value, including `0`) as override. Add `.htmlgraph/config.json` opt-out toggle.
 
 **Implementation:**
-1. In `cmd/htmlgraph/claude_env.go` `buildClaudeLaunchEnv`, after the existing `HTMLGRAPH_PROJECT_DIR` block (~line 53), call: `env = addIfUnset(env, "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "1")`. The `addIfUnset` helper already exists and only sets the var if absent or empty in the parent env.
+1. In `cmd/htmlgraph/claude_env.go` `buildClaudeLaunchEnv`, after the existing `HTMLGRAPH_PROJECT_DIR` block (~line 53), call: `env = addIfUnset(env, &#34;CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS&#34;, &#34;1&#34;)`. The `addIfUnset` helper already exists and only sets the var if absent or empty in the parent env.
 2. Gate the injection on the new opt-out config: read `.htmlgraph/config.json` `agent_teams.enabled` field. If explicitly `false`, skip injection. If absent or `true` (or `null`), inject (default-on).
 3. Extend the existing `taskCompletionConfig` struct in `internal/hooks/task_completion_gate.go` (or add a sibling struct in the same file) with:
    ```go
    type htmlgraphConfig struct {
-       BlockOnQualityFailure bool `json:"block_task_completion_on_quality_failure"`
-       AgentTeams agentTeamsConfig `json:"agent_teams"`
+       BlockOnQualityFailure bool `json:&#34;block_task_completion_on_quality_failure&#34;`
+       AgentTeams agentTeamsConfig `json:&#34;agent_teams&#34;`
    }
    type agentTeamsConfig struct {
-       Enabled *bool `json:"enabled"` // nil = default true; explicit false = opt out
+       Enabled *bool `json:&#34;enabled&#34;` // nil = default true; explicit false = opt out
    }
    ```
-   The `*bool` pointer is the established Go idiom for "absent means default". Add a helper `isAgentTeamsEnabled(projectDir string) bool` that returns true unless explicit false.
+   The `*bool` pointer is the established Go idiom for &#34;absent means default&#34;. Add a helper `isAgentTeamsEnabled(projectDir string) bool` that returns true unless explicit false.
 4. In `buildClaudeLaunchEnv`, call `isAgentTeamsEnabled(projectDir)` before the `addIfUnset` call. Branch accordingly.
-5. **Version-stamp first-run notice** (per opus HIGH-4 cost-transparency finding): on the first launch where `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` would be auto-injected AND the stamp file `.htmlgraph/AGENT_TEAMS_DEFAULT_v1` does not exist, emit a one-line stderr notice: `"[htmlgraph] auto-enabling Claude Code agent teams (~7x token cost vs single agent). Opt out: agent_teams.enabled=false in .htmlgraph/config.json or CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 in env."` then create the stamp file. Subsequent launches stay quiet. The stamp is per-project (lives in `.htmlgraph/`).
-6. **Config struct location: launcher-local** (per opus + sonnet medium critic findings). Define the new `agentTeamsConfig` struct in `cmd/htmlgraph/claude_env.go` itself (not in `internal/hooks/task_completion_gate.go`). Naming a generic `htmlgraphConfig` inside the hooks package couples unrelated concerns and a future reader looking for "the htmlgraph config" won't find it via package search. Launcher-local is correct for the current single consumer; promote to `internal/config/` if a second consumer emerges.
-7. **Empty-string env value precedence** (per opus HIGH-1 finding): the existing `addIfUnset` helper treats empty-string user values as unset and overwrites them — its design is to rescue OTEL_* vars Claude Code zeroes out. The slice's done_when claim "any value takes precedence" must be tightened to "non-empty user-set value takes precedence; empty is treated as unset." If empty-string semantics matter to a user, document the workaround: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0` (explicit zero, non-empty).
-8. **Config-vs-env precedence semantics** (per opus medium): when `agent_teams.enabled: false` in config AND a non-empty `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set in the parent env, the planned implementation skips the auto-injection block entirely — meaning the env value passes through to claude unchanged. Document this in the slice's done_when AND in the stderr notice and CLAUDE.md: "agent_teams.enabled=false disables auto-injection only; an explicitly-set parent env var still passes through. To fully disable, both unset the env var AND set the config flag."
+5. **Version-stamp first-run notice** (per opus HIGH-4 cost-transparency finding): on the first launch where `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` would be auto-injected AND the stamp file `.htmlgraph/AGENT_TEAMS_DEFAULT_v1` does not exist, emit a one-line stderr notice: `&#34;[htmlgraph] auto-enabling Claude Code agent teams (~7x token cost vs single agent). Opt out: agent_teams.enabled=false in .htmlgraph/config.json or CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 in env.&#34;` then create the stamp file. Subsequent launches stay quiet. The stamp is per-project (lives in `.htmlgraph/`).
+6. **Config struct location: launcher-local** (per opus + sonnet medium critic findings). Define the new `agentTeamsConfig` struct in `cmd/htmlgraph/claude_env.go` itself (not in `internal/hooks/task_completion_gate.go`). Naming a generic `htmlgraphConfig` inside the hooks package couples unrelated concerns and a future reader looking for &#34;the htmlgraph config&#34; won&#39;t find it via package search. Launcher-local is correct for the current single consumer; promote to `internal/config/` if a second consumer emerges.
+7. **Empty-string env value precedence** (per opus HIGH-1 finding): the existing `addIfUnset` helper treats empty-string user values as unset and overwrites them — its design is to rescue OTEL_* vars Claude Code zeroes out. The slice&#39;s done_when claim &#34;any value takes precedence&#34; must be tightened to &#34;non-empty user-set value takes precedence; empty is treated as unset.&#34; If empty-string semantics matter to a user, document the workaround: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0` (explicit zero, non-empty).
+8. **Config-vs-env precedence semantics** (per opus medium): when `agent_teams.enabled: false` in config AND a non-empty `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set in the parent env, the planned implementation skips the auto-injection block entirely — meaning the env value passes through to claude unchanged. Document this in the slice&#39;s done_when AND in the stderr notice and CLAUDE.md: &#34;agent_teams.enabled=false disables auto-injection only; an explicitly-set parent env var still passes through. To fully disable, both unset the env var AND set the config flag.&#34;
 
 
 ## Why
-The user's proposal: "we should natively set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 because that improves the way htmlgraph orchestrates and manages the agents." Auto-injection eliminates the manual env-var setup step that today users have to remember per-shell or add to `.claude/settings.json`. The opt-out toggle provides a clean disable path for users who want hermetic isolation or are debugging team behavior. User-set env var precedence (already handled by `addIfUnset`) honors explicit user choice — including the value `0` to disable teams without touching config.
+The user&#39;s proposal: &#34;we should natively set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 because that improves the way htmlgraph orchestrates and manages the agents.&#34; Auto-injection eliminates the manual env-var setup step that today users have to remember per-shell or add to `.claude/settings.json`. The opt-out toggle provides a clean disable path for users who want hermetic isolation or are debugging team behavior. User-set env var precedence (already handled by `addIfUnset`) honors explicit user choice — including the value `0` to disable teams without touching config.
 
 
 ## Done When
@@ -76,7 +76,7 @@ The user's proposal: "we should natively set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAM
 - Running with `agent_teams: {}` (object present but enabled key absent) in config — same as default — env var injected (`*bool` nil pointer treated as default-true)
 - `buildCodexLaunchEnv` and Gemini equivalents are NOT modified (cross-harness scope per design.constraints)
 - Existing `claude_env_test.go` tests continue to pass
-- On first launch where auto-injection fires AND `.htmlgraph/AGENT_TEAMS_DEFAULT_v1` doesn't exist: stderr notice prints once and the stamp file is created; subsequent launches stay quiet
+- On first launch where auto-injection fires AND `.htmlgraph/AGENT_TEAMS_DEFAULT_v1` doesn&#39;t exist: stderr notice prints once and the stamp file is created; subsequent launches stay quiet
 - When `agent_teams.enabled: false` AND parent env has `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: env value passes through to claude (config does not actively unset env). Documented in CLAUDE.md.
 - `agentTeamsConfig` struct lives in `cmd/htmlgraph/claude_env.go` (launcher-local), not in `internal/hooks/`</p>
         </section>

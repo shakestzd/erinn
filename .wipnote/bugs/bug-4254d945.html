@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-08T21:44:00.939258"
-             data-updated="2026-06-08T21:44:00.955137" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-58-gd50ff3bcd">
+             data-updated="2026-08-09T20:41:51.504415" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-58-gd50ff3bcd">
 
         <header>
             <h1>AMEND directives for the same slice overwrite (shared with dashboard chat handler)</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-08T21:44:00.954811">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-08T21:44:00.954811">trk-13e39042</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>planChatHandler (api_plans.go) and interviewChatHandler store amendments under section=slice-N, action=amendment, question_id='' — UNIQUE constraint makes a second amendment for the same slice replace the first. Per-amendment status (amendment_status keyed by question_id) is also limited to one. Fix needs a unique amendment key across storage + amendments reader + the dashboard accept/reject UI that writes amendment_status. Pre-existing; surfaced by roborev job 3926.</p>
+            <p>planChatHandler (api_plans.go) and interviewChatHandler store amendments under section=slice-N, action=amendment, question_id=&#39;&#39; — UNIQUE constraint makes a second amendment for the same slice replace the first. Per-amendment status (amendment_status keyed by question_id) is also limited to one. Fix needs a unique amendment key across storage + amendments reader + the dashboard accept/reject UI that writes amendment_status. Pre-existing; surfaced by roborev job 3926.</p>
         </section>
     </article>
 </body>

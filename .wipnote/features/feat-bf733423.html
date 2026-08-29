@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-13T09:25:55.235617"
-             data-updated="2026-05-18T21:03:44.074224" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1852-g66f4be9e7">
+             data-updated="2026-08-09T20:43:36.613145" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.58.0-1852-g66f4be9e7">
 
         <header>
             <h1>Planning workflow redesign: triage-gated interview</h1>
@@ -27,7 +27,7 @@
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="8cfa052d-47c8-46d3-91ef-14ea129428fb.html" data-relationship="implemented_in" data-since="2026-05-13T09:26:01.056713">session 8cfa052d-47c8-46d3-91ef-14ea129428fb</a></li>
+                    <li><a href="../sessions/8cfa052d-47c8-46d3-91ef-14ea129428fb.html" data-relationship="implemented_in" data-since="2026-05-13T09:26:01.056713">session 8cfa052d-47c8-46d3-91ef-14ea129428fb</a></li>
                 </ul>
             </section>
         </nav>
@@ -44,7 +44,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Redesigns the wipnote:plan skill, schema, and validator so plan creation feels like a system-design interview rather than a 9-field worksheet. Triage classifies work as trivial/standard/complex; that choice determines interview depth and which slice fields are mandatory. decisions_notes becomes mandatory (>=50 chars) for standard/complex slices, capturing the why-trail from staged AskUserQuestion calls. Additive-only schema change adds a Complexity field defaulting to standard. Critique workflow extracted to sibling skill wipnote:plan-critique. Single atomic PR per user direction.</p>
+            <p>Redesigns the wipnote:plan skill, schema, and validator so plan creation feels like a system-design interview rather than a 9-field worksheet. Triage classifies work as trivial/standard/complex; that choice determines interview depth and which slice fields are mandatory. decisions_notes becomes mandatory (&gt;=50 chars) for standard/complex slices, capturing the why-trail from staged AskUserQuestion calls. Additive-only schema change adds a Complexity field defaulting to standard. Critique workflow extracted to sibling skill wipnote:plan-critique. Single atomic PR per user direction.</p>
         </section>
     </article>
 </body>

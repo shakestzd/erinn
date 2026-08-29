@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Post-cutover paths lack parameterized scale benchmarks</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-65265018"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-10T10:26:42.931714"
+             data-updated="2026-08-10T10:26:46.875488" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>Post-cutover paths lack parameterized scale benchmarks</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:26:42.94454">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-ba544d57.html" data-relationship="relates_to" data-since="2026-08-10T10:26:46.779965">Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</a></li>
+                    <li><a href="../bugs/bug-edc78f2c.html" data-relationship="relates_to" data-since="2026-08-10T10:26:46.875365">Canonical snapshot edge derivation is quadratic under concentrated fanout</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="spawned_from" data-since="2026-08-10T10:26:46.686694">Benchmark post-cutover performance cliffs at scale</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The performance-sensitive post-cutover paths have only fixed-endpoint or live-corpus benchmarks. Add a reproducible suite covering hook ephemeral opens versus canonical reads; projection hydration at 1k, 2k, 3k, and 5k items; uniform versus concentrated track/session fanout; fixed-depth lineage; dashboard replay versus signalvtab/hybrid workloads; and retention coverage. Record wall time, allocations, peak RSS, disk artifacts, and back-to-back overlay reversibility.</p>
+        </section>
+    </article>
+</body>
+</html>

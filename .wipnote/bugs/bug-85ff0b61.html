@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-15T22:39:03.011823"
-             data-updated="2026-05-15T22:39:03.018285" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-97-gd241ca098">
+             data-updated="2026-08-09T20:42:14.406457" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="human" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.59.1-97-gd241ca098">
 
         <header>
             <h1>Indexer logs every orphan-session skip on every scan pass (log spam)</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T22:39:03.01775">trk-0677c709</a></li>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-05-15T22:39:03.01775">trk-0677c709</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>The indexer logs one 'skipping orphan session dir  (age=Xd, last-write=...) — no DB row, stale and quiescent' line per orphan on EVERY scan pass. With a volatile tmpfs read-index DB (wiped on restart) and durable session transcript dirs, dozens of 3-4d-old orphans get re-logged each indexer cycle, flooding serve output. Skip decision itself is correct (do not re-ingest stale quiescent orphans); the defect is log hygiene: should log-once, aggregate a count, or drop to debug level rather than per-orphan per-pass at info. Repro: tmpfs DB reset + many old session dirs + running wipnote serve indexer loop, observed 2026-05-15 18:35.</p>
+            <p>The indexer logs one &#39;skipping orphan session dir  (age=Xd, last-write=...) — no DB row, stale and quiescent&#39; line per orphan on EVERY scan pass. With a volatile tmpfs read-index DB (wiped on restart) and durable session transcript dirs, dozens of 3-4d-old orphans get re-logged each indexer cycle, flooding serve output. Skip decision itself is correct (do not re-ingest stale quiescent orphans); the defect is log hygiene: should log-once, aggregate a count, or drop to debug level rather than per-orphan per-pass at info. Repro: tmpfs DB reset + many old session dirs + running wipnote serve indexer loop, observed 2026-05-15 18:35.</p>
         </section>
     </article>
 </body>

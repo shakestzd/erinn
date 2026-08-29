@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote track show hangs indefinitely at 1060-work-item scale</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-bdf378fd"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-08-10T10:20:20.978556"
+             data-updated="2026-08-12T02:26:22.899296" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="5740200b-6b40-41e9-8bde-b4adeb1d0ff4" data-rollup-unavailable="no_read_index">
+
+        <header>
+            <h1>wipnote track show hangs indefinitely at 1060-work-item scale</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-085e3337.html" data-relationship="caused_by" data-since="2026-08-10T10:45:11.022422">batchGitFileTimestamps is only half-batched: gitFirstAdded still spawns one git log per file, costing 205s per openDB command</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="committed_in">
+                <h3>Committed In:</h3>
+                <ul>
+                    <li><a href="568b86c8b4e976395eefa0fef90b9591bfbb260b.html" data-relationship="committed_in" data-since="2026-08-11T20:25:31">perf(feat-2bd74c58): fix the measured scale cliffs in hydration and hook DB open</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:20:20.987668">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>ROOT CAUSED, and it is not a hang. wipnote track show trk-2c55adea completes in 204647ms with exit code 0 and correct output. The stall after the header block is hydrateCompatibilityDB, reached via track.go:178 openDB. Its reindexFeatureDir pass calls batchGitFileTimestamps per work-item directory, which resolves the created timestamp with one git log --diff-filter=A --follow subprocess per file: 1025 files at about 195ms each. Measured: features 86.0s, bugs 104.6s, spikes 7.1s, total 197.7s. Same root cause as bug-085e3337; fixing that fixes this. Commands that read canonical files directly, such as status and feature show, are unaffected at about 550ms.</p>
+        </section>
+    </article>
+</body>
+</html>

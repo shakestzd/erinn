@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote continue cannot resolve which worktree to resume into</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-8f54bb77"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T22:07:56.248954"
+             data-updated="2026-08-09T22:07:56.267329" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>wipnote continue cannot resolve which worktree to resume into</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T22:07:56.267234">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>ListHarnessGroupedResumableSessions selects six columns per resumable session that now have no canonical source at all: exec_worktree_path, branch, handoff_notes, recommended_next, blockers, and last_activity. All were written by the SessionEnd hook into the persistent sessions table and exist nowhere else. Verified against both candidate sources: sessionledger.Record carries only SessionID, Harness, ProjectDir, StartedAt, EndedAt, EndSource, ArchivePath and Events; session HTML carries data-active-feature-id but no worktree, branch or handoff attributes, confirmed by grepping the real corpus. Consequence: wipnote continue resolves WorktreePath empty and cannot reconstruct which worktree to resume into. Ten tests report this, four of them asserting WorktreePath directly. No fixture work can fix it because the data does not exist anywhere. Related to bug-d76f588a, where SessionEnd was found to discard five of its six writes including the handoff fields. Requires a decision: extend the session ledger record with resume fields, add the attributes to session HTML plus a hydration pass for them, or accept that continue degrades to fresh-start and change the tests to assert that.</p>
+        </section>
+    </article>
+</body>
+</html>

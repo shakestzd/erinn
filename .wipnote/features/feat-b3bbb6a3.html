@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Close the teammate-identity persistence gap in `agent_events`</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-04T23:28:34.665313"
-             data-updated="2026-05-04T23:28:34.685684" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
+             data-updated="2026-08-09T20:43:33.011505" data-agent-assigned="claude-code" data-track-id="trk-8f9bc323">
 
         <header>
             <h1>Close the teammate-identity persistence gap in `agent_events`</h1>
@@ -27,13 +27,13 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.670905">trk-8f9bc323</a></li>
+                    <li><a href="../tracks/trk-8f9bc323.html" data-relationship="part_of" data-since="2026-05-04T23:28:34.670905">trk-8f9bc323</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.684998">plan-2c7f1b7d</a></li>
+                    <li><a href="../plans/plan-2c7f1b7d.html" data-relationship="planned_in" data-since="2026-05-04T23:28:34.684998">plan-2c7f1b7d</a></li>
                 </ul>
             </section>
         </nav>
@@ -45,29 +45,29 @@
 **Implementation:**
 1. Add fields to `AgentEvent` struct in `internal/models/event.go`:
    ```go
-   TeammateName string `json:"teammate_name,omitempty"`
-   TeamName     string `json:"team_name,omitempty"`
-   IdleReason   string `json:"idle_reason,omitempty"`
+   TeammateName string `json:&#34;teammate_name,omitempty&#34;`
+   TeamName     string `json:&#34;team_name,omitempty&#34;`
+   IdleReason   string `json:&#34;idle_reason,omitempty&#34;`
    ```
-2. **Add a new ALTER TABLE migration in `internal/db/schema.go`** mirroring the existing teammate_name/team_name pattern at lines 123-132: `ALTER TABLE agent_events ADD COLUMN idle_reason TEXT` (idempotent, ignore "duplicate column name" error). Without this migration, slice 2's INSERT statement references a column that doesn't exist on un-migrated DBs and crashes at runtime. (Per opus HIGH-2 + sonnet HIGH-4 — same finding from both critics.)
-3. Extend `InsertEvent` in `internal/db/event_repo.go`: add the three columns to the column list and parameter list. **Use `nullStr()`** (already imported in event_repo.go:52-59) to match the existing convention for the 9 other nullable text columns. Empty strings → SQL NULL on write; `sql.NullString.String` returns `""` for NULL on read; round-trip stays empty-string-clean for Go callers. (Per opus medium + q-empty-vs-null recommendation switch.)
-4. **Update three specific SELECT read sites** (per opus HIGH-3 — explicit enumeration replaces vague "all consumers"):
+2. **Add a new ALTER TABLE migration in `internal/db/schema.go`** mirroring the existing teammate_name/team_name pattern at lines 123-132: `ALTER TABLE agent_events ADD COLUMN idle_reason TEXT` (idempotent, ignore &#34;duplicate column name&#34; error). Without this migration, slice 2&#39;s INSERT statement references a column that doesn&#39;t exist on un-migrated DBs and crashes at runtime. (Per opus HIGH-2 + sonnet HIGH-4 — same finding from both critics.)
+3. Extend `InsertEvent` in `internal/db/event_repo.go`: add the three columns to the column list and parameter list. **Use `nullStr()`** (already imported in event_repo.go:52-59) to match the existing convention for the 9 other nullable text columns. Empty strings → SQL NULL on write; `sql.NullString.String` returns `&#34;&#34;` for NULL on read; round-trip stays empty-string-clean for Go callers. (Per opus medium + q-empty-vs-null recommendation switch.)
+4. **Update three specific SELECT read sites** (per opus HIGH-3 — explicit enumeration replaces vague &#34;all consumers&#34;):
    a. `GetEvent` in `internal/db/event_repo.go:81-124` — hand-rolled column-by-column SELECT; add the three columns to both the SELECT list and the Scan target list.
    b. `ListEventsBySession` in `internal/db/event_repo.go:132+` — narrow column subset; add the three columns.
    c. `ListEventsBySessionAsc` in `internal/db/event_repo.go:171+` — same as above.
    Plus: grep `cmd/htmlgraph/`, `internal/dashboard/`, `internal/sessionhtml/` for additional `SELECT … FROM agent_events` consumers; update each. Add a per-function round-trip test for the three columns in each.
 5. **`TeammateIdle` handler refactor** (per sonnet HIGH-5 — the `recordSimpleEvent` shared helper trap): the current `TeammateIdle` handler at `internal/hooks/missing_events.go:113` delegates to `recordSimpleEvent`, which constructs a generic `AgentEvent` with no teammate fields. Adding fields to `AgentEvent` does NOT auto-propagate them through `recordSimpleEvent`. Two implementation options:
-   a. **Inline the event construction** in `TeammateIdle` like `TaskCreated`/`TaskCompleted` do (preferred — clear, explicit, matches sibling handlers' patterns).
-   b. Extend `recordSimpleEvent`'s signature to accept `teammateName`, `teamName`, `idleReason` strings. May cascade into other callers of `recordSimpleEvent` — verify call sites first.
-   Pick (a) unless cascade risk in (b) is non-trivial. Document the choice in the implementer's PR.
+   a. **Inline the event construction** in `TeammateIdle` like `TaskCreated`/`TaskCompleted` do (preferred — clear, explicit, matches sibling handlers&#39; patterns).
+   b. Extend `recordSimpleEvent`&#39;s signature to accept `teammateName`, `teamName`, `idleReason` strings. May cascade into other callers of `recordSimpleEvent` — verify call sites first.
+   Pick (a) unless cascade risk in (b) is non-trivial. Document the choice in the implementer&#39;s PR.
 
 
 ## Why
-CLAUDE.md claims teammate identity is captured automatically. The research confirmed that step-prefix attribution in HTML works (via `addTaskStep`), but the DB-side claim is partially false — `agent_events.teammate_name` and `team_name` are NULL on every row because `InsertEvent` doesn't include them. Closing this gap turns the dashboard's per-teammate views (and any future analytics-by-teammate queries) from impossible-by-design to working. Without this fix, slice 1's auto-enablement would expand the surface of broken-by-omission behavior. Bundling the bug fix with the enablement plan ensures a coherent shipped behavior: when teams are auto-enabled, identity is also auto-persisted.
+CLAUDE.md claims teammate identity is captured automatically. The research confirmed that step-prefix attribution in HTML works (via `addTaskStep`), but the DB-side claim is partially false — `agent_events.teammate_name` and `team_name` are NULL on every row because `InsertEvent` doesn&#39;t include them. Closing this gap turns the dashboard&#39;s per-teammate views (and any future analytics-by-teammate queries) from impossible-by-design to working. Without this fix, slice 1&#39;s auto-enablement would expand the surface of broken-by-omission behavior. Bundling the bug fix with the enablement plan ensures a coherent shipped behavior: when teams are auto-enabled, identity is also auto-persisted.
 
 
 ## Done When
-- `AgentEvent` struct has `TeammateName`, `TeamName`, `IdleReason` fields with `json:"...,omitempty"` tags
+- `AgentEvent` struct has `TeammateName`, `TeamName`, `IdleReason` fields with `json:&#34;...,omitempty&#34;` tags
 - **New schema migration**: idempotent ALTER TABLE adds `idle_reason TEXT` to `agent_events` (mirroring teammate_name/team_name migrations at schema.go:123-132)
 - `InsertEvent` writes all three columns via `nullStr()` (NULL for empty strings, matching the existing convention for nullable text columns)
 - **Three SELECT read sites updated**: `GetEvent`, `ListEventsBySession`, `ListEventsBySessionAsc` all include and scan the three new columns; per-function round-trip tests pass

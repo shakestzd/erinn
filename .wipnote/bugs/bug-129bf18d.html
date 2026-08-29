@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>OTel ingest is quadratic in session size: per-span reattribution scan</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-129bf18d"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-09T18:19:32.5643"
+             data-updated="2026-08-09T20:41:39.591634" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>OTel ingest is quadratic in session size: per-span reattribution scan</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T18:23:46.844036">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T18:19:32.579576">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-0fc17d53.html" data-relationship="relates_to" data-since="2026-08-09T18:19:41.413756">Derived otel_signals holds 61,611 rows against 154,614 canonical NDJSON lines</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>MEASURED, not suspected, and the cost is hours rather than minutes. Per-signal ingest cost grows linearly with the rows already stored for that session, so total ingest is quadratic in session size.
+
+ROOT CAUSE CONFIRMED BY QUERY PLAN. tryReattributeParent Strategy B runs, for every span whose parent is an interaction span: SELECT span_id, ts_micros, duration_ms FROM otel_signals WHERE session_id = ? AND canonical = ? AND duration_ms IS NOT NULL AND duration_ms &gt; 0. EXPLAIN QUERY PLAN on a real 107,022-row, 14-session table returns: SEARCH otel_signals USING INDEX idx_otel_tool (session_id=?). It picks the (session_id, tool_name, ts_micros) index and can only use the session_id prefix, so it walks EVERY row belonging to that session and filters canonical and duration_ms row by row. Measured 392 ms per execution, returning 93 rows, at a point where the session held about 54,000 rows. That query runs once per span. The synthetic that first exposed the degradation had no subagent_invocation rows at all, so the result set was always empty and the cost was pure scan. That is what makes it quadratic rather than merely slow.
+
+CURVE (real 162MB shard, 4,000-line increments, one session, post-fix code). Accumulated rows 4,000 / 8,000 / 12,000 / 16,000 / 24,000 / 32,000 / 40,000 / 52,000 gave 428 / 1,174 / 1,784 / 2,898 / 3,192 / 4,836 / 5,709 / 11,667 microseconds per signal.
+
+DISCRIMINATING RUNS, 40,000 synthetic signals each, isolating one shape at a time. Logs sharing one span: FLAT at ~110 microsec/signal from 4k to 28k rows, no degradation - the bug-0fc17d53 shape itself costs nothing. Spans with a parent: 586 to 6,821 microsec/signal over the same range, degrades linearly. Metrics only: ~14,300 microsec/signal, flat but enormous, pinned once the session hits the 5,000 metric cap.
+
+Two separate costs, only one of which scales. Strategy B is the scaling one. pruneMetricSignals is flat but heavy at about 14 ms per metric signal, roughly 3 minutes for the 12,504 metrics in the dominant session.
+
+EXTRAPOLATION for the dominant session (419cfccb: 129,426 signals, 38,465 spans with a parent). Per-execution cost is about 7.3 microsec per session row; averaged over a session growing to ~122,000 rows that is about 443 ms per span, so 38,465 spans is roughly 17,000 seconds, about 4.7 hours. Consistent with the observed full-corpus run, which reached only about 19 percent of its first pass in 2.5 hours. An earlier 13-minute estimate was wrong because it was measured with a single session in the table, where the per-session walk is far shorter.
+
+Because the cost is quadratic it falls off sharply for ordinary corpora: a 10,000-signal session is roughly 1/170th of the work, on the order of a minute or two. The pathological case is a very large single session, which is exactly what wipnote dogfooding produces on a long multi-agent night.
+
+WHY IT MATTERS NOW: the bug-0fc17d53 migration triggers a full replay of the canonical NDJSON on first launch after upgrade. The release note quotes 377 seconds, taken from a tuned reindex measurement that predates the 162MB shard. On a corpus like this one the real figure is hours. The replay is non-blocking (background goroutine, dashboard stays up), so the impact is a long window of wrong-then-correcting numbers plus degraded hook latency rather than an outage, but the quoted figure is materially false for large corpora.
+
+CANDIDATE FIXES, none verified. Add an index on (session_id, canonical) so the scan is selective instead of a session walk - cheapest and most direct given the query plan above. Or hoist the subagent-span set into a per-batch cache, as agentIDByOwnSpan already does for the in-batch case, since it is re-derived per span today. Or skip reattribution during a full replay, where parents are being reinserted anyway. Verify any of these with EXPLAIN QUERY PLAN and a repeat of the curve rather than by inspection.</p>
+        </section>
+    </article>
+</body>
+</html>

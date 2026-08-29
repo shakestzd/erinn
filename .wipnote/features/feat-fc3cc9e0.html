@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Eliminate project-level SQLite storage and cache</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-fc3cc9e0"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-08-09T18:04:52.204736"
+             data-updated="2026-08-09T20:43:49.960022" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>Eliminate project-level SQLite storage and cache</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/019fe7af-9ba5-7e60-b288-656d6fe72e6f.html" data-relationship="implemented_in" data-since="2026-08-09T18:05:00.280531">session 019fe7af-9ba5-7e60-b288-656d6fe72e6f</a></li>
+                    <li><a href="../sessions/019fe7b7-5f80-7a12-b297-dac1c2cf7ba2.html" data-relationship="implemented_in" data-since="2026-08-09T18:10:03.482913">session 019fe7b7-5f80-7a12-b297-dac1c2cf7ba2</a></li>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-09T20:19:20.364165">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T18:04:52.215624">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Remove all per-project persistent SQLite files and cache lifecycle while retaining SQLite solely for process-local in-memory query acceleration where benchmarks justify it. Canonical HTML, ledgers, NDJSON, and Git-derived state must be sufficient for correctness and rebuilds.
+Acceptance Criteria
+No project open, hook, CLI, daemon, dashboard, or telemetry path creates or requires a project SQLite file, WAL, or SHM; persisted SQLite migrations/reindex/checkpoint/cache eviction are gone; deleting runtime caches cannot lose canonical state; in-memory SQLite use is explicitly isolated and process-ephemeral.
+Test Strategy
+Characterization parity for CLI/API/gates/lineage/telemetry; project tree and cache-root assertions prove no DB/WAL/SHM creation; rebuild tests start from canonical artifacts only; benchmarks compare retained in-memory SQLite paths with native Go alternatives.</p>
+        </section>
+    </article>
+</body>
+</html>

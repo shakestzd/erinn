@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard plan approve and finalize return 200 and persist nothing</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-ad4c392f"
+             data-type="bug"
+             data-status="todo"
+             data-priority="critical"
+             data-created="2026-08-09T21:18:53.345822"
+             data-updated="2026-08-09T21:29:15.631403" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Dashboard plan approve and finalize return 200 and persist nothing</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-critical">Critical Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T21:18:53.360544">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>DOES NOT REPRODUCE as of 2026-08-09 17:27 EDT. Verified empirically rather than by inference: the current uncommitted tree was built in an isolated scratch copy and the dashboard handlers driven with httptest. POST feedback with action=approve returns 200 and the reloaded plan YAML shows ApprovalStatus approved plus a Feedback.Entries row. POST finalize returns 200 and the reloaded YAML shows Meta.Status finalized, the slice FeatureID written back, and a real feature created. Cause of the original report: the escalation inferred the defect from serve_child passing one ephemeral projection as both read and write handle, without checking the write path. The uncommitted diff had already rewritten planFeedbackSubmitHandler, planFinalizeHandler, the annotation branch and planChatHandler to ignore their sql.DB parameters entirely and write through canonical YAML. A dedicated regression suite already exists in serve_child_plan_write_test.go, including a test asserting 200 when BOTH handles are read-only, which is the literal inverse of this report. Residual gap accepted: verification drove handler functions in-process rather than the real multi-process daemon over a socket. Judged immaterial because canonical YAML writes do not depend on process topology. Keep open until the uncommitted diff is committed, since the fix currently exists only in the working tree.</p>
+<h2>Acceptance Criteria</h2>
+<p>Fix is committed rather than only present in an uncommitted diff.</p>
+<h2>Expected Behavior</h2>
+<p>Plan approve and finalize persist to canonical YAML regardless of which database handle the dashboard holds, including when both are read-only.</p>
+        </section>
+    </article>
+</body>
+</html>

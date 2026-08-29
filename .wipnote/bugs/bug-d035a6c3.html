@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-04-26T01:34:27.042089"
-             data-updated="2026-04-26T05:39:07.050463" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-08-09T20:42:32.566862" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
 
         <header>
             <h1>Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</h1>
@@ -27,7 +27,7 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T01:34:27.045244">trk-c4615ad2</a></li>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-26T01:34:27.045244">trk-c4615ad2</a></li>
                 </ul>
             </section>
         </nav>
@@ -45,17 +45,17 @@ Affected stale items (as of 2026-04-25):
 
 ## Smoking gun (git history audit, 2026-04-25)
 
-Every single stale item's most recent commit is a metadata sweep, not actual feature work:
+Every single stale item&#39;s most recent commit is a metadata sweep, not actual feature work:
 
 | Item            | Last touch          | Commit type                                |
 |-----------------|---------------------|--------------------------------------------|
 | feat-af47836b   | 2026-04-17 (8d ago) | 1e4ba7d0 roborev metadata fix              |
 | feat-7af2dda7   | 2026-04-17 (8d ago) | 1e4ba7d0 roborev metadata fix              |
 | feat-82e11bbb   | 2026-04-21 (4d ago) | c853ebfb OTel integration polish           |
-| feat-de257710   | 2026-04-22 (3d ago) | 3a9ae961 'catch up work-item state'        |
-| bug-0403e704    | 2026-04-22 (3d ago) | 3a9ae961 'catch up work-item state'        |
+| feat-de257710   | 2026-04-22 (3d ago) | 3a9ae961 &#39;catch up work-item state&#39;        |
+| bug-0403e704    | 2026-04-22 (3d ago) | 3a9ae961 &#39;catch up work-item state&#39;        |
 
-Two of these were last touched by an explicit 'chore: catch up work-item state' sweep. The items aren't being worked on — they're frozen in-progress and only their HTML files get touched when state-sweep commits sync metadata. **Status diverges from actual development activity**: an item can sit in-progress for 15 days while git shows zero feature commits referencing it.
+Two of these were last touched by an explicit &#39;chore: catch up work-item state&#39; sweep. The items aren&#39;t being worked on — they&#39;re frozen in-progress and only their HTML files get touched when state-sweep commits sync metadata. **Status diverges from actual development activity**: an item can sit in-progress for 15 days while git shows zero feature commits referencing it.
 
 Implication: any future stale-detection must cross-reference work-item status against **commit activity** (commits referencing the item ID, agent spawn events, session activity), not last-modified time on the HTML file — which sweep commits keep artificially fresh and would mask the staleness.
 
@@ -63,11 +63,11 @@ Implication: any future stale-detection must cross-reference work-item status ag
 
 The leak is at *work start*, not at *staleness detection*. Once an item is in-progress without a closing path, no downstream alert recovers it. The orchestrator must guarantee a finish for every start. Required behaviors:
 
-1. **Start ⇒ finish contract** — every 'feature/bug/spike start' must have a paired completion path before session ends. The orchestrator owns this contract; agents are not trusted to self-complete.
-2. **Post-agent verification, hard-enforced** — after a delegated agent returns, the orchestrator must query item status and call 'complete' if still in-progress. Currently this is a 'should' in the system prompt; it needs to be enforced (hook block / system-prompt assertion / automated post-agent CLI step).
+1. **Start ⇒ finish contract** — every &#39;feature/bug/spike start&#39; must have a paired completion path before session ends. The orchestrator owns this contract; agents are not trusted to self-complete.
+2. **Post-agent verification, hard-enforced** — after a delegated agent returns, the orchestrator must query item status and call &#39;complete&#39; if still in-progress. Currently this is a &#39;should&#39; in the system prompt; it needs to be enforced (hook block / system-prompt assertion / automated post-agent CLI step).
 3. **Session-exit reconciliation** — on session end (Stop hook), reconcile in-progress items started in this session: prompt the user (or auto-demote to todo) rather than silently leaving them in-progress.
-4. **WIP limit enforcement** — currently reported, not enforced. Block 'feature start' past the WIP limit (or require an explicit override flag) so the orchestrator can't silently pile up new items on top of unfinished ones.
-5. **Activity-aware staleness** — secondary safeguard. A 'htmlgraph stale' command using commit-activity heuristics catches items the primary fixes miss, but it is the backstop, not the primary fix.
+4. **WIP limit enforcement** — currently reported, not enforced. Block &#39;feature start&#39; past the WIP limit (or require an explicit override flag) so the orchestrator can&#39;t silently pile up new items on top of unfinished ones.
+5. **Activity-aware staleness** — secondary safeguard. A &#39;htmlgraph stale&#39; command using commit-activity heuristics catches items the primary fixes miss, but it is the backstop, not the primary fix.
 
 The primary fix lives in the orchestrator dispatch/return loop and the Stop hook. Stale-detection tooling is the safety net, not the cure.</p>
         </section>

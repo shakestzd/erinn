@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>YOLO guard blocks spike benchmark fixtures outside repository</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0bceef78"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-10T10:19:48.906837"
+             data-updated="2026-08-10T10:23:33.038155" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="codex" data-created-by-model="gpt-5.6-sol" data-created-by-role="codex" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="019fe7af-9ba5-7e60-b288-656d6fe72e6f">
+
+        <header>
+            <h1>YOLO guard blocks spike benchmark fixtures outside repository</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-10T10:19:48.948102">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../plans/plan-ee999752.html" data-relationship="relates_to" data-since="2026-08-10T10:20:00.082398">Plan: Cross-harness enforcement floor — always-on commit gates &#43; CLI claim/write invariants</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="spawned_from">
+                <h3>Spawned From:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="spawned_from" data-since="2026-08-10T10:19:59.993345">Benchmark post-cutover performance cliffs at scale</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A spike agent cannot create isolated benchmark artifacts in the system temporary directory: both Bash file writes and apply_patch are rejected for lacking a feature/track YOLO branch even though targets are outside the repository. This blocks go test overlays, frozen corpus copies, benchmark harnesses, and safe scale tests. Spikes need a narrowly scoped temp-artifact capability without authorizing repository source edits.</p>
+        </section>
+    </article>
+</body>
+</html>

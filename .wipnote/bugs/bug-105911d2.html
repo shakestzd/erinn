@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex OTel signals carry no session_id and are discarded wholesale at ingest</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-105911d2"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-09T18:48:51.449012"
+             data-updated="2026-08-09T18:49:01.071669" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Codex OTel signals carry no session_id and are discarded wholesale at ingest</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-09T18:48:51.462195">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-ba376a49.html" data-relationship="relates_to" data-since="2026-08-09T18:49:00.955532">Codex OTel adapter leaves tool and log events low-fidelity compared with Claude</a></li>
+                    <li><a href="../bugs/bug-3e4c6e02.html" data-relationship="relates_to" data-since="2026-08-09T18:49:01.071534">Codex exec-mode runs emit no wipnote session despite installed hooks.json</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>MEASURED on the live corpus. A Codex session running tonight wrote 132,116 telemetry lines to its canonical NDJSON shard. 131,109 of them - 99.2 percent - have session_id set to the empty string, and every one is discarded by the writer, which begins its per-signal loop with: if s.SessionID == &#34;&#34; { continue }. Codex telemetry is being collected and durably stored, and then thrown away at the SQLite boundary, silently.
+
+Only Codex is affected. Every other shard in the corpus has zero sessionless signals; this one shard accounts for all of them, and every sessionless line carries harness &#34;codex&#34; with resource attrs service.name=codex_cli_rs, service.version=0.147.0.
+
+The discarded signals are not noise. Top native names by volume: span/receiving 32,997, span/handle_responses 32,993, span/append_items 29,966, span/persist_rollout_items 14,981, span/auth 1,750, span/send_raw_response_items 857. Sample canonical values include api_request with duration_ms populated, so these are real request-level spans, not internal chatter.
+
+A second defect is visible in the same lines and should be checked while fixing this: ts is &#34;1970-01-01T00:00:00Z&#34; on the sampled records, i.e. epoch zero rather than a real timestamp. That does not cause the drop (nothing filters on ts_micros) but it would make any signal that did land sort to the beginning of time and corrupt every time-bucketed dashboard query. Verify whether the timestamp is missing at the source or lost in the adapter.
+
+The drop is correct behaviour given the data - otel_signals.session_id is NOT NULL with a foreign key to sessions, so a sessionless row cannot be stored - which means the fix belongs upstream in the Codex adapter or in whatever populates session context for Codex OTLP exports, not in the writer. Worth confirming whether Codex emits a session identifier under a different attribute name that the adapter is not reading, since it clearly knows which conversation it is in.
+
+Relationship to existing work: bug-ba376a49 (done) improved Codex OTel fidelity - native names, typed field promotion - and closed with the note &#34;Remaining validation should compare a fresh Codex session against Claude OTel in the dashboard/API.&#34; This is that comparison, and the answer is that the rows never arrive at all, so the fidelity work is currently unobservable in the dashboard. bug-3e4c6e02 covers Codex exec-mode not creating a wipnote session, which is adjacent but distinct: this is about the session_id field on signals that ARE being exported.
+
+Found while measuring the bug-0fc17d53 recovery replay: the sessionless population had to be subtracted from the expected post-fix row count, which is what surfaced it.</p>
+        </section>
+    </article>
+</body>
+</html>

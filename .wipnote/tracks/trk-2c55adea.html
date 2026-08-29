@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-01T04:15:45.03948"
-             data-updated="2026-05-29T10:33:11.628199" data-agent-assigned="claude-code">
+             data-updated="2026-08-29T21:53:25.774336" data-agent-assigned="claude-code">
 
         <header>
             <h1>HTML-canonical architecture: drop SQLite as required</h1>
@@ -27,10 +27,52 @@
             <section data-edge-type="contains">
                 <h3>Contains:</h3>
                 <ul>
-                    <li><a href="feat-500da04c.html" data-relationship="contains" data-since="2026-05-01T04:15:56.143728">Plan: HTML-canonical architecture migration</a></li>
-                    <li><a href="feat-c390dd7c.html" data-relationship="contains" data-since="2026-05-01T23:07:54.33841">Decompose plan-3bbc313f into 5 child plans</a></li>
-                    <li><a href="bug-9bfef5fc.html" data-relationship="contains" data-since="2026-05-29T00:51:13.620625">Activity feed endpoint /api/events/feed hangs ~12s, blocks writqueue (unbounded otel_signals scan)</a></li>
-                    <li><a href="bug-3fb22f7e.html" data-relationship="contains" data-since="2026-05-29T10:33:11.604155">Stop hook runs full 3-target CheckPorts plugin-regen every turn (8-22s/turn); relocate port-drift guard to commit-time</a></li>
+                    <li><a href="../features/feat-500da04c.html" data-relationship="contains" data-since="2026-05-01T04:15:56.143728">Plan: HTML-canonical architecture migration</a></li>
+                    <li><a href="../features/feat-c390dd7c.html" data-relationship="contains" data-since="2026-05-01T23:07:54.33841">Decompose plan-3bbc313f into 5 child plans</a></li>
+                    <li><a href="../bugs/bug-9bfef5fc.html" data-relationship="contains" data-since="2026-05-29T00:51:13.620625">Activity feed endpoint /api/events/feed hangs ~12s, blocks writqueue (unbounded otel_signals scan)</a></li>
+                    <li><a href="../bugs/bug-3fb22f7e.html" data-relationship="contains" data-since="2026-05-29T10:33:11.604155">Stop hook runs full 3-target CheckPorts plugin-regen every turn (8-22s/turn); relocate port-drift guard to commit-time</a></li>
+                    <li><a href="../bugs/bug-1d640ba8.html" data-relationship="contains" data-since="2026-08-09T12:43:27.482717">purge-spikes full-reindex path erases plan, session and arch edges on every run</a></li>
+                    <li><a href="../features/feat-0e5ca43e.html" data-relationship="contains" data-since="2026-08-09T13:39:09.627747">Canonical gate ledger: give gate records a durable home</a></li>
+                    <li><a href="../bugs/bug-fdebdb2a.html" data-relationship="contains" data-since="2026-08-09T14:19:38.066742">Migration replay test breaks whenever a new migration lands on top of it</a></li>
+                    <li><a href="../bugs/bug-8af46da3.html" data-relationship="contains" data-since="2026-08-09T14:42:51.883276">claim_episodes table missing from every existing index, so the projection fails on every run</a></li>
+                    <li><a href="../bugs/bug-2d47da27.html" data-relationship="contains" data-since="2026-08-09T14:42:52.043359">Ledger artifacts fail the incremental node scan, freezing last-indexed-commit</a></li>
+                    <li><a href="../features/feat-f6759e37.html" data-relationship="contains" data-since="2026-08-09T14:52:02.613094">Daemon read path with launcher-guaranteed availability and fail-loud policy</a></li>
+                    <li><a href="../bugs/bug-c457d96c.html" data-relationship="contains" data-since="2026-08-09T15:01:04.706248">go1.26 gofmt rewrote apostrophes in doc comments, corrupting five explanations</a></li>
+                    <li><a href="../features/feat-ba544d57.html" data-relationship="contains" data-since="2026-08-09T16:31:57.016119">Query telemetry as virtual tables over canonical NDJSON, with attribution joined at read time</a></li>
+                    <li><a href="../bugs/bug-0fc17d53.html" data-relationship="contains" data-since="2026-08-09T16:50:51.995023">Derived otel_signals holds 61,611 rows against 154,614 canonical NDJSON lines</a></li>
+                    <li><a href="../bugs/bug-b2cb24ca.html" data-relationship="contains" data-since="2026-08-09T17:49:56.684999">INSERT OR IGNORE on otel_signals still turns constraint violations into silence</a></li>
+                    <li><a href="../features/feat-fc3cc9e0.html" data-relationship="contains" data-since="2026-08-09T18:04:52.215624">Eliminate residual SQLite dependency end-to-end</a></li>
+                    <li><a href="../bugs/bug-129bf18d.html" data-relationship="contains" data-since="2026-08-09T18:19:32.579576">OTel ingest is quadratic in session size: per-span reattribution scan</a></li>
+                    <li><a href="../bugs/bug-2aae1efa.html" data-relationship="contains" data-since="2026-08-09T18:45:53.300187">Completion gates stubbed with return nil after DB removal, no implementation</a></li>
+                    <li><a href="../bugs/bug-3631e754.html" data-relationship="contains" data-since="2026-08-09T18:45:53.468788">Re-running finalize creates duplicate features instead of reconciling</a></li>
+                    <li><a href="../bugs/bug-67455d14.html" data-relationship="contains" data-since="2026-08-09T18:45:53.639532">Reconcile no longer detects uncommitted done items</a></li>
+                    <li><a href="../bugs/bug-105911d2.html" data-relationship="contains" data-since="2026-08-09T18:48:51.462195">Codex OTel signals carry no session_id and are discarded wholesale at ingest</a></li>
+                    <li><a href="../bugs/bug-aa0bbd43.html" data-relationship="contains" data-since="2026-08-09T20:12:25.264152">session end reports success but never updates the canonical ledger on daemon-miss</a></li>
+                    <li><a href="../bugs/bug-ad4c392f.html" data-relationship="contains" data-since="2026-08-09T21:18:53.360544">Dashboard plan approve and finalize return 200 and persist nothing</a></li>
+                    <li><a href="../bugs/bug-1151e5ae.html" data-relationship="contains" data-since="2026-08-09T21:18:53.528117">Daemon derived-op write path is a void: every socket op is discarded</a></li>
+                    <li><a href="../bugs/bug-71bb70bc.html" data-relationship="contains" data-since="2026-08-09T21:18:53.680838">Session reaper marks sessions completed only in the projection, never the ledger</a></li>
+                    <li><a href="../bugs/bug-0b322d67.html" data-relationship="contains" data-since="2026-08-09T21:18:53.830221">Empty-spike worktree sweep liveness guard can never return true</a></li>
+                    <li><a href="../bugs/bug-d76f588a.html" data-relationship="contains" data-since="2026-08-09T21:20:06.942704">SessionEnd discards five of its six writes</a></li>
+                    <li><a href="../bugs/bug-1dffbdd5.html" data-relationship="contains" data-since="2026-08-09T21:20:07.148554">Subagent write guard fails closed once the yolo grace window expires</a></li>
+                    <li><a href="../bugs/bug-369da005.html" data-relationship="contains" data-since="2026-08-09T21:59:58.825009">Deploying the SQLite cutover will block all writes in every session</a></li>
+                    <li><a href="../bugs/bug-8f54bb77.html" data-relationship="contains" data-since="2026-08-09T22:07:56.267234">wipnote continue cannot resolve which worktree to resume into</a></li>
+                    <li><a href="../bugs/bug-08cbd7ce.html" data-relationship="contains" data-since="2026-08-09T22:08:47.929536">reindex reports git failures as canonical artifact parse errors</a></li>
+                    <li><a href="../bugs/bug-bfed7d7f.html" data-relationship="contains" data-since="2026-08-09T22:20:27.587754">One arch card holds 66 percent of the architecture store in gitignored build-cache paths</a></li>
+                    <li><a href="../spikes/spk-0da70ff2.html" data-relationship="contains" data-since="2026-08-10T10:15:33.741337">Benchmark post-cutover performance cliffs at scale</a></li>
+                    <li><a href="../bugs/bug-2dbd2f06.html" data-relationship="contains" data-since="2026-08-10T10:19:48.771847">PreToolUse blocks read-only Bash references to .wipnote corpus</a></li>
+                    <li><a href="../bugs/bug-0bceef78.html" data-relationship="contains" data-since="2026-08-10T10:19:48.948102">YOLO guard blocks spike benchmark fixtures outside repository</a></li>
+                    <li><a href="../spikes/spk-cda9c829.html" data-relationship="contains" data-since="2026-08-10T10:20:20.702818">Benchmark wipnote at scale post-SQLite-cutover and characterise performance cliffs</a></li>
+                    <li><a href="../bugs/bug-3af1d597.html" data-relationship="contains" data-since="2026-08-10T10:20:20.846525">wipnote relevant ranks recap HTML above real work items, making search unusable</a></li>
+                    <li><a href="../bugs/bug-bdf378fd.html" data-relationship="contains" data-since="2026-08-10T10:20:20.987668">wipnote track show hangs indefinitely at 1060-work-item scale</a></li>
+                    <li><a href="../bugs/bug-edc78f2c.html" data-relationship="contains" data-since="2026-08-10T10:25:05.525158">Canonical snapshot edge derivation is quadratic under concentrated fanout</a></li>
+                    <li><a href="../bugs/bug-65265018.html" data-relationship="contains" data-since="2026-08-10T10:26:42.94454">Post-cutover paths lack parameterized scale benchmarks</a></li>
+                    <li><a href="../bugs/bug-085e3337.html" data-relationship="contains" data-since="2026-08-10T10:44:43.439911">batchGitFileTimestamps is only half-batched: gitFirstAdded still spawns one git log per file, costing 205s per openDB command</a></li>
+                    <li><a href="../bugs/bug-df9af5c7.html" data-relationship="contains" data-since="2026-08-10T10:45:11.280755">Documented wipnote feature edit / bug edit subcommand does not exist; actual command is set-description</a></li>
+                    <li><a href="../features/feat-2bd74c58.html" data-relationship="contains" data-since="2026-08-10T11:34:28.685796">Fix the measured scale cliffs: batch git timestamps, cheapen ephemeral projection, decouple retention, fix relevant ranking and edit alias</a></li>
+                    <li><a href="../bugs/bug-8050821b.html" data-relationship="contains" data-since="2026-08-12T02:26:46.662666">Learning cards silently collide when two work items touch the same file paths</a></li>
+                    <li><a href="../bugs/bug-6fa28243.html" data-relationship="contains" data-since="2026-08-12T11:47:26.564804">Retention is inert without wipnote serve: .index-offset only advances from the dashboard indexer</a></li>
+                    <li><a href="../bugs/bug-ec1ff126.html" data-relationship="contains" data-since="2026-08-29T21:53:25.65937">claims table has no canonical hydration source — live-collision detection is inert</a></li>
+                    <li><a href="../bugs/bug-b177a99a.html" data-relationship="contains" data-since="2026-08-29T21:53:25.768399">exec_worktree_path and session handoff notes have no canonical home</a></li>
                 </ul>
             </section>
         </nav>

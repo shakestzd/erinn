@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-10T16:52:58.306312"
-             data-updated="2026-06-10T16:52:58.318264" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
+             data-updated="2026-08-09T20:41:43.490807" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
 
         <header>
             <h1>writer.sock bind fails when project path exceeds unix sun_path limit (~108 bytes)</h1>
@@ -27,14 +27,14 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T16:52:58.318118">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T16:52:58.318118">trk-13e39042</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Surfaced by CI run 27291049822: binding /.wipnote/writer.sock fails with 'bind: invalid argument' when the absolute socket path exceeds the Linux unix-domain sun_path cap (~108 bytes). Any real project nested deeply enough hits this — daemon/writer features silently break. Mitigations to evaluate: bind via a short relative path after chdir, openat-style bind tricks, hash-shortened socket dir under XDG_RUNTIME_DIR or /tmp keyed by project hash (mirroring the per-user cache layout), or abstract socket namespace (Linux-only). Detect at startup and emit a clear error instead of bind: invalid argument.</p>
+            <p>Surfaced by CI run 27291049822: binding /.wipnote/writer.sock fails with &#39;bind: invalid argument&#39; when the absolute socket path exceeds the Linux unix-domain sun_path cap (~108 bytes). Any real project nested deeply enough hits this — daemon/writer features silently break. Mitigations to evaluate: bind via a short relative path after chdir, openat-style bind tricks, hash-shortened socket dir under XDG_RUNTIME_DIR or /tmp keyed by project hash (mirroring the per-user cache layout), or abstract socket namespace (Linux-only). Detect at startup and emit a clear error instead of bind: invalid argument.</p>
         </section>
     </article>
 </body>

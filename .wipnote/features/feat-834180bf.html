@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="htmlgraph-version" content="1.0">
+    <meta name="wipnote-version" content="1.0">
     <title>Pilot evaluation: cost measurement, dogfood, history command, review checkpoints</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-03T21:13:50.097611"
-             data-updated="2026-05-03T21:13:50.107468" data-agent-assigned="claude-code" data-track-id="trk-8a7e82d8">
+             data-updated="2026-08-09T20:43:21.336286" data-agent-assigned="claude-code" data-track-id="trk-8a7e82d8">
 
         <header>
             <h1>Pilot evaluation: cost measurement, dogfood, history command, review checkpoints</h1>
@@ -24,22 +24,22 @@
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-38a032e8.html" data-relationship="blocked_by" data-since="2026-05-03T21:13:50.107269">feat-38a032e8</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-8a7e82d8.html" data-relationship="part_of" data-since="2026-05-03T21:13:50.100726">trk-8a7e82d8</a></li>
+                    <li><a href="../tracks/trk-8a7e82d8.html" data-relationship="part_of" data-since="2026-05-03T21:13:50.100726">trk-8a7e82d8</a></li>
                 </ul>
             </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
-                    <li><a href="plan-72685272.html" data-relationship="planned_in" data-since="2026-05-03T21:13:50.105142">plan-72685272</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="blocked_by">
-                <h3>Blocked By:</h3>
-                <ul>
-                    <li><a href="feat-38a032e8.html" data-relationship="blocked_by" data-since="2026-05-03T21:13:50.107269">feat-38a032e8</a></li>
+                    <li><a href="../plans/plan-72685272.html" data-relationship="planned_in" data-since="2026-05-03T21:13:50.105142">plan-72685272</a></li>
                 </ul>
             </section>
         </nav>
@@ -50,10 +50,10 @@
 
 1. **Empirical cost measurement (one-time pre-merge task).** Run `htmlgraph compliance auto ` on one real completed feature with a non-trivial spec. Record the measured `total_cost_usd` from the JSON output. If materially different from the $0.03/call estimate, update `q-model-default` recommendation and re-baseline cost framing in `q-pilot-success-bar`.
 
-2. **Retrospective batch baseline.** Run `htmlgraph compliance auto --batch-since 2026-01-01` (slice 1's batch mode) against historical features in this project. Output of that run becomes the day-0 evaluation dataset. Capture the run's aggregate cost.
+2. **Retrospective batch baseline.** Run `htmlgraph compliance auto --batch-since 2026-01-01` (slice 1&#39;s batch mode) against historical features in this project. Output of that run becomes the day-0 evaluation dataset. Capture the run&#39;s aggregate cost.
 
-3. **`htmlgraph compliance history ` command.** Reads prior compliance runs from the feature's findings section's `
-` blocks (last 5 retained by slice 1's idempotent replace, when slice 1's design is extended in a future iteration to preserve history) AND from the section's `data-*` attributes for the most recent run. Prints a table: timestamp, model, score, cost, spec-hash, diff-truncated. Supports `--json` for evaluation script consumption.
+3. **`htmlgraph compliance history ` command.** Reads prior compliance runs from the feature&#39;s findings section&#39;s `
+` blocks (last 5 retained by slice 1&#39;s idempotent replace, when slice 1&#39;s design is extended in a future iteration to preserve history) AND from the section&#39;s `data-*` attributes for the most recent run. Prints a table: timestamp, model, score, cost, spec-hash, diff-truncated. Supports `--json` for evaluation script consumption.
 
 4. **Review checkpoint runbook** — `docs/runbook/compliance-pilot-evaluation.md` describing:
    - **Day 0 baseline:** measured cost + retrospective batch dataset
@@ -61,7 +61,7 @@
    - **Day 14 checkpoint:** full quality audit — manual review of 10 findings against engineer judgment, score-agreement target ≥70%
    - **Decision criteria:** GREEN (all gates pass) → spawn hook-driven follow-on plan; YELLOW (signal noisy) → tune prompt, extend pilot 7 days; RED (consistent disagreement or unmanageable cost) → kill pilot, document why
 
-5. **Dogfood activation.** Project-level shell-alias or runbook entry directing dogfood users to run `htmlgraph compliance auto ` after each `feature complete`. Since the hook is out of scope, "activation" means establishing muscle memory and reporting cadence. The runbook explicitly states the 14-day window and the success criteria.</p>
+5. **Dogfood activation.** Project-level shell-alias or runbook entry directing dogfood users to run `htmlgraph compliance auto ` after each `feature complete`. Since the hook is out of scope, &#34;activation&#34; means establishing muscle memory and reporting cadence. The runbook explicitly states the 14-day window and the success criteria.</p>
         </section>
     </article>
 </body>

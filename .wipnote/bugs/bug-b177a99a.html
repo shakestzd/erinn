@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>exec_worktree_path and session handoff notes have no canonical home</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b177a99a"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-29T21:53:25.758264"
+             data-updated="2026-08-29T21:53:25.768486" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1-411-g20856ba0d" data-created_in_session="e879ab90-a68f-4982-bb12-ab1588160d2f">
+
+        <header>
+            <h1>exec_worktree_path and session handoff notes have no canonical home</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-29T21:53:25.768399">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>session_start.go writes ExecWorktreePath, handoff_notes, recommended_next, blockers and branch into the sessions table only. Post feat-fc3cc9e0 that table is a per-process in-memory projection, so those fields are discarded when the hook process exits. The canonical sessionledger.Record is deliberately slim (session id, harness, project dir, start, end, archive path, events) and carries none of them. Effect: wipnote continue can no longer resume into a prior worktree or replay handoff notes; it degrades to a fresh continuation with a missing-worktree warning. Masked today because the launcher passes intent.WorktreePath, which resolveContinueWorktreePath prefers over the stored value. Fix requires deciding whether these belong in the session ledger or in a separate canonical per-session state artifact.</p>
+        </section>
+    </article>
+</body>
+</html>

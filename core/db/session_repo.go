@@ -725,10 +725,20 @@ ORDER BY last_activity DESC, work_item_id`, cutoff)
 		}
 		item.Live = live != 0
 		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
-		item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 		out = append(out, item)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Enrich AFTER the cursor is closed. SessionPromptLabel runs its own query,
+	// and the ephemeral projection allows a single connection, so calling it
+	// inside the loop deadlocks — see the note in
+	// GetLatestHarnessSessionResumable (bug-8e9ceb7b).
+	rows.Close()
+	for i := range out {
+		out[i].PromptLabel = SessionPromptLabel(db, out[i].LastSessionID)
+	}
+	return out, nil
 }
 
 // ListHarnessGroupedResumableSessions returns resumable sessions split into
@@ -866,14 +876,25 @@ ORDER BY harness_group ASC, last_activity DESC, work_item_id`, targetHarness, ta
 		}
 		item.Live = live != 0
 		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
-		item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 		if harnessGroup == 0 {
 			grouped.SameHarness = append(grouped.SameHarness, item)
 		} else {
 			grouped.CrossHarness = append(grouped.CrossHarness, item)
 		}
 	}
-	return grouped, rows.Err()
+	if err := rows.Err(); err != nil {
+		return grouped, err
+	}
+	// Enrich AFTER the cursor is closed — SessionPromptLabel issues its own
+	// query and the projection allows a single connection (bug-8e9ceb7b).
+	rows.Close()
+	for i := range grouped.SameHarness {
+		grouped.SameHarness[i].PromptLabel = SessionPromptLabel(db, grouped.SameHarness[i].LastSessionID)
+	}
+	for i := range grouped.CrossHarness {
+		grouped.CrossHarness[i].PromptLabel = SessionPromptLabel(db, grouped.CrossHarness[i].LastSessionID)
+	}
+	return grouped, nil
 }
 
 // GetResumableSessionForSessionAndWorkItem resolves one resumable-session row

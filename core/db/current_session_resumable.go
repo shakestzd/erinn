@@ -232,9 +232,21 @@ ORDER BY last_activity DESC, session_id DESC`, cutoff)
 	}
 	defer rows.Close()
 
-	var firstMatch *ResumableSession
-	var bestPromptMatch *ResumableSession
-	var bestPromptAt string
+	// Drain the cursor COMPLETELY before issuing any nested query.
+	//
+	// SessionPromptLabel and SessionPromptLabelAt each run their own query on
+	// the same *sql.DB. The ephemeral projection is opened with
+	// SetMaxOpenConns(1) (see OpenEphemeralProjection), so while these rows are
+	// open they hold the only connection and a nested query blocks forever
+	// waiting for one to free — `wipnote claude` aborted at launch with
+	// "all goroutines are asleep - deadlock!" for exactly this reason
+	// (bug-8e9ceb7b, shipped in v0.68.0). The pattern was harmless against the
+	// old file-backed pool and became fatal when feat-fc3cc9e0 moved every
+	// reader onto the single-connection in-memory projection.
+	//
+	// Any enrichment that queries the database therefore belongs AFTER the
+	// loop, never inside it.
+	var scanned []ResumableSession
 	for rows.Next() {
 		var item ResumableSession
 		var live int
@@ -255,6 +267,19 @@ ORDER BY last_activity DESC, session_id DESC`, cutoff)
 		}
 		item.Live = live != 0
 		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
+		scanned = append(scanned, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate latest harness session: %w", err)
+	}
+	// Release the connection now rather than at the deferred Close, so the
+	// enrichment below has one to use.
+	rows.Close()
+
+	var firstMatch *ResumableSession
+	var bestPromptMatch *ResumableSession
+	var bestPromptAt string
+	for _, item := range scanned {
 		item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 		if item.Harness == target {
 			if item.PromptLabel != "" {
@@ -271,9 +296,6 @@ ORDER BY last_activity DESC, session_id DESC`, cutoff)
 				firstMatch = &copy
 			}
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate latest harness session: %w", err)
 	}
 	if bestPromptMatch != nil {
 		return bestPromptMatch, nil
